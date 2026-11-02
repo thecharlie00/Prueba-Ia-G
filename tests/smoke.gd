@@ -22,10 +22,7 @@ func _run() -> void:
 		_fail("El dado invertido debe mostrar 6.")
 		return
 	dice.freeze = false
-	var count := main.get_node("Objects").get_child_count()
-	deck.draw_card()
-	if deck.cards_remaining != 11 or main.get_node("Objects").get_child_count() != count + 1:
-		_fail("El mazo no ha creado una carta correctamente.")
+	if not _check_deck(main, deck):
 		return
 	card.flip()
 	if not card.freeze:
@@ -37,6 +34,27 @@ func _run() -> void:
 		return
 	print("Smoke test OK")
 	quit(0)
+
+
+func _check_deck(main: Node, deck: Deck3D) -> bool:
+	var count := main.get_node("Objects").get_child_count()
+	deck.draw_card()
+	if deck.cards_remaining != 11 or main.get_node("Objects").get_child_count() != count + 1:
+		_fail("El mazo no ha creado una carta correctamente.")
+		return false
+	var drawn: Card3D = main.get_node("Objects").get_child(count) as Card3D
+	if drawn == null or drawn.card_label != "12":
+		_fail("La carta robada debe conservar su identidad.")
+		return false
+	var before: Array[String] = deck._cards.duplicate()
+	deck.shuffle_deck()
+	var after: Array[String] = deck._cards.duplicate()
+	before.sort()
+	after.sort()
+	if before != after or deck.cards_remaining != 11:
+		_fail("Mezclar no debe crear ni eliminar cartas.")
+		return false
+	return true
 
 
 func _fail(message: String) -> void:
