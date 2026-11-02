@@ -1,8 +1,8 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene format=3 uid="uid://b15knalnyrn05"]
 
-[ext_resource type="Script" path="res://scripts/Main.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/TabletopCamera3D.gd" id="2"]
-[ext_resource type="Script" path="res://scripts/PhysicsGrabber3D.gd" id="3"]
+[ext_resource type="Script" uid="uid://cxghkeigmoij4" path="res://scripts/Main.gd" id="1"]
+[ext_resource type="Script" uid="uid://cujbbvxe2g0kp" path="res://scripts/TabletopCamera3D.gd" id="2"]
+[ext_resource type="Script" uid="uid://c3rr252pyksq3" path="res://scripts/PhysicsGrabber3D.gd" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/Dice3D.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/Card3D.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/Deck3D.tscn" id="6"]
@@ -14,28 +14,40 @@ ambient_light_source = 3
 ambient_light_color = Color(0.78, 0.86, 0.78, 1)
 ambient_light_energy = 0.7
 tonemap_mode = 2
-[sub_resource type="BoxMesh" id="table_mesh"]
-size = Vector3(6.8, 0.24, 4.6)
-[sub_resource type="BoxShape3D" id="table_shape"]
-size = Vector3(6.8, 0.24, 4.6)
+
 [sub_resource type="StandardMaterial3D" id="wood"]
 albedo_color = Color(0.32, 0.21, 0.14, 1)
 roughness = 0.8
-[sub_resource type="BoxMesh" id="felt_mesh"]
-size = Vector3(6.35, 0.02, 4.15)
+
+[sub_resource type="BoxMesh" id="table_mesh"]
+size = Vector3(6.8, 0.24, 4.6)
+
+[sub_resource type="BoxShape3D" id="table_shape"]
+size = Vector3(6.8, 0.24, 4.6)
+
 [sub_resource type="StandardMaterial3D" id="felt"]
 albedo_color = Color(0.105, 0.27, 0.22, 1)
-roughness = 1.0
+
+[sub_resource type="BoxMesh" id="felt_mesh"]
+size = Vector3(6.35, 0.02, 4.15)
+
 [sub_resource type="BoxMesh" id="leg_mesh"]
 size = Vector3(0.25, 0.68, 0.25)
+
 [sub_resource type="StandardMaterial3D" id="floor_mat"]
 albedo_color = Color(0.105, 0.14, 0.13, 1)
-roughness = 1.0
+
 [sub_resource type="PlaneMesh" id="floor_mesh"]
 size = Vector2(200, 200)
+
 [sub_resource type="BoxShape3D" id="floor_shape"]
 size = Vector3(200, 0.2, 200)
+
 [sub_resource type="StyleBoxFlat" id="panel"]
+content_margin_left = 20.0
+content_margin_top = 18.0
+content_margin_right = 20.0
+content_margin_bottom = 18.0
 bg_color = Color(0.047, 0.095, 0.081, 0.92)
 border_width_left = 1
 border_width_top = 1
@@ -46,110 +58,147 @@ corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
-content_margin_left = 20.0
-content_margin_top = 18.0
-content_margin_right = 20.0
-content_margin_bottom = 18.0
 
-[node name="Main" type="Node3D"]
+[node name="Main" type="Node3D" unique_id=1597733030]
 script = ExtResource("1")
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=609996797]
 environment = SubResource("env")
-[node name="Sun" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-55, -30, 0)
+
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=950722899]
+transform = Transform3D(0.8660254, 0.40957603, -0.28678823, 0, 0.57357645, 0.81915206, 0.5, -0.7094065, 0.49673176, 0, 0, 0)
 light_energy = 0.85
 shadow_enabled = true
 directional_shadow_blend_splits = true
-[node name="Table" type="StaticBody3D" parent="."]
-position = Vector3(0, 0.68, 0)
-collision_layer = 1
+
+[node name="Table" type="StaticBody3D" parent="." unique_id=1341459930]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.68, 0)
 collision_mask = 2
-[node name="Visual" type="MeshInstance3D" parent="Table"]
+
+[node name="Visual" type="MeshInstance3D" parent="Table" unique_id=606747175]
+material_override = SubResource("wood")
 mesh = SubResource("table_mesh")
-material_override = SubResource("wood")
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Table"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Table" unique_id=1520945905]
 shape = SubResource("table_shape")
-[node name="Felt" type="MeshInstance3D" parent="Table"]
-position = Vector3(0, 0.13, 0)
-mesh = SubResource("felt_mesh")
+
+[node name="Felt" type="MeshInstance3D" parent="Table" unique_id=1402050063]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.13, 0)
 material_override = SubResource("felt")
-[node name="Leg1" type="MeshInstance3D" parent="Table"]
-position = Vector3(-3, -0.46, -1.9)
-mesh = SubResource("leg_mesh")
+mesh = SubResource("felt_mesh")
+
+[node name="Leg1" type="MeshInstance3D" parent="Table" unique_id=1643124048]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, -0.46, -1.9)
 material_override = SubResource("wood")
-[node name="Leg2" type="MeshInstance3D" parent="Table"]
-position = Vector3(3, -0.46, -1.9)
 mesh = SubResource("leg_mesh")
+
+[node name="Leg2" type="MeshInstance3D" parent="Table" unique_id=385245076]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, -0.46, -1.9)
 material_override = SubResource("wood")
-[node name="Leg3" type="MeshInstance3D" parent="Table"]
-position = Vector3(-3, -0.46, 1.9)
 mesh = SubResource("leg_mesh")
+
+[node name="Leg3" type="MeshInstance3D" parent="Table" unique_id=1588249387]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, -0.46, 1.9)
 material_override = SubResource("wood")
-[node name="Leg4" type="MeshInstance3D" parent="Table"]
-position = Vector3(3, -0.46, 1.9)
 mesh = SubResource("leg_mesh")
+
+[node name="Leg4" type="MeshInstance3D" parent="Table" unique_id=521169178]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, -0.46, 1.9)
 material_override = SubResource("wood")
-[node name="Floor" type="StaticBody3D" parent="."]
-position = Vector3(0, -0.1, 0)
-collision_layer = 1
+mesh = SubResource("leg_mesh")
+
+[node name="Floor" type="StaticBody3D" parent="." unique_id=1911736763]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
 collision_mask = 2
-[node name="Visual" type="MeshInstance3D" parent="Floor"]
-position = Vector3(0, 0.1, 0)
-mesh = SubResource("floor_mesh")
+
+[node name="Visual" type="MeshInstance3D" parent="Floor" unique_id=1984492257]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
 material_override = SubResource("floor_mat")
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor"]
+mesh = SubResource("floor_mesh")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor" unique_id=1435602386]
 shape = SubResource("floor_shape")
-[node name="Objects" type="Node3D" parent="."]
-[node name="Dice" parent="Objects" instance=ExtResource("4")]
-position = Vector3(-0.6, 1.15, -0.1)
-[node name="Card" parent="Objects" instance=ExtResource("5")]
-position = Vector3(0.65, 0.85, -0.4)
-rotation_degrees = Vector3(0, -14, 0)
-[node name="Deck" parent="Objects" instance=ExtResource("6")]
-position = Vector3(1.7, 0.94, 0.5)
-rotation_degrees = Vector3(0, 8, 0)
-[node name="TabletopCamera3D" type="Node3D" parent="."]
+
+[node name="Objects" type="Node3D" parent="." unique_id=410998513]
+
+[node name="Dice" parent="Objects" unique_id=1361927343 instance=ExtResource("4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 1.15, -0.1)
+
+[node name="Card" parent="Objects" unique_id=421987145 instance=ExtResource("5")]
+transform = Transform3D(0.9702957, 0, -0.2419219, 0, 1, 0, 0.2419219, 0, 0.9702957, 0.65, 0.85, -0.4)
+
+[node name="Deck" parent="Objects" unique_id=286104930 instance=ExtResource("6")]
+transform = Transform3D(0.99026805, 0, 0.1391731, 0, 1, 0, -0.1391731, 0, 0.99026805, 1.7, 0.94, 0.5)
+
+[node name="TabletopCamera3D" type="Node3D" parent="." unique_id=160958890]
 script = ExtResource("2")
-[node name="Camera3D" type="Camera3D" parent="TabletopCamera3D"]
+
+[node name="Camera3D" type="Camera3D" parent="TabletopCamera3D" unique_id=1565225089]
 current = true
 fov = 43.0
-[node name="PhysicsGrabber3D" type="Node" parent="." node_paths=PackedStringArray("camera")]
+
+[node name="PhysicsGrabber3D" type="Node" parent="." unique_id=1147546222 node_paths=PackedStringArray("camera")]
 script = ExtResource("3")
 camera = NodePath("../TabletopCamera3D/Camera3D")
-[node name="UI" type="CanvasLayer" parent="."]
-[node name="Margin" type="MarginContainer" parent="UI"]
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=428336265]
+
+[node name="Margin" type="MarginContainer" parent="UI" unique_id=1877151931]
 offset_left = 24.0
 offset_top = 24.0
 offset_right = 350.0
 offset_bottom = 310.0
 mouse_filter = 2
-[node name="Panel" type="PanelContainer" parent="UI/Margin"]
+
+[node name="Panel" type="PanelContainer" parent="UI/Margin" unique_id=1468465880]
+layout_mode = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("panel")
-[node name="Content" type="VBoxContainer" parent="UI/Margin/Panel"]
+
+[node name="Content" type="VBoxContainer" parent="UI/Margin/Panel" unique_id=184989332]
+layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 10
-[node name="Eyebrow" type="Label" parent="UI/Margin/Panel/Content"]
+
+[node name="Eyebrow" type="Label" parent="UI/Margin/Panel/Content" unique_id=2114574217]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.56, 0.77, 0.64, 1)
 theme_override_font_sizes/font_size = 12
 text = "UN ESPACIO PARA JUGAR"
-[node name="Title" type="Label" parent="UI/Margin/Panel/Content"]
+
+[node name="Title" type="Label" parent="UI/Margin/Panel/Content" unique_id=242564411]
+layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Mesa abierta"
-[node name="Subtitle" type="Label" parent="UI/Margin/Panel/Content"]
+
+[node name="Subtitle" type="Label" parent="UI/Margin/Panel/Content" unique_id=1475901551]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.72, 0.79, 0.72, 1)
 theme_override_font_sizes/font_size = 13
 text = "Un pequeño mundo sobre la mesa."
-[node name="Separator" type="HSeparator" parent="UI/Margin/Panel/Content"]
-[node name="Controls" type="Label" parent="UI/Margin/Panel/Content"]
+
+[node name="Separator" type="HSeparator" parent="UI/Margin/Panel/Content" unique_id=660811643]
+layout_mode = 2
+
+[node name="Controls" type="Label" parent="UI/Margin/Panel/Content" unique_id=71967420]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.84, 0.88, 0.81, 1)
 theme_override_font_sizes/font_size = 13
-text = "CLIC IZQUIERDO   ·   Agarrar y soltar\nCLIC DERECHO      ·   Orbitar\nCENTRAL / SHIFT + DERECHO   ·   Pan\nRUEDA   ·   Zoom\nR   ·   Girar    T   ·   Lanzar dado\nF   ·   Voltear carta    N   ·   Robar"
-[node name="Selection" type="Label" parent="UI/Margin/Panel/Content"]
+text = "CLIC IZQUIERDO   ·   Agarrar y soltar
+CLIC DERECHO      ·   Orbitar
+CENTRAL / SHIFT + DERECHO   ·   Pan
+RUEDA   ·   Zoom
+R   ·   Girar    T   ·   Lanzar dado
+F   ·   Voltear carta    N   ·   Robar"
+
+[node name="Selection" type="Label" parent="UI/Margin/Panel/Content" unique_id=1977570697]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.62, 0.87, 0.71, 1)
 theme_override_font_sizes/font_size = 12
 text = "NINGUNA PIEZA SELECCIONADA"
-[node name="Result" type="Label" parent="UI/Margin/Panel/Content"]
+
+[node name="Result" type="Label" parent="UI/Margin/Panel/Content" unique_id=682217547]
+layout_mode = 2
 theme_override_colors/font_color = Color(0.88, 0.77, 0.54, 1)
 theme_override_font_sizes/font_size = 13
 text = "Pasa el cursor sobre una pieza para empezar."
