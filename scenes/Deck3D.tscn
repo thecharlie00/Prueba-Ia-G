@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3]
+[ext_resource type="Script" path="res://scripts/Deck3D.gd" id="1"]
+[sub_resource type="BoxMesh" id="mesh"]
+size = Vector3(0.7, 0.24, 0.98)
+[sub_resource type="BoxShape3D" id="shape"]
+size = Vector3(0.7, 0.24, 0.98)
+[sub_resource type="StandardMaterial3D" id="mat"]
+albedo_color = Color(0.2, 0.4, 0.35, 1)
+roughness = 0.75
+[node name="Deck" type="RigidBody3D"]
+collision_layer = 2
+collision_mask = 3
+mass = 0.6
+script = ExtResource("1")
+display_name = "Mazo · N para robar"
+[node name="Visual" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh")
+material_override = SubResource("mat")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("shape")
