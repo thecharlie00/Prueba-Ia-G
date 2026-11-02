@@ -30,7 +30,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_target_distance = minf(max_distance, _target_distance / zoom_factor)
 	elif event is InputEventMouseMotion:
-		var pan : bool = (
+		var pan: bool = (
 			(event.button_mask & MOUSE_BUTTON_MASK_MIDDLE) != 0
 			or ((event.button_mask & MOUSE_BUTTON_MASK_RIGHT) != 0 and event.shift_pressed)
 		)

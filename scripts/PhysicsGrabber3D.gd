@@ -2,7 +2,10 @@ class_name PhysicsGrabber3D
 extends Node
 
 signal selection_changed(object: InteractiveTableObject)
+signal snap_status_changed(enabled: bool)
+signal placement_message(message: String)
 @export var camera: Camera3D
+@export var snap_grid: SnapGrid3D
 @export_flags_3d_physics var ray_mask := 3
 @export var ray_length := 100.0
 @export var lift_height := 0.55
@@ -34,15 +37,24 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			_pending_release = true
 	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_S and is_instance_valid(snap_grid):
+			snap_grid.enabled = not snap_grid.enabled
+			snap_grid.show_candidate({})
+			snap_status_changed.emit(snap_grid.enabled)
+			return
 		var selected := held if is_instance_valid(held) else hovered
 		if not is_instance_valid(selected):
 			return
 		match event.keycode:
-			KEY_R:
-				selected.rotate_object(1.0)
-			KEY_T:
+			KEY_R, KEY_T:
 				if selected is Dice3D and not is_instance_valid(held):
 					selected.roll()
+				elif event.keycode == KEY_R and selected is Deck3D and not is_instance_valid(held):
+					selected.shuffle_deck()
+			KEY_E:
+				selected.rotate_object(0.7)
+			KEY_Q:
+				selected.rotate_object(-0.7)
 			KEY_F:
 				if selected is Card3D and not is_instance_valid(held):
 					selected.flip()
@@ -60,13 +72,16 @@ func _physics_process(_delta: float) -> void:
 		_update_hover(_press_position)
 		if is_instance_valid(hovered):
 			_begin_grab(_press_position)
-	if _pending_release:
-		_pending_release = false
-		_release()
 	if is_instance_valid(held):
 		var hit = _plane_point(mouse, _drag_height)
 		if hit != null:
 			_target = hit + _grab_offset
+		if is_instance_valid(snap_grid):
+			snap_grid.show_candidate(snap_grid.candidate(held, _target))
+	if _pending_release:
+		_pending_release = false
+		_release()
+	if is_instance_valid(held):
 		var acceleration := (
 			(_target - held.global_position) * spring_strength
 			- held.linear_velocity * velocity_damping
@@ -117,8 +132,21 @@ func _begin_grab(mouse: Vector2) -> void:
 
 func _release() -> void:
 	if is_instance_valid(held):
-		held.linear_velocity = held.linear_velocity.limit_length(max_release_speed)
+		var result: Dictionary = {}
+		if is_instance_valid(snap_grid):
+			result = snap_grid.candidate(held, _target)
+		if not result.is_empty() and result["valid"]:
+			held.global_position = result["position"]
+			held.linear_velocity = Vector3.ZERO
+			held.angular_velocity = Vector3.ZERO
+			placement_message.emit("Pieza colocada en la cuadrícula.")
+		else:
+			held.linear_velocity = held.linear_velocity.limit_length(max_release_speed)
+			if not result.is_empty():
+				placement_message.emit("Casilla ocupada: colocación libre.")
 		held.on_release()
+	if is_instance_valid(snap_grid):
+		snap_grid.show_candidate({})
 	held = null
 
 

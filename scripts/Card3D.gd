@@ -2,7 +2,29 @@ class_name Card3D
 extends InteractiveTableObject
 
 @export var flip_duration := 0.35
+@export var card_label := "A"
 var _flipping := false
+
+
+func _ready() -> void:
+	super._ready()
+	var label := Label3D.new()
+	label.name = "FaceLabel"
+	label.text = card_label
+	label.font_size = 64
+	label.pixel_size = 0.004
+	label.modulate = Color(0.12, 0.25, 0.21)
+	label.position = Vector3(0, 0.032, 0)
+	label.rotation_degrees = Vector3(-90, 0, 0)
+	$Visual.add_child(label)
+
+
+func set_card_label(value: String) -> void:
+	card_label = value
+	display_name = "Carta " + value + " · F para voltear"
+	var label := get_node_or_null("Visual/FaceLabel") as Label3D
+	if label:
+		label.text = value
 
 
 func flip() -> void:

@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" path="res://scenes/Dice3D.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/Card3D.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/Deck3D.tscn" id="6"]
+[ext_resource type="Script" path="res://scripts/SnapGrid3D.gd" id="7"]
 
 [sub_resource type="Environment" id="env"]
 background_mode = 1
@@ -119,6 +120,10 @@ mesh = SubResource("floor_mesh")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Floor" unique_id=1435602386]
 shape = SubResource("floor_shape")
 
+[node name="SnapGrid3D" type="Node3D" parent="."]
+position = Vector3(-1.8, 0.8, 0)
+script = ExtResource("7")
+
 [node name="Objects" type="Node3D" parent="." unique_id=410998513]
 
 [node name="Dice" parent="Objects" unique_id=1361927343 instance=ExtResource("4")]
@@ -137,9 +142,10 @@ script = ExtResource("2")
 current = true
 fov = 43.0
 
-[node name="PhysicsGrabber3D" type="Node" parent="." unique_id=1147546222 node_paths=PackedStringArray("camera")]
+[node name="PhysicsGrabber3D" type="Node" parent="." unique_id=1147546222 node_paths=PackedStringArray("camera", "snap_grid")]
 script = ExtResource("3")
 camera = NodePath("../TabletopCamera3D/Camera3D")
+snap_grid = NodePath("../SnapGrid3D")
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=428336265]
 
@@ -169,7 +175,7 @@ text = "UN ESPACIO PARA JUGAR"
 [node name="Title" type="Label" parent="UI/Margin/Panel/Content" unique_id=242564411]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
-text = "Mesa abierta"
+text = "Dice on!!"
 
 [node name="Subtitle" type="Label" parent="UI/Margin/Panel/Content" unique_id=1475901551]
 layout_mode = 2
@@ -188,8 +194,9 @@ text = "CLIC IZQUIERDO   ·   Agarrar y soltar
 CLIC DERECHO      ·   Orbitar
 CENTRAL / SHIFT + DERECHO   ·   Pan
 RUEDA   ·   Zoom
-R   ·   Girar    T   ·   Lanzar dado
-F   ·   Voltear carta    N   ·   Robar"
+R   ·   Lanzar / mezclar    T   ·   Dado
+E / Q   ·   Girar    F   ·   Voltear
+N   ·   Robar    S   ·   Imán sí/no"
 
 [node name="Selection" type="Label" parent="UI/Margin/Panel/Content" unique_id=1977570697]
 layout_mode = 2
@@ -202,3 +209,13 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.88, 0.77, 0.54, 1)
 theme_override_font_sizes/font_size = 13
 text = "Pasa el cursor sobre una pieza para empezar."
+
+[node name="Reset" type="Button" parent="UI/Margin/Panel/Content"]
+layout_mode = 2
+text = "Reiniciar mesa"
+tooltip_text = "Restablece la mesa y el mazo; se pierden los cambios actuales."
+
+[node name="Chess" type="Button" parent="UI/Margin/Panel/Content"]
+layout_mode = 2
+text = "Jugar al ajedrez"
+tooltip_text = "Abre una partida local para dos jugadores."
