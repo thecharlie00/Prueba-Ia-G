@@ -1,0 +1,38 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/PhysicalCheckers.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/checkers/GuidedPhysicalCheckers.gd" id="2"]
+
+[node name="GuidedPhysicalCheckers" instance=ExtResource("1")]
+script = ExtResource("2")
+
+[node name="Eyebrow" parent="UI/Panel/Margin/Content" index="0"]
+text = "DICE ON!! · PARTIDA LOCAL"
+[node name="Title" parent="UI/Panel/Margin/Content" index="1"]
+text = "Damas físicas · reglas"
+[node name="Status" parent="UI/Panel/Margin/Content" index="2"]
+text = "Turno: blancas"
+[node name="Help" parent="UI/Panel/Margin/Content" index="3"]
+text = "Sujeta una ficha y suéltala sobre una casilla iluminada. Espera a que llegue antes de soltar."
+[node name="Legend" parent="UI/Panel/Margin/Content" index="4"]
+text = "Reglas activas · blancas primero\nCaptura y continuación obligatorias\nFichas desplazadas regresan por fuerzas\nIzquierdo: agarrar / soltar · H: recuperar\nRueda al agarrar: altura\nDerecho: orbitar · Rueda: zoom"
+[node name="Rules" parent="UI/Panel/Margin/Content" index="6"]
+text = "Damas con reglas (vista simple)"
+tooltip_text = "Abre una partida nueva; no conserva la posición actual."
+[node name="Guided" parent="UI/Panel/Margin/Content" index="7"]
+visible = false
+[node name="Undo" type="Button" parent="UI/Panel/Margin/Content" index="8"]
+layout_mode = 2
+text = "Deshacer último paso"
+[node name="Save" type="Button" parent="UI/Panel/Margin/Content" index="9"]
+layout_mode = 2
+text = "Guardar partida"
+tooltip_text = "Sobrescribe la partida local de damas, compartida con la vista simple."
+[node name="Load" type="Button" parent="UI/Panel/Margin/Content" index="10"]
+layout_mode = 2
+text = "Cargar partida"
+tooltip_text = "Carga la partida local de damas; las fichas se desplazan por fuerzas."
+[node name="Free" type="Button" parent="UI/Panel/Margin/Content" index="11"]
+layout_mode = 2
+text = "Cambiar a mesa física libre"
+tooltip_text = "Abre una mesa nueva; no conserva la posición actual."

@@ -12,6 +12,7 @@ func _run() -> void:
 	await physics_frame
 	await physics_frame
 	var grid: SnapGrid3D = main.get_node("SnapGrid3D")
+	grid.enabled = true
 	var dice: Dice3D = main.get_node("Objects/Dice")
 	var card: Card3D = main.get_node("Objects/Card")
 	var grabber: PhysicsGrabber3D = main.get_node("PhysicsGrabber3D")

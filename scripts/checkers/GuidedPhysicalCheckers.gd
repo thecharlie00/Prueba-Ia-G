@@ -1,0 +1,348 @@
+class_name GuidedPhysicalCheckers
+extends PhysicalCheckers
+
+# El modelo lógico decide las jugadas; los cuerpos siguen siendo dinámicos.
+const MAX_SAVE_BYTES := 262144
+
+@export var home_spring := 28.0
+@export var home_damping := 9.0
+@export var max_home_acceleration := 20.0
+@export var save_path := "user://diceon_checkers.json"
+
+var rules := CheckersRules.new()
+var token_squares: Dictionary = {}
+var initial_squares: Dictionary = {}
+var home_positions: Dictionary = {}
+var white_captured := 0
+var black_captured := 0
+var _snapshots: Array[Dictionary] = []
+var _dragged: Token3D
+var _drag_from := -1
+var _legal_destinations: Array[int] = []
+var _squares: Array[MeshInstance3D] = []
+var _light: Material
+var _dark: Material
+var _selected: Material
+var _legal: Material
+
+
+func _ready() -> void:
+	super._ready()
+	_light = BoardGeometry.make_material(Color("dfd1ad"))
+	_dark = BoardGeometry.make_material(Color("405f50"))
+	_selected = BoardGeometry.make_material(Color("d8af5d"))
+	_legal = BoardGeometry.make_material(Color("80bc8e"))
+	for node in tiles_root.get_children():
+		if node is MeshInstance3D and _squares.size() < 64:
+			_squares.append(node)
+	for child in objects.get_children():
+		var token := child as Token3D
+		if token == null:
+			continue
+		var square: int = _square_from_position(token.global_position)
+		token_squares[token] = square
+		home_positions[token] = _square_center(square)
+	initial_squares = token_squares.duplicate()
+	grabber.grab_started.connect(_on_grab_started)
+	grabber.grab_finished.connect(_on_grab_finished)
+	$UI/Panel/Margin/Content/Undo.pressed.connect(_undo)
+	$UI/Panel/Margin/Content/Save.pressed.connect(_save_game)
+	$UI/Panel/Margin/Content/Load.pressed.connect(_load_game)
+	$UI/Panel/Margin/Content/Free.pressed.connect(_open_free)
+	_refresh_guides()
+
+
+func _physics_process(_delta: float) -> void:
+	for key in home_positions:
+		var token := key as Token3D
+		if not is_instance_valid(token) or token == grabber.held or token.freeze:
+			continue
+		var home: Vector3 = home_positions[token]
+		var displacement := Vector3(
+			home.x - token.global_position.x, 0, home.z - token.global_position.z
+		)
+		var velocity := Vector3(token.linear_velocity.x, 0, token.linear_velocity.z)
+		if displacement.length() < 0.015 and velocity.length() < 0.03:
+			continue
+		var acceleration: Vector3 = displacement * home_spring - velocity * home_damping
+		if token.sleeping:
+			token.sleeping = false
+		token.apply_central_force(acceleration.limit_length(max_home_acceleration) * token.mass)
+
+
+func _on_grab_started(object: InteractiveTableObject) -> void:
+	_dragged = object as Token3D
+	_drag_from = int(token_squares.get(_dragged, -1))
+	_legal_destinations.clear()
+	if _drag_from >= 0 and rules.status() == "playing":
+		for move in rules.legal_moves_from(_drag_from):
+			_legal_destinations.append(int(move["to"]))
+	_refresh_guides()
+	if _legal_destinations.is_empty():
+		$UI/Panel/Margin/Content/Help.text = "Esa ficha no tiene movimientos legales en este turno."
+
+
+func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: String) -> void:
+	if object != _dragged or not is_instance_valid(_dragged):
+		return
+	var accepted := false
+	var destination: int = _square_from_position(target)
+	if reason == "released" and destination in _legal_destinations:
+		var center: Vector3 = _square_center(destination)
+		var offset := Vector2(
+			_dragged.global_position.x - center.x, _dragged.global_position.z - center.z
+		)
+		# No confirmar una casilla a la que el cuerpo todavía no ha llegado.
+		if offset.length() <= CELL * 0.55:
+			accepted = _apply_move(_drag_from, destination)
+	_dragged = null
+	_drag_from = -1
+	_legal_destinations.clear()
+	_refresh_guides()
+	if not accepted and reason == "released":
+		$UI/Panel/Margin/Content/Help.text = ("Movimiento rechazado: la ficha vuelve a su casilla.")
+	elif reason in ["cancelled", "recovered"]:
+		$UI/Panel/Margin/Content/Help.text = "Movimiento cancelado; la ficha vuelve a su casilla."
+
+
+func _apply_move(from_square: int, to_square: int) -> bool:
+	var chosen: Dictionary = {}
+	for move in rules.legal_moves_from(from_square):
+		if int(move["to"]) == to_square:
+			chosen = move
+			break
+	if chosen.is_empty():
+		return false
+	var captured_square: int = int(chosen.get("captured", -1))
+	var captured_piece: int = rules.piece_at(captured_square)
+	var victim: Token3D = _token_at_square(captured_square)
+	# Nunca aceptar una captura si falta la representación física.
+	if captured_square >= 0 and not is_instance_valid(victim):
+		return false
+	var snapshot := {
+		"squares": token_squares.duplicate(),
+		"homes": home_positions.duplicate(),
+		"white_captured": white_captured,
+		"black_captured": black_captured
+	}
+	if not rules.play(from_square, to_square):
+		return false
+	_snapshots.append(snapshot)
+	token_squares[_dragged] = to_square
+	home_positions[_dragged] = _square_center(to_square)
+	if is_instance_valid(victim):
+		token_squares[victim] = -1
+		# El color procede del estado lógico anterior, no de la apariencia.
+		home_positions[victim] = _capture_home(captured_piece)
+	_update_kings()
+	$UI/Panel/Margin/Content/Help.text = "Jugada aceptada. Las fichas se estabilizan con fuerzas."
+	return true
+
+
+func _capture_home(piece: int) -> Vector3:
+	var index: int
+	var side: int
+	if piece > 0:
+		index = white_captured
+		white_captured += 1
+		side = 1
+	else:
+		index = black_captured
+		black_captured += 1
+		side = -1
+	return _capture_position(side, index)
+
+
+func _capture_position(side: int, index: int) -> Vector3:
+	return Vector3(side * (2.15 + 0.55 * (index / 6)), BOARD_HEIGHT, -1.75 + 0.7 * (index % 6))
+
+
+func _token_at_square(square: int) -> Token3D:
+	if square < 0:
+		return null
+	for key in token_squares:
+		if int(token_squares[key]) == square and is_instance_valid(key):
+			return key as Token3D
+	return null
+
+
+func _update_kings() -> void:
+	for key in token_squares:
+		var token := key as Token3D
+		if not is_instance_valid(token):
+			continue
+		var square: int = int(token_squares[token])
+		# Las fichas capturadas no forman parte del tablero y no conservan indicador.
+		token.set_king(square >= 0 and absi(rules.piece_at(square)) == CheckersRules.KING)
+
+
+func _undo() -> void:
+	if is_instance_valid(grabber.held):
+		$UI/Panel/Margin/Content/Help.text = "Suelta la ficha antes de deshacer."
+		return
+	if _snapshots.is_empty() or not rules.undo():
+		return
+	var snapshot: Dictionary = _snapshots.pop_back()
+	token_squares = snapshot["squares"]
+	home_positions = snapshot["homes"]
+	white_captured = snapshot["white_captured"]
+	black_captured = snapshot["black_captured"]
+	_update_kings()
+	_refresh_guides()
+
+
+func _save_game() -> void:
+	if is_instance_valid(grabber.held):
+		$UI/Panel/Margin/Content/Help.text = "Suelta la ficha antes de guardar."
+		return
+	var json: String = JSON.stringify(rules.export_record())
+	if rules.move_log.size() > 1024 or json.to_utf8_buffer().size() > MAX_SAVE_BYTES:
+		$UI/Panel/Margin/Content/Help.text = "La partida supera el límite de guardado."
+		return
+	var file := FileAccess.open(save_path, FileAccess.WRITE)
+	if file == null:
+		$UI/Panel/Margin/Content/Help.text = "No se pudo abrir el archivo para guardar."
+		return
+	file.store_string(json)
+	file.flush()
+	if file.get_error() != OK:
+		$UI/Panel/Margin/Content/Help.text = "No se pudo guardar la partida."
+	else:
+		$UI/Panel/Margin/Content/Help.text = "Partida guardada en este dispositivo."
+
+
+func _load_game() -> void:
+	if is_instance_valid(grabber.held):
+		$UI/Panel/Margin/Content/Help.text = "Suelta la ficha antes de cargar."
+		return
+	var file := FileAccess.open(save_path, FileAccess.READ)
+	if file == null:
+		$UI/Panel/Margin/Content/Help.text = "No hay una partida guardada disponible."
+		return
+	if file.get_length() > MAX_SAVE_BYTES:
+		$UI/Panel/Margin/Content/Help.text = "Archivo de partida demasiado grande."
+		return
+	var parser := JSON.new()
+	if parser.parse(file.get_as_text()) != OK or not _restore_record(parser.data):
+		$UI/Panel/Margin/Content/Help.text = "Archivo inválido o partida incompatible."
+		return
+	_dragged = null
+	_drag_from = -1
+	_legal_destinations.clear()
+	_update_kings()
+	_refresh_guides()
+	$UI/Panel/Margin/Content/Help.text = "Partida cargada; las fichas vuelven a sus casillas."
+
+
+# Primero valida el registro y reconstruye el mapa en memoria; no cambia la mesa si falla.
+func _restore_record(record: Variant) -> bool:
+	var candidate := CheckersRules.new()
+	if not candidate.import_record(record):
+		return false
+	var replay := CheckersRules.new()
+	var squares: Dictionary = initial_squares.duplicate()
+	var homes: Dictionary = {}
+	for token in squares:
+		if not is_instance_valid(token):
+			return false
+		homes[token] = _square_center(int(squares[token]))
+	var snapshots: Array[Dictionary] = []
+	var white_count := 0
+	var black_count := 0
+	for move in candidate.move_log:
+		var from_square: int = int(move["from"])
+		var to_square: int = int(move["to"])
+		var moving: Token3D = _find_token(squares, from_square)
+		var capture_square := -1
+		for option in replay.legal_moves_from(from_square):
+			if int(option["to"]) == to_square:
+				capture_square = int(option.get("captured", -1))
+				break
+		var captured: Token3D = _find_token(squares, capture_square)
+		if (
+			not is_instance_valid(moving)
+			or (capture_square >= 0 and not is_instance_valid(captured))
+		):
+			return false
+		var captured_piece: int = replay.piece_at(capture_square)
+		snapshots.append(
+			{
+				"squares": squares.duplicate(),
+				"homes": homes.duplicate(),
+				"white_captured": white_count,
+				"black_captured": black_count
+			}
+		)
+		if not replay.play(from_square, to_square):
+			return false
+		squares[moving] = to_square
+		homes[moving] = _square_center(to_square)
+		if is_instance_valid(captured):
+			squares[captured] = -1
+			if captured_piece > 0:
+				homes[captured] = _capture_position(1, white_count)
+				white_count += 1
+			else:
+				homes[captured] = _capture_position(-1, black_count)
+				black_count += 1
+	# La asignación solo sucede después de verificar todo el historial.
+	rules = candidate
+	token_squares = squares
+	home_positions = homes
+	_snapshots = snapshots
+	white_captured = white_count
+	black_captured = black_count
+	return true
+
+
+func _find_token(squares: Dictionary, square: int) -> Token3D:
+	if square < 0:
+		return null
+	for token in squares:
+		if int(squares[token]) == square and is_instance_valid(token):
+			return token as Token3D
+	return null
+
+
+func _refresh_guides() -> void:
+	BoardGeometry.update_tiles(
+		_squares, _drag_from, _legal_destinations, _light, _dark, _selected, _legal
+	)
+	var state: String = rules.status()
+	if state == "white_wins":
+		status_label.text = "Ganan las blancas."
+	elif state == "black_wins":
+		status_label.text = "Ganan las oscuras."
+	else:
+		status_label.text = (
+			"Turno: " + ("blancas" if rules.turn == CheckersRules.WHITE else "oscuras")
+		)
+		if rules.forced_from >= 0:
+			status_label.text += " · continúa la captura"
+		elif rules.has_any_capture():
+			status_label.text += " · captura obligatoria"
+	$UI/Panel/Margin/Content/Undo.disabled = _snapshots.is_empty()
+
+
+func _on_selection_changed(_object: InteractiveTableObject) -> void:
+	# El estado lógico debe permanecer visible al cambiar el hover.
+	if _squares.size() == 64 and not is_instance_valid(grabber.held):
+		_refresh_guides()
+
+
+func _on_placement_message(_message: String) -> void:
+	$UI/Panel/Margin/Content/Help.text = "Pieza recuperada; volverá a su posición lógica."
+
+
+func _square_from_position(point: Vector3) -> int:
+	var x: int = floori(point.x / CELL + 4.0)
+	var y: int = floori(point.z / CELL + 4.0)
+	return y * 8 + x if x >= 0 and x < 8 and y >= 0 and y < 8 else -1
+
+
+func _square_center(square: int) -> Vector3:
+	return BoardGeometry.square_position(square, CELL, BOARD_HEIGHT)
+
+
+func _open_free() -> void:
+	get_tree().change_scene_to_file("res://scenes/PhysicalCheckers.tscn")
