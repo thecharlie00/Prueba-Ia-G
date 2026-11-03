@@ -15,6 +15,7 @@ const PLENTY := "plenty"
 const MONOPOLY := "monopoly"
 const TRADE_RESPONSE := "trade_response"
 const DEV_NAMES := ["Caballero", "Punto", "Caminos", "Abundancia", "Monopolio"]
+const MAX_EVENTS := 10000
 const KNIGHT := 0
 const VICTORY_POINT := 1
 const ROAD_BUILDING := 2
@@ -329,17 +330,24 @@ func hand_size(player: int) -> int:
 	return total
 
 
-func score(player: int) -> int:
+func public_score(player: int) -> int:
 	var points := 0
 	for i in range(building_owner.size()):
 		if building_owner[i] == player:
 			points += building_level[i]
-	points += int(dev_ready[player][VICTORY_POINT]) + int(dev_new[player][VICTORY_POINT])
 	if longest_road == player:
 		points += 2
 	if largest_army == player:
 		points += 2
 	return points
+
+
+func score(player: int) -> int:
+	return (
+		public_score(player)
+		+ int(dev_ready[player][VICTORY_POINT])
+		+ int(dev_new[player][VICTORY_POINT])
+	)
 
 
 func _check_winner() -> void:
@@ -640,7 +648,7 @@ static func from_record(data: Variant) -> IslandRules:
 	):
 		return null
 	var saved: Variant = data.get("events")
-	if not saved is Array or saved.size() > 10000:
+	if not saved is Array or saved.size() > MAX_EVENTS:
 		return null
 	var player_count: Variant = data.get("players", 3)
 	if not _valid_integer(player_count, 3, 4):

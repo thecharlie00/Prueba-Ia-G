@@ -9,7 +9,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+	_clean_save(TEST_SAVE)
 	var main: Node = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(main)
 	await physics_frame
@@ -62,7 +62,9 @@ func _run() -> void:
 	# Cambios que la carga debe reemplazar, incluidos objetos creados después de guardar.
 	deck.draw_card()
 	grid.enabled = false
+	grabber.last_selected = dice
 	(main.get_node("UI/Margin/Panel/Content/SaveRow/Load") as Button).pressed.emit()
+	_check(grabber.last_selected == null, "cargar olvida referencias a piezas sustituidas")
 	_check(objects.get_child_count() == count, "carga restaura cantidad de cuerpos")
 	var restored_dice: Dice3D = objects.get_node_or_null("Dice") as Dice3D
 	var restored_deck: Deck3D = objects.get_node_or_null("Deck") as Deck3D
@@ -148,7 +150,7 @@ func _run() -> void:
 	file.close()
 	main.call("_on_load_pressed")
 	_check(objects.get_node("Dice") == restored_dice, "archivo grande no cambia la mesa")
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+	_clean_save(TEST_SAVE)
 	main.queue_free()
 	await process_frame
 	if failures:
@@ -163,3 +165,10 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures += 1
 		printerr("FALLO: " + message)
+
+
+func _clean_save(path: String) -> void:
+	for suffix in ["", ".previous", ".pending", ".previous.pending"]:
+		var file: String = path + suffix
+		if FileAccess.file_exists(file):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(file))

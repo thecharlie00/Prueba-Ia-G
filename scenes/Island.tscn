@@ -3,5 +3,7 @@
 [ext_resource type="Script" path="res://scripts/island/IslandView.gd" id="2"]
 [node name="Island" instance=ExtResource("1")]
 script = ExtResource("2")
+[node name="PhysicsGrabber3D" parent="." index="7"]
+lock_shortcut_enabled = false
 [node name="UI" parent="." index="7"]
 visible = false

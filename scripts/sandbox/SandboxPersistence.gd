@@ -1,6 +1,8 @@
 class_name SandboxPersistence
 extends RefCounted
 
+const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
+
 # Formato cerrado: nunca se cargan rutas de recursos procedentes de un archivo.
 const SCENES := {
 	"dice": preload("res://scenes/Dice3D.tscn"),
@@ -18,7 +20,7 @@ static func snapshot(objects: Node, snap_enabled: bool) -> Dictionary:
 	var used_names := {}
 	for child in objects.get_children():
 		var object := child as InteractiveTableObject
-		if object == null or object.is_grabbed or object.freeze:
+		if object == null or object.is_grabbed or (object.freeze and not object.is_table_locked):
 			return {}
 		var kind := ""
 		if object is Dice3D:
@@ -51,7 +53,8 @@ static func snapshot(objects: Node, snap_enabled: bool) -> Dictionary:
 			"position": _vector_data(object.global_position),
 			"rotation": [q.x, q.y, q.z, q.w],
 			"velocity": _vector_data(object.linear_velocity),
-			"angular_velocity": _vector_data(object.angular_velocity)
+			"angular_velocity": _vector_data(object.angular_velocity),
+			"locked": object.is_table_locked
 		}
 		if object is Token3D:
 			var color: Color = object.piece_color
@@ -73,25 +76,20 @@ static func snapshot(objects: Node, snap_enabled: bool) -> Dictionary:
 static func save(path: String, record: Dictionary) -> bool:
 	if not validate(record):
 		return false
-	var json := JSON.stringify(record)
-	if json.to_utf8_buffer().size() > MAX_BYTES:
-		return false
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(json)
-	file.flush()
-	return file.get_error() == OK
+	return SAVE_STORE.write(path, JSON.stringify(record), MAX_BYTES, _decode_record)
 
 
 static func read(path: String) -> Dictionary:
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null or file.get_length() > MAX_BYTES:
-		return {}
-	var parser := JSON.new()
-	if parser.parse(file.get_as_text()) != OK or not validate(parser.data):
-		return {}
-	return parser.data
+	var result := read_with_source(path)
+	return result.get("value", {})
+
+
+static func read_with_source(path: String) -> Dictionary:
+	return SAVE_STORE.read_validated(path, MAX_BYTES, _decode_record)
+
+
+static func _decode_record(record: Variant) -> Variant:
+	return record if validate(record) else null
 
 
 static func validate(record: Variant) -> bool:
@@ -116,6 +114,8 @@ static func validate(record: Variant) -> bool:
 
 static func _validate_piece(piece: Variant) -> bool:
 	if not piece is Dictionary or not piece.get("type") is String or not SCENES.has(piece["type"]):
+		return false
+	if typeof(piece.get("locked", false)) != TYPE_BOOL:
 		return false
 	if not _valid_name(piece.get("name")) or not _text(piece.get("display_name"), 120):
 		return false
@@ -222,6 +222,7 @@ static func restore_piece(object: InteractiveTableObject, data: Dictionary) -> v
 	object.linear_velocity = _vector(data["velocity"])
 	object.angular_velocity = _vector(data["angular_velocity"])
 	object.sleeping = false
+	object.set_table_locked(bool(data.get("locked", false)))
 	if object is Deck3D:
 		object._cards.clear()
 		for card in data["cards"]:

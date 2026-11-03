@@ -1,6 +1,9 @@
 class_name GuidedPhysicalChess
 extends PhysicalChess
 
+const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
+const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
+
 const MAX_SAVE_BYTES := 262144
 const SPRING := 28.0
 const DAMPING := 9.0
@@ -226,46 +229,39 @@ func _save_game() -> void:
 	if is_instance_valid(grabber.held):
 		_help("Suelta la pieza antes de guardar.")
 		return
+	if rules.move_log.size() > 1024:
+		_help("La partida supera el límite; se conserva el guardado anterior.")
+		return
 	var json := JSON.stringify(rules.export_record())
-	if rules.move_log.size() > 1024 or json.to_utf8_buffer().size() > MAX_SAVE_BYTES:
-		_help("La partida supera el límite de guardado.")
+	if not SAVE_STORE.write(save_path, json, MAX_SAVE_BYTES, SAVE_CODECS.chess):
+		_help("No se pudo guardar; comprueba el espacio e inténtalo de nuevo.")
 		return
-	var file := FileAccess.open(save_path, FileAccess.WRITE)
-	if file == null:
-		_help("No se pudo abrir el archivo para guardar.")
-		return
-	file.store_string(json)
-	file.flush()
-	_help(
-		(
-			"Partida guardada en este dispositivo."
-			if file.get_error() == OK
-			else "No se pudo guardar la partida."
-		)
-	)
+	_help("Partida guardada en este dispositivo.")
 
 
 func _load_game() -> void:
 	if is_instance_valid(grabber.held):
 		_help("Suelta la pieza antes de cargar.")
 		return
-	var file := FileAccess.open(save_path, FileAccess.READ)
-	if file == null:
-		_help("No hay una partida guardada disponible.")
+	var loaded := SAVE_STORE.read_validated(save_path, MAX_SAVE_BYTES, SAVE_CODECS.chess)
+	if loaded.is_empty():
+		_help("Guardado ausente o inválido; se conserva la partida actual.")
 		return
-	if file.get_length() > MAX_SAVE_BYTES:
-		_help("Archivo de partida demasiado grande.")
-		return
-	var parser := JSON.new()
-	if parser.parse(file.get_as_text()) != OK or not _restore_record(parser.data):
-		_help("Archivo inválido o partida incompatible.")
+	if not _restore_record(loaded["record"]):
+		_help("No se pudieron reconstruir las piezas; se conserva la partida actual.")
 		return
 	_dragged = null
 	_drag_from = -1
 	_destinations.clear()
 	_update_models()
 	_refresh()
-	_help("Partida cargada; las piezas vuelven mediante fuerzas.")
+	_help(
+		(
+			"Cargada la copia anterior: el guardado principal falta o es inválido."
+			if loaded["backup"]
+			else "Partida cargada en este dispositivo."
+		)
+	)
 
 
 func _restore_record(record: Variant) -> bool:

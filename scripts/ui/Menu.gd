@@ -3,6 +3,7 @@ extends Control
 const BUTTON_STYLE := Color("203d32")
 const ACCENT := Color("9ad3ad")
 const MUTED := Color("aec2b2")
+var controls_feedback: Label
 
 
 func _ready() -> void:
@@ -43,6 +44,9 @@ func _build() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 10)
 	scroll.add_child(list)
+	_group(list, "ISLA DE RECURSOS", "Tres o cuatro jugadores · estrategia inspirada en Catán.")
+	_game(list, "Island", "Isla de recursos · 3 jugadores", "res://scenes/Island.tscn")
+	_game(list, "IslandFour", "Isla de recursos · 4 jugadores", "res://scenes/IslandFour.tscn")
 	_group(list, "MESA LIBRE", "Experimenta con dados, cartas y fichas con físicas.")
 	_game(list, "Sandbox", "Abrir mesa libre", "res://scenes/Main.tscn")
 	_group(list, "AJEDREZ", "Dos jugadores · vista simple, física con reglas o física libre.")
@@ -58,15 +62,29 @@ func _build() -> void:
 	)
 	_game(list, "FreeCheckers", "Damas físicas libres", "res://scenes/PhysicalCheckers.tscn")
 	_game(list, "SimpleCheckers", "Damas con reglas · vista simple", "res://scenes/Checkers.tscn")
+	_group(list, "LUDO", "Carrera con dado y fichas físicas · variante local.")
+	_game(list, "Ludo", "Ludo · 2 jugadores", "res://scenes/Ludo.tscn")
+	_game(list, "Ludo3", "Ludo · 3 jugadores", "res://scenes/Ludo3.tscn")
+	_game(list, "Ludo4", "Ludo · 4 jugadores", "res://scenes/Ludo4.tscn")
 	_group(list, "DOMINÓ", "Doble seis · reglas para dos jugadores o mesa libre.")
 	_game(list, "GuidedDomino", "Dominó físico con reglas", "res://scenes/GuidedDomino.tscn")
 	_game(list, "FreeDomino", "Dominó físico libre", "res://scenes/PhysicalDomino.tscn")
-	_group(list, "ISLA DE RECURSOS", "Tres o cuatro jugadores · estrategia inspirada en Catán.")
-	_game(list, "Island", "Isla de recursos · 3 jugadores", "res://scenes/Island.tscn")
-	_game(list, "IslandFour", "Isla de recursos · 4 jugadores", "res://scenes/IslandFour.tscn")
 	_group(list, "CARTAS", "Barajas inglesa y española · mesa física libre, sin privacidad.")
 	_game(list, "Cards", "Abrir mesa de cartas", "res://scenes/CardTable.tscn")
-	var footer := _label("Prototipo local · Sin juego en red ni manos privadas", 12, MUTED)
+	var option := CheckButton.new()
+	option.name = "ClickToGrab"
+	option.text = "Clic para agarrar y clic para soltar (opcional)"
+	var navigation := get_node_or_null("/root/SessionNavigation")
+	if navigation != null:
+		option.button_pressed = bool(navigation.get("click_to_grab"))
+		option.toggled.connect(navigation.set_click_to_grab)
+		navigation.controls_changed.connect(option.set_pressed_no_signal)
+	column.add_child(option)
+	controls_feedback = _label("El ajuste de agarre se guarda en este equipo.", 12, MUTED)
+	column.add_child(controls_feedback)
+	if navigation != null:
+		navigation.controls_changed.connect(_on_controls_changed)
+	var footer := _label("Prototipo local · Sin juego en red", 12, MUTED)
 	column.add_child(footer)
 	var quit_button := Button.new()
 	quit_button.name = "Quit"
@@ -74,8 +92,14 @@ func _build() -> void:
 	quit_button.custom_minimum_size.y = 36
 	quit_button.pressed.connect(get_tree().quit)
 	column.add_child(quit_button)
-	var first := list.get_node("Sandbox") as Button
+	var first := list.get_node("Island") as Button
 	first.grab_focus()
+
+
+func _on_controls_changed(_enabled: bool) -> void:
+	var navigation := get_node_or_null("/root/SessionNavigation")
+	if navigation != null and is_instance_valid(controls_feedback):
+		controls_feedback.text = navigation.controls_status.text
 
 
 func _group(parent: VBoxContainer, title: String, description: String) -> void:

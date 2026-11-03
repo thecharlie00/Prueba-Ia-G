@@ -123,6 +123,7 @@ func _run() -> void:
 	view._select_square(_sq("b4"))
 	_check(view.rules.piece_at(_sq("b4")) == CheckersRules.MAN, "tablero mueve la ficha")
 	view.save_path = "user://diceon_checkers_test.json"
+	_clean_save(view.save_path)
 	view._save_game()
 	_check(FileAccess.file_exists(view.save_path), "crear guardado de damas")
 	view._select_square(_sq("b6"))
@@ -148,7 +149,7 @@ func _run() -> void:
 	_check(view.selected == 21, "la interfaz impide abandonar la captura")
 	view._undo()
 	_check(view.rules.forced_from == -1, "deshacer continuación tras cargar")
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(view.save_path))
+	_clean_save(view.save_path)
 	view.queue_free()
 	if failures > 0:
 		printerr("Checkers tests: %d errores" % failures)
@@ -177,3 +178,10 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures += 1
 		printerr("FALLO: " + message)
+
+
+func _clean_save(path: String) -> void:
+	for suffix in ["", ".previous", ".pending", ".previous.pending"]:
+		var file: String = path + suffix
+		if FileAccess.file_exists(file):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(file))

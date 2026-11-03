@@ -160,6 +160,7 @@ fov = 43.0
 
 [node name="PhysicsGrabber3D" type="Node" parent="." unique_id=1147546222 node_paths=PackedStringArray("camera", "snap_grid")]
 script = ExtResource("3")
+lock_shortcut_enabled = true
 camera = NodePath("../TabletopCamera3D/Camera3D")
 snap_grid = NodePath("../SnapGrid3D")
 
@@ -210,7 +211,8 @@ text = "CLIC IZQUIERDO   ·   Agarrar y soltar
 CLIC DERECHO      ·   Orbitar
 CENTRAL / SHIFT + DERECHO   ·   Pan
 RUEDA   ·   Zoom / altura al agarrar
-H   ·   Recuperar pieza
+H   ·   Recuperar    L   ·   Bloquear
+ALT   ·   Inspeccionar pieza
 R   ·   Lanzar / mezclar    T   ·   Dado
 E / Q   ·   Girar    F   ·   Voltear
 N   ·   Robar    S   ·   Imán sí/no"

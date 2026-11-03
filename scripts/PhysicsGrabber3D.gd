@@ -18,9 +18,15 @@ signal placement_message(message: String)
 @export var velocity_damping := 14.0
 @export var max_acceleration := 75.0
 @export var max_release_speed := 5.0
+@export var dice_shortcuts_enabled := true
+# Solo mesas libres: nunca bloquear cuerpos usados por reglas guiadas.
+@export var lock_shortcut_enabled := false
+# Modo opcional: un clic agarra y otro suelta, sin mantener el botón.
+var click_to_grab := false
 
 var hovered: InteractiveTableObject
 var held: InteractiveTableObject
+var last_selected: InteractiveTableObject
 var _grab_offset := Vector3.ZERO
 var _drag_height := 0.0
 var _target := Vector3.ZERO
@@ -28,24 +34,57 @@ var _pending_press := false
 var _pending_release := false
 var _release_reason := "released"
 var _press_position := Vector2.ZERO
+var _release_position := Vector2.ZERO
 var _height_adjustment := 0.0
 var _pending_recovery: InteractiveTableObject
+var _inspecting := false
+var _inspection_panel: PanelContainer
+var _inspection_title: Label
+var _inspection_body: Label
+
+
+func _ready() -> void:
+	var navigation := get_node_or_null("/root/SessionNavigation")
+	if navigation != null:
+		click_to_grab = bool(navigation.get("click_to_grab"))
+	if lock_shortcut_enabled:
+		_create_inspection_panel()
 
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_PAUSED:
+		_hide_inspection()
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_pending_press = false
 		if is_instance_valid(held):
 			_pending_release = true
 			_release_reason = "cancelled"
+		else:
+			_pending_release = false
+			_release_reason = "released"
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.keycode == KEY_ALT and lock_shortcut_enabled:
+		if event.pressed and not event.echo and not event.ctrl_pressed and not event.meta_pressed:
+			_inspecting = true
+			_refresh_inspection()
+		elif not event.pressed:
+			_hide_inspection()
 	if event is InputEventMouseButton:
-		# La liberación debe llegar también si termina encima de un botón de la UI.
-		if event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
-			if is_instance_valid(held) or _pending_press:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			if click_to_grab and event.pressed and (is_instance_valid(held) or _pending_press):
 				_pending_release = true
+				_release_position = event.position
+				# Sobre la UI se cancela el movimiento y el clic no activa el botón subyacente.
+				_release_reason = (
+					"cancelled" if get_viewport().gui_get_hovered_control() != null else "released"
+				)
+				get_viewport().set_input_as_handled()
+			elif not click_to_grab and not event.pressed:
+				# La suelta llega incluso cuando ocurre encima de un botón de la UI.
+				if is_instance_valid(held) or _pending_press:
+					_pending_release = true
 		if is_instance_valid(held) and event.pressed:
 			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 				_adjust_height(height_step)
@@ -66,22 +105,50 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.pressed:
 			_pending_press = true
 			_press_position = event.position
-		else:
+		elif not click_to_grab:
 			_pending_release = true
 	elif event is InputEventKey and event.pressed and not event.echo:
+		var focus := get_viewport().gui_get_focus_owner()
+		if focus is LineEdit or focus is TextEdit:
+			return
+		if event.ctrl_pressed or event.alt_pressed or event.meta_pressed:
+			return
 		if event.keycode == KEY_S and is_instance_valid(snap_grid):
 			snap_grid.enabled = not snap_grid.enabled
 			snap_grid.show_candidate({})
 			snap_status_changed.emit(snap_grid.enabled)
 			return
 		var selected := held if is_instance_valid(held) else hovered
-		if not is_instance_valid(selected):
+		if event.keycode == KEY_H and not is_instance_valid(selected):
+			selected = last_selected
+		if not is_instance_valid(selected) or not selected.is_inside_tree():
 			return
 		match event.keycode:
+			KEY_L:
+				if (
+					lock_shortcut_enabled
+					and not is_instance_valid(held)
+					and not _pending_press
+					and get_viewport().gui_get_hovered_control() == null
+					and not event.ctrl_pressed
+					and not event.alt_pressed
+					and not event.meta_pressed
+				):
+					if selected.set_table_locked(not selected.is_table_locked):
+						selection_changed.emit(selected)
+						placement_message.emit(
+							(
+								"Pieza bloqueada · L para desbloquear."
+								if selected.is_table_locked
+								else "Pieza desbloqueada; vuelve a tener física."
+							)
+						)
+					else:
+						placement_message.emit("Espera a que termine la acción antes de bloquear.")
 			KEY_H:
 				_pending_recovery = selected
 			KEY_R, KEY_T:
-				if selected is Dice3D and not is_instance_valid(held):
+				if dice_shortcuts_enabled and selected is Dice3D and not is_instance_valid(held):
 					selected.roll()
 				elif event.keycode == KEY_R and selected is Deck3D and not is_instance_valid(held):
 					selected.shuffle_deck()
@@ -106,12 +173,13 @@ func _physics_process(delta: float) -> void:
 		_update_hover(_press_position)
 		if is_instance_valid(hovered):
 			_begin_grab(_press_position)
-	if is_instance_valid(_pending_recovery):
+	if is_instance_valid(_pending_recovery) and _pending_recovery.is_inside_tree():
 		_recover_object(_pending_recovery)
 	_pending_recovery = null
 	if is_instance_valid(held):
-		var hit = _plane_point(mouse, _drag_height)
-		if hit != null:
+		var pointer := _release_position if click_to_grab and _pending_release else mouse
+		var hit = _plane_point(pointer, _drag_height)
+		if hit != null and (not _pending_release or _release_reason != "cancelled"):
 			_target = hit + _grab_offset
 			_target.y = _target_height(held, _target)
 			_drag_height = lerpf(_drag_height, _target.y, 1.0 - exp(-8.0 * delta))
@@ -125,7 +193,88 @@ func _physics_process(delta: float) -> void:
 		_apply_held_force()
 	else:
 		held = null
-		_update_hover(mouse)
+		if camera.get_viewport().gui_get_hovered_control() != null:
+			_clear_hover()
+		else:
+			_update_hover(mouse)
+	if _inspecting:
+		_refresh_inspection()
+
+
+func _create_inspection_panel() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 15
+	add_child(layer)
+	_inspection_panel = PanelContainer.new()
+	_inspection_panel.name = "InspectionPanel"
+	_inspection_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_inspection_panel.offset_left = -350
+	_inspection_panel.offset_top = -150
+	_inspection_panel.offset_right = -20
+	_inspection_panel.offset_bottom = -20
+	_inspection_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.045, 0.09, 0.08, 0.96)
+	style.set_content_margin_all(16)
+	style.set_corner_radius_all(8)
+	_inspection_panel.add_theme_stylebox_override("panel", style)
+	layer.add_child(_inspection_panel)
+	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_inspection_panel.add_child(column)
+	_inspection_title = Label.new()
+	_inspection_title.add_theme_font_size_override("font_size", 15)
+	_inspection_title.text = "INSPECCIÓN · suelta Alt para cerrar"
+	_inspection_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_inspection_title)
+	_inspection_body = Label.new()
+	_inspection_body.add_theme_font_size_override("font_size", 28)
+	_inspection_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_inspection_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_inspection_body)
+	_inspection_panel.hide()
+
+
+func _hide_inspection() -> void:
+	_inspecting = false
+	if is_instance_valid(_inspection_panel):
+		_inspection_panel.hide()
+
+
+func _refresh_inspection() -> void:
+	if not is_instance_valid(_inspection_panel):
+		return
+	var focus := get_viewport().gui_get_focus_owner()
+	if (
+		not _inspecting
+		or focus is LineEdit
+		or focus is TextEdit
+		or get_viewport().gui_get_hovered_control() != null
+		or is_instance_valid(held)
+		or _pending_press
+		or not is_instance_valid(hovered)
+		or not hovered.is_inside_tree()
+	):
+		_inspection_panel.hide()
+		return
+	if hovered is Card3D:
+		# Nunca mostrar el valor si el anverso no está orientado hacia arriba.
+		if hovered._flipping or hovered.global_basis.y.normalized().dot(Vector3.UP) < 0.5:
+			_inspection_body.text = "Carta boca abajo"
+		else:
+			_inspection_body.text = "Carta: " + hovered.card_label
+	elif hovered is Deck3D:
+		_inspection_body.text = "%s\nQuedan %d" % [hovered.display_name, hovered.cards_remaining]
+	else:
+		_inspection_body.text = hovered.display_name
+	_inspection_panel.show()
+
+
+func _clear_hover() -> void:
+	if is_instance_valid(hovered):
+		hovered.set_hovered(false)
+		hovered = null
+		selection_changed.emit(null)
 
 
 func _apply_held_force() -> void:
@@ -156,14 +305,18 @@ func _update_hover(mouse: Vector2) -> void:
 		hovered.set_hovered(false)
 	hovered = next
 	if is_instance_valid(hovered):
+		last_selected = hovered
 		hovered.set_hovered(true)
 	selection_changed.emit(hovered)
 
 
 func _begin_grab(mouse: Vector2) -> void:
 	if hovered.freeze:
+		if hovered.is_table_locked:
+			placement_message.emit("Pieza bloqueada: apunta y pulsa L para desbloquearla.")
 		return
 	held = hovered
+	last_selected = held
 	_height_adjustment = 0.0
 	_drag_height = held.global_position.y + lift_height
 	var point = _plane_point(mouse, _drag_height)
@@ -175,6 +328,8 @@ func _begin_grab(mouse: Vector2) -> void:
 	_target = point + _grab_offset
 	held.on_grab()
 	grab_started.emit(held)
+	if click_to_grab:
+		placement_message.emit("Ficha sujeta: haz clic de nuevo para soltarla.")
 
 
 func _release(reason: String = "released") -> void:

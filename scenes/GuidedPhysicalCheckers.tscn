@@ -5,6 +5,8 @@
 
 [node name="GuidedPhysicalCheckers" instance=ExtResource("1")]
 script = ExtResource("2")
+[node name="PhysicsGrabber3D" parent="." index="7"]
+lock_shortcut_enabled = false
 
 [node name="Eyebrow" parent="UI/Panel/Margin/Content" index="0"]
 text = "DICE ON!! · PARTIDA LOCAL"

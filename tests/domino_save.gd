@@ -84,7 +84,7 @@ func _test_invalid_records() -> void:
 
 
 func _test_view() -> void:
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+	_clean_save(TEST_SAVE)
 	var view := (
 		(load("res://scenes/GuidedDomino.tscn") as PackedScene).instantiate() as GuidedDomino
 	)
@@ -143,7 +143,7 @@ func _test_view() -> void:
 	file.close()
 	view._load_game()
 	_check(view.rules.export_record() == record, "archivo grande no altera la partida")
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+	_clean_save(TEST_SAVE)
 	view.queue_free()
 	await process_frame
 
@@ -179,3 +179,10 @@ func _check(condition: bool, message: String) -> void:
 		failures += 1
 		if failures <= 15:
 			printerr("FALLO: " + message)
+
+
+func _clean_save(path: String) -> void:
+	for suffix in ["", ".previous", ".pending", ".previous.pending"]:
+		var file: String = path + suffix
+		if FileAccess.file_exists(file):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(file))

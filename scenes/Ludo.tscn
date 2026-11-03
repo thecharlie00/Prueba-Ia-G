@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="PackedScene" path="res://scenes/PhysicalCheckers.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/ludo/LudoView.gd" id="2"]
+[node name="Ludo" instance=ExtResource("1")]
+script = ExtResource("2")
+[node name="PhysicsGrabber3D" parent="." index="7"]
+lock_shortcut_enabled = false
+[node name="UI" parent="." index="7"]
+visible = false

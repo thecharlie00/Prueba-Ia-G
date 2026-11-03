@@ -35,6 +35,7 @@ window/stretch/mode="canvas_items"
 
 3d_physics/layer_1="Mesa"
 3d_physics/layer_2="Piezas"
+3d_physics/layer_3="Bandeja de dados"
 
 [rendering]
 

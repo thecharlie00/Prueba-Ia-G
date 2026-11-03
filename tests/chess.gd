@@ -140,6 +140,7 @@ func _run() -> void:
 	view._select_square(_sq("e4"))
 	_check(view.rules.piece_at(_sq("e4")) == ChessRules.PAWN, "tablero ejecuta jugada")
 	view.save_path = "user://diceon_chess_test.json"
+	_clean_save(view.save_path)
 	view._save_game()
 	_check(FileAccess.file_exists(view.save_path), "crear archivo de guardado")
 	view._select_square(_sq("e7"))
@@ -151,7 +152,7 @@ func _run() -> void:
 	bad_file.close()
 	view._load_game()
 	_check(view.rules.piece_at(_sq("e4")) == ChessRules.PAWN, "archivo corrupto no cambia partida")
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(view.save_path))
+	_clean_save(view.save_path)
 	view.queue_free()
 	if failures > 0:
 		printerr("Chess tests: %d errores" % failures)
@@ -195,3 +196,10 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures += 1
 		printerr("FALLO: " + message)
+
+
+func _clean_save(path: String) -> void:
+	for suffix in ["", ".previous", ".pending", ".previous.pending"]:
+		var file: String = path + suffix
+		if FileAccess.file_exists(file):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(file))

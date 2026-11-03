@@ -25,6 +25,9 @@ func _run() -> void:
 		"GuidedDomino": "res://scenes/GuidedDomino.tscn",
 		"FreeDomino": "res://scenes/PhysicalDomino.tscn",
 		"Cards": "res://scenes/CardTable.tscn",
+		"Ludo": "res://scenes/Ludo.tscn",
+		"Ludo3": "res://scenes/Ludo3.tscn",
+		"Ludo4": "res://scenes/Ludo4.tscn",
 		"Island": "res://scenes/Island.tscn",
 		"IslandFour": "res://scenes/IslandFour.tscn"
 	}
@@ -57,6 +60,13 @@ func _run() -> void:
 		_check(paused and view.grabber.held == null and not tile.is_grabbed, "pausa cancela agarre")
 		_check(view.rules.board == before, "pausa no confirma jugada")
 		_check(nav.get("overlay").visible, "pausa muestra menú")
+		var rig := view.get_node("CameraRig") as TabletopCamera3D
+		var original := rig._initial_focus
+		rig.focus = Vector3(4, 1, 6)
+		var reset := nav.get("camera_button") as Button
+		_check(not reset.disabled, "recentrar cámara disponible en pausa")
+		reset.pressed.emit()
+		_check(rig.focus == original, "recentrar cámara funciona en pausa")
 		nav.call("_toggle")
 		_check(not paused and not nav.get("overlay").visible, "continuar reanuda la partida")
 		nav.call("_toggle")

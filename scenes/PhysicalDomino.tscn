@@ -25,7 +25,7 @@ text = "28 fichas · doble seis"
 [node name="Help" parent="UI/Panel/Margin/Content" index="3"]
 text = "Modo libre: repartid, conectad las fichas y llevad los turnos manualmente. No hay manos privadas ni reglas automáticas."
 [node name="Legend" parent="UI/Panel/Margin/Content" index="4"]
-text = "Izquierdo: agarrar / soltar\nF: impulso para voltear · E / Q: girar\nRueda al agarrar: altura · H: recuperar\nDerecho: orbitar · Rueda: zoom\nCentral / Shift + derecho: pan"
+text = "Izquierdo: agarrar / soltar\nF: impulso para voltear · E / Q: girar\nRueda al agarrar: altura · H: recuperar · L: bloquear · Alt: inspeccionar\nDerecho: orbitar · Rueda: zoom\nCentral / Shift + derecho: pan"
 [node name="Reset" parent="UI/Panel/Margin/Content" index="5"]
 text = "Reiniciar dominó"
 tooltip_text = "Restablece las 28 fichas; se pierde la mesa actual."
