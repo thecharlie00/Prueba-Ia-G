@@ -3,6 +3,7 @@ extends Node3D
 
 const PIECE := preload("res://scenes/IslandPiece3D.tscn")
 const DICE := preload("res://scenes/Dice3D.tscn")
+const AtomicSave = preload("res://scripts/AtomicSaveFile.gd")
 const RADIUS := 0.4
 const HEIGHT := 0.83
 const PLAYER_COLORS := [Color("d99552"), Color("5a94bf"), Color("d05b55"), Color("deddd2")]
@@ -828,17 +829,10 @@ func _save_game() -> void:
 	if waiting_roll or grabber.held != null:
 		_help("Suelta el objeto y termina o cancela la tirada antes de guardar.")
 		return
-	var file := FileAccess.open(save_path, FileAccess.WRITE)
-	if file == null:
-		_help("No se pudo abrir el archivo de guardado.")
-		return
-	file.store_string(JSON.stringify(rules.export_record()))
-	file.flush()
-	if file.get_error() != OK:
+	if not AtomicSave.write_text(save_path, JSON.stringify(rules.export_record())):
 		_help("No se pudo completar el guardado.")
 	else:
 		_help("Partida guardada en este dispositivo; las poses físicas no se conservan.")
-	file.close()
 
 
 func _load_game() -> void:

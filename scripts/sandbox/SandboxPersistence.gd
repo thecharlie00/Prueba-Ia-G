@@ -1,6 +1,8 @@
 class_name SandboxPersistence
 extends RefCounted
 
+const AtomicSave = preload("res://scripts/AtomicSaveFile.gd")
+
 # Formato cerrado: nunca se cargan rutas de recursos procedentes de un archivo.
 const SCENES := {
 	"dice": preload("res://scenes/Dice3D.tscn"),
@@ -76,12 +78,7 @@ static func save(path: String, record: Dictionary) -> bool:
 	var json := JSON.stringify(record)
 	if json.to_utf8_buffer().size() > MAX_BYTES:
 		return false
-	var file := FileAccess.open(path, FileAccess.WRITE)
-	if file == null:
-		return false
-	file.store_string(json)
-	file.flush()
-	return file.get_error() == OK
+	return AtomicSave.write_text(path, json)
 
 
 static func read(path: String) -> Dictionary:

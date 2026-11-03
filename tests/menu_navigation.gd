@@ -60,11 +60,24 @@ func _run() -> void:
 		nav.call("_toggle")
 		_check(not paused and not nav.get("overlay").visible, "continuar reanuda la partida")
 		nav.call("_toggle")
-		nav.call("_return_to_menu")
+		nav.call("_request_return_to_menu")
+		_check(
+			paused
+			and current_scene.scene_file_path == "res://scenes/GuidedPhysicalCheckers.tscn"
+			and nav.get("overlay").find_child("CancelExit", true, false).visible,
+			"salir pide confirmar antes de descartar el estado"
+		)
+		nav.call("_cancel_return_to_menu")
+		_check(
+			paused and not nav.get("overlay").find_child("CancelExit", true, false).visible,
+			"cancelar salida conserva la partida en pausa"
+		)
+		nav.call("_request_return_to_menu")
+		nav.call("_request_return_to_menu")
 		await _frames()
 		_check(
 			not paused and current_scene.scene_file_path == "res://scenes/Menu.tscn",
-			"volver al menú reanuda árbol"
+			"confirmar salida vuelve al menú y reanuda el árbol"
 		)
 	if failures:
 		printerr("Menu navigation: %d errores" % failures)
