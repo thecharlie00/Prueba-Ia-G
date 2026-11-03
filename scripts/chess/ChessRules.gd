@@ -10,6 +10,9 @@ const QUEEN := 5
 const KING := 6
 const WHITE := 1
 const BLACK := -1
+const OPPONENT_LOCAL := 0
+const OPPONENT_AI_CASUAL := 1
+const OPPONENT_AI_TACTICAL := 2
 
 var board: Array[int] = []
 var turn: int = WHITE
@@ -21,6 +24,8 @@ var history: Array[Dictionary] = []
 var move_log: Array[Dictionary] = []
 var repetition_counts: Dictionary = {}
 var claimed_draw: String = ""
+var claimed_move: Dictionary = {}
+var opponent_mode := OPPONENT_LOCAL
 
 
 func _init() -> void:
@@ -44,6 +49,8 @@ func reset() -> void:
 	history.clear()
 	move_log.clear()
 	claimed_draw = ""
+	claimed_move.clear()
+	opponent_mode = OPPONENT_LOCAL
 	repetition_counts.clear()
 	_record_position()
 
@@ -115,6 +122,7 @@ func undo() -> bool:
 	if not move_log.is_empty():
 		move_log.pop_back()
 	claimed_draw = ""
+	claimed_move.clear()
 	board = previous["board"]
 	turn = previous["turn"]
 	castling = previous["castling"]
@@ -126,7 +134,13 @@ func undo() -> bool:
 
 # El guardado contiene solo jugadas validadas; el estado se reconstruye por replay.
 func export_record() -> Dictionary:
-	return {"version": 1, "moves": move_log.duplicate(true), "claimed_draw": claimed_draw}
+	return {
+		"version": 1,
+		"moves": move_log.duplicate(true),
+		"claimed_draw": claimed_draw,
+		"claim_move": claimed_move.duplicate(true),
+		"opponent_mode": opponent_mode
+	}
 
 
 func import_record(data: Variant) -> bool:
@@ -142,9 +156,29 @@ func import_record(data: Variant) -> bool:
 		if not candidate.play(int(move["from"]), int(move["to"]), int(move["promotion"])):
 			return false
 	var claim: Variant = data.get("claimed_draw", "")
+	var claim_move: Variant = data.get("claim_move", {})
+	var saved_opponent: Variant = data.get("opponent_mode", OPPONENT_LOCAL)
 	if (
 		not claim is String
-		or (claim != "" and (not candidate.claim_draw() or candidate.claimed_draw != claim))
+		or not claim_move is Dictionary
+		or not _whole_number(saved_opponent, OPPONENT_LOCAL, OPPONENT_AI_TACTICAL)
+	):
+		return false
+	candidate.opponent_mode = int(saved_opponent)
+	if claim == "":
+		if not claim_move.is_empty():
+			return false
+	elif claim_move.is_empty():
+		if not candidate.claim_draw() or candidate.claimed_draw != claim:
+			return false
+	elif (
+		not _valid_record_move(claim_move)
+		or not candidate.claim_draw(
+			int(claim_move["from"]),
+			int(claim_move["to"]),
+			int(claim_move["promotion"])
+		)
+		or candidate.claimed_draw != claim
 	):
 		return false
 	board = candidate.board.duplicate()
@@ -157,6 +191,8 @@ func import_record(data: Variant) -> bool:
 	move_log = candidate.move_log.duplicate(true)
 	repetition_counts = candidate.repetition_counts.duplicate()
 	claimed_draw = candidate.claimed_draw
+	claimed_move = candidate.claimed_move.duplicate(true)
+	opponent_mode = candidate.opponent_mode
 	return true
 
 
@@ -198,18 +234,62 @@ func status() -> String:
 	return "check" if checked else "playing"
 
 
-# Esta primera versión permite reclamar cuando el umbral ya se ha alcanzado;
-# la reclamación anunciando una jugada futura queda pendiente.
-func claim_draw() -> bool:
+func can_claim_draw() -> bool:
 	if status() not in ["playing", "check"]:
 		return false
-	if halfmove_clock >= 100:
-		claimed_draw = "fifty_moves"
-		return true
-	if int(repetition_counts.get(_position_key(), 0)) >= 3:
-		claimed_draw = "threefold_repetition"
-		return true
-	return false
+	return not _draw_claim_reason(halfmove_clock, repetition_counts, _position_key()).is_empty()
+
+
+func claim_draw(from_square: int = -1, to_square: int = -1, promotion: int = QUEEN) -> bool:
+	if status() not in ["playing", "check"]:
+		return false
+	var reason := ""
+	if from_square < 0 and to_square < 0:
+		reason = _draw_claim_reason(halfmove_clock, repetition_counts, _position_key())
+	elif from_square >= 0 and to_square >= 0:
+		reason = _announced_move_claim_reason(from_square, to_square, promotion)
+	if reason.is_empty():
+		return false
+	claimed_draw = reason
+	claimed_move = (
+		{"from": from_square, "to": to_square, "promotion": promotion}
+		if from_square >= 0 and to_square >= 0
+		else {}
+	)
+	return true
+
+
+func _announced_move_claim_reason(from_square: int, to_square: int, promotion: int) -> String:
+	if promotion not in [QUEEN, ROOK, BISHOP, KNIGHT]:
+		return ""
+	var legal := false
+	for move in legal_moves_from(from_square):
+		if int(move["to"]) == to_square:
+			legal = true
+			break
+	if not legal:
+		return ""
+	var candidate := ChessRules.new()
+	candidate.board = board.duplicate()
+	candidate.turn = turn
+	candidate.castling = castling.duplicate()
+	candidate.en_passant = en_passant
+	candidate.halfmove_clock = halfmove_clock
+	candidate.fullmove_number = fullmove_number
+	candidate.repetition_counts = repetition_counts.duplicate()
+	if not candidate.play(from_square, to_square, promotion):
+		return ""
+	return _draw_claim_reason(
+		candidate.halfmove_clock, candidate.repetition_counts, candidate._position_key()
+	)
+
+
+func _draw_claim_reason(halfmove_count: int, counts: Dictionary, position_key: String) -> String:
+	if halfmove_count >= 100:
+		return "fifty_moves"
+	if int(counts.get(position_key, 0)) >= 3:
+		return "threefold_repetition"
+	return ""
 
 
 func _record_position() -> void:

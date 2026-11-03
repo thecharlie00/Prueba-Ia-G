@@ -1,5 +1,6 @@
 extends SceneTree
 
+const ChessAI = preload("res://scripts/chess/ChessAI.gd")
 var failures: int = 0
 
 
@@ -108,19 +109,63 @@ func _run() -> void:
 		for move in [["g1", "f3"], ["g8", "f6"], ["f3", "g1"], ["f6", "g8"]]:
 			_check(game.play(_sq(move[0]), _sq(move[1])), "cinco repeticiones " + str(repetition))
 	_check(game.status() == "fivefold_repetition", "tablas automáticas por cinco repeticiones")
-	_fixture(game, {"e1": 6, "a1": 4, "e8": -6}, ChessRules.WHITE)
+	_fixture(game, {"e1": 6, "a1": 4, "e8": -6, "e2": 1}, ChessRules.WHITE)
 	game.halfmove_clock = 100
 	_check(game.claim_draw() and game.status() == "fifty_moves", "reclamación de 50 movimientos")
 	game.claimed_draw = ""
 	game.halfmove_clock = 150
 	_check(game.status() == "seventy_five_moves", "tablas automáticas de 75 movimientos")
 
+	_fixture(game, {"e1": 6, "a1": 4, "e8": -6, "e2": 1}, ChessRules.WHITE)
+	game.halfmove_clock = 99
+	var board_before_claim: Array[int] = game.board.duplicate()
+	_check(not game.can_claim_draw(), "todavía no se puede reclamar la posición actual")
+	_check(
+		not game.claim_draw(_sq("e2"), _sq("e3")),
+		"un avance de peón anunciado no permite reclamar 50 movimientos"
+	)
+	_check(
+		game.board == board_before_claim and game.claimed_draw.is_empty(),
+		"reclamo inválido no altera el estado"
+	)
+	_check(game.claim_draw(_sq("a1"), _sq("a2")), "reclamar 50 movimientos anunciando torre")
+	_check(game.status() == "fifty_moves", "anuncio termina la partida en tablas")
+	_check(game.board == board_before_claim, "la jugada anunciada no cambia el tablero")
+	_check(game.move_log.is_empty() and game.turn == ChessRules.WHITE, "el anuncio no consume turno")
 	game.reset()
+	for move in [["g1", "f3"], ["g8", "f6"], ["f3", "g1"], ["f6", "g8"]]:
+		_check(game.play(_sq(move[0]), _sq(move[1])), "preparar repetición anunciada")
+	for move in [["g1", "f3"], ["g8", "f6"], ["f3", "g1"]]:
+		_check(game.play(_sq(move[0]), _sq(move[1])), "avanzar a tercera repetición anunciada")
+	var position_before_claim: Array[int] = game.board.duplicate()
+	_check(game.claim_draw(_sq("f6"), _sq("g8")), "reclamar tercera repetición anunciando caballo")
+	_check(game.status() == "threefold_repetition", "repetición anunciada termina en tablas")
+	_check(game.board == position_before_claim, "la repetición anunciada no mueve piezas")
+	var announced_record: Variant = JSON.parse_string(JSON.stringify(game.export_record()))
+	var announced_restored := ChessRules.new()
+	_check(announced_restored.import_record(announced_record), "restaurar reclamo anunciado")
+	_check(
+		announced_restored.claimed_move == {"from": _sq("f6"), "to": _sq("g8"), "promotion": 5},
+		"el guardado conserva la jugada anunciada"
+	)
+	var invalid_announcement: Variant = announced_record.duplicate(true)
+	invalid_announcement["claim_move"]["to"] = _sq("f6")
+	_check(
+		not announced_restored.import_record(invalid_announcement),
+		"rechazar reclamo anunciado inválido"
+	)
+
+	game.reset()
+	game.opponent_mode = ChessRules.OPPONENT_AI_TACTICAL
 	_check(game.play(_sq("e2"), _sq("e4")), "guardado: e4")
 	_check(game.play(_sq("e7"), _sq("e5")), "guardado: e5")
 	var record: Variant = JSON.parse_string(JSON.stringify(game.export_record()))
 	var restored := ChessRules.new()
 	_check(restored.import_record(record), "importar historial validado")
+	_check(
+		restored.opponent_mode == ChessRules.OPPONENT_AI_TACTICAL,
+		"el guardado conserva el modo de oponente"
+	)
 	_check(restored.board == game.board and restored.turn == game.turn, "restaurar estado")
 	_check(
 		restored.undo() and restored.piece_at(_sq("e7")) == -ChessRules.PAWN,
@@ -130,6 +175,36 @@ func _run() -> void:
 	record["moves"].append({"from": 999, "to": 0, "promotion": 5})
 	_check(not restored.import_record(record), "rechazar movimiento guardado inválido")
 	_check(restored.board == before, "importación inválida no modifica partida")
+
+	_fixture(game, {"e1": 6, "e8": -6, "a1": 4, "a8": -5}, ChessRules.WHITE)
+	var tactical_random := RandomNumberGenerator.new()
+	tactical_random.seed = 7
+	var ai_board_before: Array[int] = game.board.duplicate()
+	var ai_history_before: Array[Dictionary] = game.history.duplicate(true)
+	var ai_log_before: Array[Dictionary] = game.move_log.duplicate(true)
+	var ai_repetitions_before: Dictionary = game.repetition_counts.duplicate(true)
+	var tactical_move := ChessAI.choose_move(game, ChessRules.OPPONENT_AI_TACTICAL, tactical_random)
+	_check(
+		tactical_move.get("from", -1) == _sq("a1") and tactical_move.get("to", -1) == _sq("a8"),
+		"IA táctica captura una dama disponible"
+	)
+	_check(
+		game.board == ai_board_before
+		and game.turn == ChessRules.WHITE
+		and game.history == ai_history_before
+		and game.move_log == ai_log_before
+		and game.repetition_counts == ai_repetitions_before,
+		"buscar jugadas no altera el estado de la partida"
+	)
+	game.reset()
+	var casual_random := RandomNumberGenerator.new()
+	casual_random.seed = 19
+	var casual_move := ChessAI.choose_move(game, ChessRules.OPPONENT_AI_CASUAL, casual_random)
+	_check(
+		not casual_move.is_empty()
+		and casual_move in game.legal_moves_from(int(casual_move.get("from", -1))),
+		"IA casual elige una jugada legal"
+	)
 
 	var scene: PackedScene = load("res://scenes/Chess.tscn")
 	var view := scene.instantiate() as ChessBoard3D
@@ -151,6 +226,38 @@ func _run() -> void:
 	bad_file.close()
 	view._load_game()
 	_check(view.rules.piece_at(_sq("e4")) == ChessRules.PAWN, "archivo corrupto no cambia partida")
+	_fixture(view.rules, {"e1": 6, "a1": 4, "e8": -6}, ChessRules.WHITE)
+	view.rules.halfmove_clock = 99
+	view._refresh()
+	view._claim()
+	view._select_square(_sq("a1"))
+	view._select_square(_sq("a2"))
+	_check(
+		view.rules.status() == "fifty_moves",
+		"tablero permite anunciar reclamación de 50 movimientos"
+	)
+	_check(view.rules.move_log.is_empty(), "tablero no ejecuta la jugada anunciada")
+	var opponent: OptionButton = view.get_node("UI/Panel/Margin/Content/Opponent")
+	var ai_option: int = opponent.get_item_index(ChessRules.OPPONENT_AI_CASUAL)
+	opponent.select(ai_option)
+	opponent.item_selected.emit(ai_option)
+	_check(
+		view.rules.opponent_mode == ChessRules.OPPONENT_AI_CASUAL,
+		"la vista permite elegir IA casual"
+	)
+	view._reset()
+	view._select_square(_sq("e2"))
+	view._select_square(_sq("e4"))
+	await create_timer(0.8).timeout
+	_check(
+		view.rules.move_log.size() == 2 and view.rules.turn == ChessRules.WHITE,
+		"la IA responde tras la jugada humana"
+	)
+	view._undo()
+	_check(
+		view.rules.move_log.is_empty() and view.rules.piece_at(_sq("e2")) == ChessRules.PAWN,
+		"deshacer contra IA revierte la ronda completa"
+	)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(view.save_path))
 	view.queue_free()
 	if failures > 0:

@@ -1,6 +1,7 @@
 class_name GuidedDomino
 extends PhysicalDomino
 
+const AtomicSave = preload("res://scripts/AtomicSaveFile.gd")
 const MAX_SAVE_BYTES := 262144
 const HOME_SPRING := 28.0
 const HOME_DAMPING := 9.0
@@ -138,13 +139,7 @@ func _save_game() -> void:
 	if rules.events.size() > 128 or json.to_utf8_buffer().size() > MAX_SAVE_BYTES:
 		_help("La partida supera el límite de guardado.")
 		return
-	var file := FileAccess.open(save_path, FileAccess.WRITE)
-	if file == null:
-		_help("No se pudo abrir el archivo para guardar.")
-		return
-	file.store_string(json)
-	file.flush()
-	if file.get_error() != OK:
+	if not AtomicSave.write_text(save_path, json):
 		_help("No se pudo guardar la partida.")
 	else:
 		_help("Partida guardada en este dispositivo.")

@@ -2,6 +2,7 @@ class_name CheckersBoard3D
 extends Node3D
 
 const BoardGeometry = preload("res://scripts/BoardGeometry3D.gd")
+const AtomicSave = preload("res://scripts/AtomicSaveFile.gd")
 const CELL := 0.46
 const BOARD_HEIGHT := 0.83
 const MAX_SAVE_BYTES := 262144
@@ -190,13 +191,7 @@ func _save_game() -> void:
 	if rules.move_log.size() > 1024 or json.to_utf8_buffer().size() > MAX_SAVE_BYTES:
 		help_label.text = "La partida supera el límite de guardado."
 		return
-	var file := FileAccess.open(save_path, FileAccess.WRITE)
-	if file == null:
-		help_label.text = "No se pudo abrir el archivo para guardar."
-		return
-	file.store_string(json)
-	file.flush()
-	if file.get_error() != OK:
+	if not AtomicSave.write_text(save_path, json):
 		help_label.text = "No se pudo guardar la partida."
 	else:
 		help_label.text = "Partida guardada en este dispositivo."

@@ -1,6 +1,8 @@
 class_name GuidedPhysicalCheckers
 extends PhysicalCheckers
 
+const AtomicSave = preload("res://scripts/AtomicSaveFile.gd")
+
 # El modelo lógico decide las jugadas; los cuerpos siguen siendo dinámicos.
 const MAX_SAVE_BYTES := 262144
 
@@ -199,13 +201,7 @@ func _save_game() -> void:
 	if rules.move_log.size() > 1024 or json.to_utf8_buffer().size() > MAX_SAVE_BYTES:
 		$UI/Panel/Margin/Content/Help.text = "La partida supera el límite de guardado."
 		return
-	var file := FileAccess.open(save_path, FileAccess.WRITE)
-	if file == null:
-		$UI/Panel/Margin/Content/Help.text = "No se pudo abrir el archivo para guardar."
-		return
-	file.store_string(json)
-	file.flush()
-	if file.get_error() != OK:
+	if not AtomicSave.write_text(save_path, json):
 		$UI/Panel/Margin/Content/Help.text = "No se pudo guardar la partida."
 	else:
 		$UI/Panel/Margin/Content/Help.text = "Partida guardada en este dispositivo."

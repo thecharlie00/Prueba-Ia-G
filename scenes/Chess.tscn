@@ -63,7 +63,7 @@ fov = 43.0
 offset_left = 24.0
 offset_top = 24.0
 offset_right = 315.0
-offset_bottom = 350.0
+offset_bottom = 405.0
 theme_override_styles/panel = SubResource("panel")
 [node name="Margin" type="MarginContainer" parent="UI/Panel"]
 layout_mode = 2
@@ -96,6 +96,12 @@ theme_override_colors/font_color = Color(0.74, 0.81, 0.75, 1)
 theme_override_font_sizes/font_size = 12
 autowrap_mode = 2
 text = "P peón · C caballo · A alfil\nT torre · D dama · R rey\nDerecho: orbitar · Rueda: zoom\nCentral / Shift + derecho: pan"
+[node name="OpponentLabel" type="Label" parent="UI/Panel/Margin/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Oponente"
+[node name="Opponent" type="OptionButton" parent="UI/Panel/Margin/Content"]
+layout_mode = 2
 [node name="PromotionLabel" type="Label" parent="UI/Panel/Margin/Content"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
@@ -108,7 +114,7 @@ text = "Deshacer jugada"
 [node name="Claim" type="Button" parent="UI/Panel/Margin/Content"]
 layout_mode = 2
 text = "Reclamar tablas"
-tooltip_text = "Disponible si la posición actual se repitió tres veces o se completaron 50 movimientos sin captura ni avance de peón."
+tooltip_text = "Reclama tablas ahora si corresponde o anuncia una jugada legal que las produciría."
 [node name="Reset" type="Button" parent="UI/Panel/Margin/Content"]
 layout_mode = 2
 text = "Nueva partida"
