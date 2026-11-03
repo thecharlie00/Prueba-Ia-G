@@ -6,8 +6,8 @@ extends Node3D
 @export var rows: int = 4
 @export var cell_size: float = 0.6
 @export var surface_y: float = 0.8
-@export var enabled: bool = true
-@export_flags_3d_physics var piece_mask: int = 2
+@export var enabled: bool = false
+@export_flags_3d_physics var placement_mask: int = 3
 
 var _marker: MeshInstance3D
 var _marker_material: StandardMaterial3D
@@ -33,27 +33,28 @@ func candidate(object: InteractiveTableObject, desired: Vector3) -> Dictionary:
 	)
 	var world: Vector3 = to_global(cell_local)
 	var shape_node := object.get_node_or_null("CollisionShape3D") as CollisionShape3D
-	if not shape_node or not shape_node.shape is BoxShape3D:
+	var bottom: float = object.bottom_offset()
+	if shape_node == null or shape_node.shape == null or bottom < 0.0:
 		return {"position": world, "valid": false}
 
-	# La altura engloba el colisionador girado, no solo su tamaño local.
-	var box := shape_node.shape as BoxShape3D
+	# El destino se comprueba y se barre el trayecto completo antes de recolocar.
+	world.y = surface_y + bottom + 0.01
 	var shape_transform: Transform3D = object.global_transform * shape_node.transform
-	var basis: Basis = shape_transform.basis
-	var half: Vector3 = box.size * 0.5
-	var extent_y: float = (
-		absf(basis.x.y) * half.x + absf(basis.y.y) * half.y + absf(basis.z.y) * half.z
-	)
-	var offset_y: float = shape_transform.origin.y - object.global_position.y
-	world.y = surface_y + extent_y - offset_y + 0.01
-	shape_transform.origin += world - object.global_position
+	var motion: Vector3 = world - object.global_position
 	var query := PhysicsShapeQueryParameters3D.new()
-	query.shape = box
+	query.shape = shape_node.shape
 	query.transform = shape_transform
-	query.collision_mask = piece_mask
+	query.collision_mask = placement_mask
 	query.exclude = [object.get_rid()]
 	query.margin = 0.005
-	var blocked: bool = not get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+	query.transform.origin += motion
+	var space := get_world_3d().direct_space_state
+	var blocked: bool = not space.intersect_shape(query, 1).is_empty()
+	if not blocked:
+		query.transform = shape_transform
+		query.motion = motion
+		var fractions: PackedFloat32Array = space.cast_motion(query)
+		blocked = fractions.size() < 2 or fractions[0] < 0.999
 	return {"position": world, "valid": not blocked}
 
 

@@ -1,10 +1,10 @@
 class_name ChessBoard3D
 extends Node3D
 
+const BoardGeometry = preload("res://scripts/BoardGeometry3D.gd")
 const CELL := 0.46
 const BOARD_HEIGHT := 0.83
 const MAX_SAVE_BYTES := 262144
-const SYMBOLS := {1: "P", 2: "C", 3: "A", 4: "T", 5: "D", 6: "R"}
 
 @export var save_path := "user://diceon_chess.json"
 
@@ -47,18 +47,11 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		var origin: Vector3 = camera.project_ray_origin(event.position)
-		var direction: Vector3 = camera.project_ray_normal(event.position)
-		if absf(direction.y) < 0.0001:
-			return
-		var distance: float = (BOARD_HEIGHT - origin.y) / direction.y
-		if distance < 0.0:
-			return
-		var point: Vector3 = origin + direction * distance
-		var x: int = floori(point.x / CELL + 4.0)
-		var y: int = floori(point.z / CELL + 4.0)
-		if x >= 0 and x < 8 and y >= 0 and y < 8:
-			_select_square(y * 8 + x)
+		var square: int = BoardGeometry.square_from_mouse(
+			camera, event.position, CELL, BOARD_HEIGHT
+		)
+		if square >= 0:
+			_select_square(square)
 
 
 func _select_square(square: int) -> void:
@@ -87,61 +80,30 @@ func _select_square(square: int) -> void:
 
 
 func _make_materials() -> void:
-	light_material = _material(Color("dfd1ad"))
-	dark_material = _material(Color("405f50"))
-	selected_material = _material(Color("d8af5d"))
-	legal_material = _material(Color("80bc8e"))
-	white_piece = _material(Color("f5ead5"))
-	black_piece = _material(Color("202d29"))
-
-
-func _material(color: Color) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = 0.8
-	return material
+	light_material = BoardGeometry.make_material(Color("dfd1ad"))
+	dark_material = BoardGeometry.make_material(Color("405f50"))
+	selected_material = BoardGeometry.make_material(Color("d8af5d"))
+	legal_material = BoardGeometry.make_material(Color("80bc8e"))
+	white_piece = BoardGeometry.make_material(Color("f5ead5"))
+	black_piece = BoardGeometry.make_material(Color("202d29"))
 
 
 func _make_board() -> void:
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(CELL, 0.035, CELL)
-	for y in range(8):
-		for x in range(8):
-			var tile := MeshInstance3D.new()
-			tile.mesh = mesh
-			tile.position = Vector3((x - 3.5) * CELL, BOARD_HEIGHT - 0.0175, (y - 3.5) * CELL)
-			tiles_root.add_child(tile)
-			squares.append(tile)
-	for index in range(8):
-		_add_coordinate(
-			"abcdefgh".substr(index, 1),
-			Vector3((index - 3.5) * CELL, BOARD_HEIGHT + 0.01, 4.35 * CELL)
-		)
-		_add_coordinate(
-			str(8 - index), Vector3(-4.35 * CELL, BOARD_HEIGHT + 0.01, (index - 3.5) * CELL)
-		)
-
-
-func _add_coordinate(text: String, point: Vector3) -> void:
-	var label := Label3D.new()
-	label.text = text
-	label.font_size = 48
-	label.pixel_size = 0.003
-	label.modulate = Color("f5ead5")
-	label.rotation_degrees.x = -90.0
-	label.position = point
-	tiles_root.add_child(label)
+	squares = BoardGeometry.make_tiles(tiles_root, CELL, BOARD_HEIGHT)
 
 
 func _refresh() -> void:
-	for i in range(64):
-		var square_color: int = (i % 8 + i / 8) % 2
-		squares[i].material_override = light_material if square_color == 0 else dark_material
-		if i == selected:
-			squares[i].material_override = selected_material
-		elif i in legal_destinations:
-			squares[i].material_override = legal_material
+	BoardGeometry.update_tiles(
+		squares,
+		selected,
+		legal_destinations,
+		light_material,
+		dark_material,
+		selected_material,
+		legal_material
+	)
 	for child in pieces_root.get_children():
+		pieces_root.remove_child(child)
 		child.queue_free()
 	for i in range(64):
 		var piece: int = rules.piece_at(i)
@@ -151,26 +113,12 @@ func _refresh() -> void:
 
 
 func _make_piece(square: int, piece: int) -> void:
-	var holder := Node3D.new()
-	holder.position = Vector3((square % 8 - 3.5) * CELL, BOARD_HEIGHT, (square / 8 - 3.5) * CELL)
-	pieces_root.add_child(holder)
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = 0.145
-	mesh.bottom_radius = 0.17
-	mesh.height = 0.16
-	var body := MeshInstance3D.new()
-	body.mesh = mesh
-	body.position.y = 0.08
-	body.material_override = white_piece if piece > 0 else black_piece
-	holder.add_child(body)
-	var label := Label3D.new()
-	label.text = SYMBOLS[absi(piece)]
-	label.font_size = 64
-	label.pixel_size = 0.0035
-	label.rotation_degrees.x = -90.0
-	label.position.y = 0.165
-	label.modulate = Color("26382f") if piece > 0 else Color("f5ead5")
-	holder.add_child(label)
+	var model := ChessPieceModel.create(
+		absi(piece), piece > 0, white_piece if piece > 0 else black_piece
+	)
+	model.position = BoardGeometry.square_position(square, CELL, BOARD_HEIGHT)
+	model.set_meta("square", square)
+	pieces_root.add_child(model)
 
 
 func _update_status() -> void:
