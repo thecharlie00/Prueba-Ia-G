@@ -1,0 +1,28 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="PackedScene" path="res://scenes/PhysicalCheckers.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/chess/PhysicalChess.gd" id="2"]
+
+[node name="PhysicalChess" instance=ExtResource("1")]
+script = ExtResource("2")
+[node name="Title" parent="UI/Panel/Margin/Content" index="1"]
+text = "Ajedrez físico"
+[node name="Status" parent="UI/Panel/Margin/Content" index="2"]
+text = "32 piezas · mesa libre"
+[node name="Help" parent="UI/Panel/Margin/Content" index="3"]
+text = "Modo manual: mueve las piezas y aplica las reglas. Las piezas colisionan, pueden caerse y se pueden recuperar con H."
+[node name="Legend" parent="UI/Panel/Margin/Content" index="4"]
+text = "Sin validación de turnos ni movimientos\nP peón · C caballo · A alfil\nT torre · D dama · R rey\nIzquierdo: agarrar / soltar · H: recuperar\nRueda al agarrar: altura\nDerecho: orbitar · rueda: zoom\nCentral / Shift + derecho: pan"
+[node name="Reset" parent="UI/Panel/Margin/Content" index="5"]
+text = "Reiniciar ajedrez físico"
+tooltip_text = "Restablece las 32 piezas; se pierde la mesa actual."
+[node name="Rules" parent="UI/Panel/Margin/Content" index="6"]
+text = "Ajedrez con reglas · vista simple"
+tooltip_text = "Inicia una partida nueva; no transfiere la posición."
+[node name="Guided" parent="UI/Panel/Margin/Content" index="7"]
+visible = true
+text = "Ajedrez físico con reglas"
+tooltip_text = "Inicia una partida nueva con reglas."
+
+[node name="Sandbox" parent="UI/Panel/Margin/Content" index="8"]
+text = "Volver a la mesa libre"
+tooltip_text = "Abre una mesa nueva; no conserva el ajedrez actual."

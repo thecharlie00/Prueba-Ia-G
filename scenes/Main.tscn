@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/Card3D.tscn" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/Deck3D.tscn" id="6"]
 [ext_resource type="Script" path="res://scripts/SnapGrid3D.gd" id="7"]
+[ext_resource type="PackedScene" path="res://scenes/Token3D.tscn" id="8"]
 
 [sub_resource type="Environment" id="env"]
 background_mode = 1
@@ -129,6 +130,21 @@ script = ExtResource("7")
 [node name="Dice" parent="Objects" unique_id=1361927343 instance=ExtResource("4")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6, 1.15, -0.1)
 
+[node name="Dice2" parent="Objects" instance=ExtResource("4")]
+position = Vector3(0.4, 1.15, 1.4)
+
+[node name="TokenGold" parent="Objects" instance=ExtResource("8")]
+position = Vector3(-1.7, 1.1, 1.4)
+piece_color = Color(0.87, 0.57, 0.27, 1)
+
+[node name="TokenRed" parent="Objects" instance=ExtResource("8")]
+position = Vector3(-1.1, 1.1, 1.4)
+piece_color = Color(0.7, 0.27, 0.23, 1)
+
+[node name="TokenBlue" parent="Objects" instance=ExtResource("8")]
+position = Vector3(-0.5, 1.1, 1.4)
+piece_color = Color(0.3, 0.54, 0.66, 1)
+
 [node name="Card" parent="Objects" unique_id=421987145 instance=ExtResource("5")]
 transform = Transform3D(0.9702957, 0, -0.2419219, 0, 1, 0, 0.2419219, 0, 0.9702957, 0.65, 0.85, -0.4)
 
@@ -193,7 +209,8 @@ theme_override_font_sizes/font_size = 13
 text = "CLIC IZQUIERDO   ·   Agarrar y soltar
 CLIC DERECHO      ·   Orbitar
 CENTRAL / SHIFT + DERECHO   ·   Pan
-RUEDA   ·   Zoom
+RUEDA   ·   Zoom / altura al agarrar
+H   ·   Recuperar pieza
 R   ·   Lanzar / mezclar    T   ·   Dado
 E / Q   ·   Girar    F   ·   Voltear
 N   ·   Robar    S   ·   Imán sí/no"
@@ -208,7 +225,23 @@ text = "NINGUNA PIEZA SELECCIONADA"
 layout_mode = 2
 theme_override_colors/font_color = Color(0.88, 0.77, 0.54, 1)
 theme_override_font_sizes/font_size = 13
-text = "Pasa el cursor sobre una pieza para empezar."
+autowrap_mode = 2
+text = "Física libre · S activa el imán."
+
+[node name="SaveRow" type="HBoxContainer" parent="UI/Margin/Panel/Content"]
+layout_mode = 2
+
+[node name="Save" type="Button" parent="UI/Margin/Panel/Content/SaveRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Guardar mesa"
+tooltip_text = "Sobrescribe el guardado local de la mesa libre."
+
+[node name="Load" type="Button" parent="UI/Margin/Panel/Content/SaveRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cargar mesa"
+tooltip_text = "Sustituye la mesa actual por el guardado local."
 
 [node name="Reset" type="Button" parent="UI/Margin/Panel/Content"]
 layout_mode = 2
@@ -219,3 +252,24 @@ tooltip_text = "Restablece la mesa y el mazo; se pierden los cambios actuales."
 layout_mode = 2
 text = "Jugar al ajedrez"
 tooltip_text = "Abre una partida local para dos jugadores."
+
+[node name="Checkers" type="Button" parent="UI/Margin/Panel/Content"]
+layout_mode = 2
+text = "Jugar a las damas"
+tooltip_text = "Abre una partida local de damas inglesas para dos jugadores."
+
+[node name="PhysicalCheckers" type="Button" parent="UI/Margin/Panel/Content"]
+layout_mode = 2
+text = "Damas físicas libres"
+tooltip_text = "Fichas físicas sin reglas automáticas."
+
+[node name="GuidedPhysicalCheckers" type="Button" parent="UI/Margin/Panel/Content"]
+layout_mode = 2
+text = "Damas físicas con reglas"
+tooltip_text = "Abre una partida nueva con fichas físicas y validación de reglas."
+
+
+[node name="PhysicalDomino" type="Button" parent="UI/Margin/Panel/Content"]
+layout_mode = 2
+text = "Dominó físico libre"
+tooltip_text = "Abre una mesa de dominó doble seis sin reglas automáticas."

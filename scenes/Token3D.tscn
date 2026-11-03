@@ -1,0 +1,25 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/Token3D.gd" id="1"]
+[sub_resource type="CylinderMesh" id="mesh"]
+top_radius = 0.2
+bottom_radius = 0.2
+height = 0.12
+[sub_resource type="CylinderShape3D" id="shape"]
+radius = 0.2
+height = 0.12
+[sub_resource type="PhysicsMaterial" id="physics"]
+friction = 0.45
+bounce = 0.08
+
+[node name="Token" type="RigidBody3D"]
+collision_layer = 2
+collision_mask = 3
+mass = 0.18
+physics_material_override = SubResource("physics")
+script = ExtResource("1")
+display_name = "Ficha física"
+[node name="Visual" type="MeshInstance3D" parent="."]
+mesh = SubResource("mesh")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("shape")

@@ -1,0 +1,61 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/PhysicalDomino.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/domino/GuidedDomino.gd" id="2"]
+
+[node name="GuidedDomino" instance=ExtResource("1")]
+script = ExtResource("2")
+
+[node name="Eyebrow" parent="UI/Panel/Margin/Content" index="0"]
+text = "DICE ON!! · DOS JUGADORES"
+[node name="Title" parent="UI/Panel/Margin/Content" index="1"]
+text = "Dominó físico · reglas"
+[node name="Status" parent="UI/Panel/Margin/Content" index="2"]
+text = "Turno: jugador 1 · Pozo: 14"
+[node name="Help" parent="UI/Panel/Margin/Content" index="3"]
+text = "J1 a la izquierda, J2 a la derecha; pozo arriba y cadena en el centro. Arrastra a una zona verde y suelta al llegar."
+[node name="Legend" parent="UI/Panel/Margin/Content" index="4"]
+text = "Siete fichas por jugador · J1 abre\nRoba si no puedes jugar; pasa sin pozo\nCadena en zigzag; el texto indica el orden real\nSin privacidad: todas las fichas son visibles\nIzquierdo: agarrar · F: voltear\nRueda: altura / zoom · H: recuperar\nDerecho: orbitar · E / Q: girar"
+[node name="Reset" parent="UI/Panel/Margin/Content" index="5"]
+text = "Nueva partida"
+tooltip_text = "Reparte una partida nueva y descarta la actual."
+[node name="Rules" parent="UI/Panel/Margin/Content" index="6"]
+visible = true
+text = "Cambiar a dominó libre"
+tooltip_text = "Abre una mesa nueva; no conserva esta partida."
+[node name="Guided" parent="UI/Panel/Margin/Content" index="7"]
+visible = false
+[node name="Selected" type="Label" parent="UI/Panel/Margin/Content" index="8"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Ninguna ficha seleccionada"
+[node name="Chain" type="Label" parent="UI/Panel/Margin/Content" index="9"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+autowrap_mode = 2
+text = "Cadena: vacía"
+[node name="Actions" type="HBoxContainer" parent="UI/Panel/Margin/Content" index="10"]
+layout_mode = 2
+[node name="Draw" type="Button" parent="UI/Panel/Margin/Content/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Robar"
+[node name="Pass" type="Button" parent="UI/Panel/Margin/Content/Actions"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Pasar"
+[node name="SaveRow" type="HBoxContainer" parent="UI/Panel/Margin/Content" index="11"]
+layout_mode = 2
+[node name="Save" type="Button" parent="UI/Panel/Margin/Content/SaveRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Guardar"
+tooltip_text = "Sobrescribe la partida local de dominó."
+[node name="Load" type="Button" parent="UI/Panel/Margin/Content/SaveRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cargar"
+tooltip_text = "Reemplaza la partida actual por la guardada."
+[node name="Sandbox" parent="UI/Panel/Margin/Content" index="12"]
+text = "Volver a la mesa libre"
+tooltip_text = "Abre una mesa nueva; no conserva esta partida."
