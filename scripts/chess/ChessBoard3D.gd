@@ -1,6 +1,9 @@
 class_name ChessBoard3D
 extends Node3D
 
+const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
+const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
+
 const BoardGeometry = preload("res://scripts/BoardGeometry3D.gd")
 const AtomicSave = preload("res://scripts/AtomicSaveFile.gd")
 const ChessAI = preload("res://scripts/chess/ChessAI.gd")
@@ -276,32 +279,22 @@ func _claim() -> void:
 
 
 func _save_game() -> void:
-	var json: String = JSON.stringify(rules.export_record())
-	if rules.move_log.size() > 1024 or json.to_utf8_buffer().size() > MAX_SAVE_BYTES:
-		help_label.text = "La partida supera el límite de guardado."
+	if rules.move_log.size() > 1024:
+		help_label.text = "La partida supera el límite; se conserva el guardado anterior."
 		return
-	if not AtomicSave.write_text(save_path, json):
-		help_label.text = "No se pudo guardar la partida."
-	else:
-		help_label.text = "Partida guardada en este dispositivo."
+	var json := JSON.stringify(rules.export_record())
+	if not SAVE_STORE.write(save_path, json, MAX_SAVE_BYTES, SAVE_CODECS.chess):
+		help_label.text = "No se pudo guardar; comprueba el espacio e inténtalo de nuevo."
+		return
+	help_label.text = "Partida guardada en este dispositivo."
 
 
 func _load_game() -> void:
-	var file := FileAccess.open(save_path, FileAccess.READ)
-	if file == null:
-		help_label.text = "No hay una partida guardada disponible."
+	var loaded := SAVE_STORE.read_validated(save_path, MAX_SAVE_BYTES, SAVE_CODECS.chess)
+	if loaded.is_empty():
+		help_label.text = "Guardado ausente o inválido; se conserva la partida actual."
 		return
-	if file.get_length() > MAX_SAVE_BYTES:
-		help_label.text = "Archivo de partida demasiado grande."
-		return
-	var parser := JSON.new()
-	if parser.parse(file.get_as_text()) != OK:
-		help_label.text = "Archivo inválido o partida incompatible."
-		return
-	var record: Variant = parser.data
-	if not rules.import_record(record):
-		help_label.text = "Archivo inválido o partida incompatible."
-		return
+	rules = loaded["value"] as ChessRules
 	selected = -1
 	_ai_request_id += 1
 	_ai_thinking = false
@@ -309,7 +302,11 @@ func _load_game() -> void:
 	_claim_mode = false
 	legal_destinations.clear()
 	_refresh()
-	help_label.text = "Partida cargada desde este dispositivo."
+	help_label.text = (
+		"Cargada la copia anterior: el guardado principal falta o es inválido."
+		if loaded["backup"]
+		else "Partida cargada en este dispositivo."
+	)
 
 
 func _on_opponent_selected(index: int) -> void:

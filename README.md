@@ -1,30 +1,44 @@
 # Dice on!! · prototipo tabletop en Godot 4
 
-Base local, modular y ampliable para manipular piezas físicas sobre una mesa 3D. Incluye cámara orbital, selección, agarre por fuerza, cuadrícula magnética opcional, dados, fichas físicas, cartas, barajas y modos locales de ajedrez, damas, dominó e isla de recursos. El ajedrez ofrece dos personas en el mismo equipo o un rival IA inicial; **no incluye multijugador por red** y al final se describe una arquitectura para incorporarlo sin confundir este prototipo con una solución de red lista para producción.
+Base local, modular y ampliable para manipular piezas físicas sobre una mesa 3D. Incluye cámara orbital, selección, agarre por fuerza, cuadrícula magnética opcional, dados, fichas físicas, cartas, barajas y modos locales de ajedrez, damas, dominó, ludo e isla de recursos. **No incluye multijugador implementado**: al final se describe una arquitectura para incorporarlo sin confundir este prototipo con una solución de red lista para producción.
 
 ## Ejecutar
 
 1. Instala Godot **4.7 o posterior** y abre `project.godot` desde el gestor de proyectos.
 2. Pulsa **F5** para abrir el menú principal. También puedes ejecutar **F6** sobre una escena concreta. No necesita complementos ni recursos externos.
-3. En el menú elige mesa libre, ajedrez, damas, dominó, isla de recursos o cartas. Cada opción inicia una mesa nueva. En cualquier mesa usa **Menú · Esc** para pausar; volver al menú requiere confirmar porque se descartan los cambios no guardados. Ajedrez y damas tienen vistas simples, modos físicos con reglas y mesas físicas libres; dominó tiene modo físico libre y con reglas. En las dos vistas regladas de ajedrez, el selector **Oponente** ofrece dos personas, IA casual o IA táctica; esta IA básica de búsqueda limitada solo juega con negras y no equivale a un motor competitivo. La mesa de cartas incluye barajas inglesa y española para juego manual. Todos los modos son locales en el mismo equipo; no hay manos privadas ni red.
+3. En el menú elige mesa libre, ajedrez, damas, dominó, ludo, isla de recursos o cartas. Cada opción inicia una mesa nueva. En cualquier mesa usa **Menú · Esc** para pausar y volver al menú; antes guarda si quieres conservar el estado. Ajedrez y damas tienen vistas simples, modos físicos con reglas y mesas físicas libres; dominó tiene modo físico libre y con reglas. La mesa de cartas incluye barajas inglesa y española para juego manual. Todos los modos son locales en el mismo equipo; la isla ofrece ocultación visual opcional al pasar el dispositivo, pero no hay red.
 4. En la mesa libre, pasa el cursor sobre una pieza para seleccionarla y usa:
 
 | Control | Acción |
 | --- | --- |
-| Clic izquierdo sostenido | Agarrar; soltar para liberar |
+| Clic izquierdo sostenido | Agarrar; soltar para liberar (por defecto) |
+| Clic izquierdo, modo opcional | Un clic agarra y otro suelta, sin mantener pulsado |
 | Esc / Menú | Pausar, continuar o volver al menú principal |
 | Clic derecho + movimiento | Orbitar |
 | Clic central o Mayús + clic derecho | Desplazar el foco horizontalmente |
 | Rueda | Zoom suave; mientras se sostiene una pieza ajusta su altura |
+| Inicio / Home | Restaurar la cámara inicial cuando no se sostiene una pieza; también desde el menú de pausa |
+| Ctrl + 1–3 / Mayús + 1–3 | Guardar / recuperar una de tres vistas de cámara de la escena; también desde pausa |
+| Mantener Alt | Inspeccionar el nombre o el valor visible de la pieza señalada en mesas libres |
+| L | Bloquear o desbloquear la pieza señalada en mesas libres |
 | R | Lanzar el dado o mezclar el mazo bajo el cursor, sin agarrarlo |
 | T | Lanzar el dado bajo el cursor, sin agarrarlo |
 | E / Q | Aplicar un impulso de rotación en sentidos opuestos |
 | S | Activar o desactivar el imán de la cuadrícula (desactivado al empezar) |
-| H | Recuperar la pieza seleccionada o agarrada sobre un espacio libre de la mesa |
+| H | Recuperar la pieza agarrada, bajo el cursor o la última señalada sobre un espacio libre |
 | F | Voltear la carta o aplicar un impulso de volteo a la ficha de dominó bajo el cursor, sin agarrarla |
 | N | Robar una carta del mazo bajo el cursor, sin agarrarlo |
+| B | En la mesa de cartas, devolver al fondo de su baraja la carta señalada |
 
-La selección solo alcanza la primera colisión bajo el cursor; el panel informativo deja pasar el ratón salvo en sus botones. **Reiniciar mesa** descarta los cambios y restaura las piezas y el mazo. **Guardar mesa** y **Cargar mesa** almacenan/restauran una única mesa libre local en `user://diceon_sandbox.json`; guardar sobrescribe la anterior y cargar sustituye la mesa actual. Se conservan posición, orientación y velocidades de dados, fichas, cartas y mazos; también las cartas robadas, el orden restante del mazo y el estado del imán. Suelta la pieza y espera a que termine cualquier volteo antes de guardar o cargar. La simulación continúa al cargar, por lo que los cuerpos todavía pueden caer, chocar o desplazarse. La cámara no se guarda. El archivo versionado se valida antes de cargar y solo admite tipos conocidos; se escribe a un temporal y se reemplaza mediante renombrado atómico, aunque aún debe probarse ante interrupciones y falta de espacio. No hay guardado en la nube. No es el guardado de los modos de ajedrez o damas. La cámara mantiene el foco en un plano horizontal. La altura mínima de la órbita y la distancia mínima mantienen la cámara por encima del plano focal de la mesa, pero no hacen detección de colisiones con obstáculos adicionales.
+La inspección muestra texto ampliado, no una vista 3D. No muestra el valor de una carta boca abajo o durante el volteo; aun así, las mesas son locales y no ofrecen manos privadas ni protección del archivo. L inmoviliza una pieza de mesa libre hasta desbloquearla; no está disponible en los modos con reglas. El bloqueo se guarda en la mesa sandbox y de cartas. Las tres vistas de cámara solo duran mientras permanezca abierta la escena y no se guardan en la partida.
+
+El modo opcional «clic para agarrar y clic para soltar» se activa en el menú o en la pausa y se guarda en `user://diceon_controls.cfg`; el modo predeterminado sigue siendo mantener pulsado. En el modo de dos clics, pulsar sobre un control con una pieza en la mano cancela el agarre y no activa ese control: vuelve a pulsarlo para usarlo. Pausar o perder el foco también cancela el agarre, sin confirmar jugadas en los modos guiados. El movimiento de los objetos sigue siendo físico; la selección solo alcanza la primera colisión bajo el cursor. H recupera la última pieza señalada incluso si ya ha caído fuera de la vista. El panel informativo deja pasar el ratón salvo en sus botones. **Reiniciar mesa** descarta los cambios y restaura las piezas y el mazo. **Guardar mesa** y **Cargar mesa** almacenan/restauran una única mesa libre local en `user://diceon_sandbox.json`; guardar sobrescribe la anterior y cargar sustituye la mesa actual. Se conservan posición, orientación y velocidades de dados, fichas, cartas y mazos; también las cartas robadas, el orden restante del mazo y el estado del imán. Suelta la pieza y espera a que termine cualquier volteo antes de guardar o cargar. La simulación continúa al cargar, por lo que los cuerpos todavía pueden caer, chocar o desplazarse. La cámara no se guarda. El archivo versionado se valida antes de cargar y solo admite tipos conocidos, y mantiene una copia anterior recuperable; no hay guardado en la nube. No es el guardado de los modos de ajedrez o damas. La cámara mantiene el foco en un plano horizontal. La altura mínima de la órbita y la distancia mínima mantienen la cámara por encima del plano focal de la mesa, pero no hacen detección de colisiones con obstáculos adicionales.
+
+## Seguridad de los guardados locales
+
+Los modos que ya guardan (mesa libre, mesa de cartas, ajedrez y damas con reglas, dominó guiado, ludo e isla) validan el nuevo archivo, lo escriben en un temporal y conservan el **último archivo principal válido** con el sufijo `.previous` antes de sustituirlo. La copia se crea al sobrescribir un guardado válido, no al guardar por primera vez. Si el principal falta o no pasa la validación, **Cargar** intenta esa copia e informa de que ha retrocedido al estado anterior. Los archivos temporales `.pending` no se cargan como partidas confirmadas. Los formatos y rutas originales siguen siendo compatibles.
+
+Esto reduce el riesgo de perder el único guardado, pero **no garantiza durabilidad ante cortes de energía** ni una sustitución atómica en todos los sistemas de archivos. No hay bloqueo entre dos instancias escribiendo simultáneamente en el mismo archivo, ni copias en la nube. Una recuperación puede perder los cambios desde el guardado anterior; si ambos archivos son inválidos, se conserva la partida que está abierta. Las mesas sin guardado siguen sin tenerlo.
 
 ## 1. Estructura y árbol de escenas
 
@@ -38,6 +52,7 @@ scenes/
   Domino3D.tscn         # Ficha física de dominó doble seis
   PhysicalDomino.tscn   # Mesa libre con 28 fichas de dominó
   GuidedDomino.tscn     # Dominó físico con reglas locales
+  Ludo.tscn, Ludo3.tscn, Ludo4.tscn # Ludo físico para 2, 3 o 4 personas
   CardTable.tscn        # Barajas inglesa y española, modo manual
   Island.tscn           # Isla de recursos para tres jugadores locales
   IslandFour.tscn       # Variante para cuatro jugadores locales
@@ -56,6 +71,8 @@ scripts/
   ui/Menu.gd            # Menú de modos locales
   ui/SessionNavigation.gd # Pausa y vuelta al menú
   CardTable.gd          # Barajas físicas manuales
+  ludo/LudoRules.gd     # Variante local, reglas y replay
+  ludo/LudoView.gd      # Fichas y dado físicos, mesa y controles
   island/IslandBoard.gd # Topología y generación de la isla
   island/IslandRules.gd # Reglas independientes de la vista
   island/IslandView.gd  # Interfaz, tablero, piezas y dados físicos
@@ -76,6 +93,8 @@ scripts/
   checkers/PhysicalCheckers.gd # Mesa física libre
   checkers/GuidedPhysicalCheckers.gd # Física, reglas y guardado
   sandbox/SandboxPersistence.gd # Snapshot versionado de la mesa libre
+  persistence/SaveStore.gd # Temporales y recuperación de copia anterior
+  persistence/SaveCodecs.gd # Validación de guardados lógicos por reglas
   domino/PhysicalDomino.gd # Mesa de dominó físico libre
   domino/DominoRules.gd   # Reglas locales de doble seis
   domino/GuidedDomino.gd  # Integración de física y reglas
@@ -87,14 +106,26 @@ scripts/
   Deck3D.gd
 tests/smoke.gd          # Comprobaciones mínimas sin interfaz
 tests/menu_navigation.gd # Menú, pausa y rutas
+tests/camera_controls.gd # Recentrado de cámara en modos de mesa
+tests/camera_bookmarks.gd # Vistas rápidas de cámara
+tests/tts_table_tools.gd # Bloqueo físico y devolución de cartas
+tests/table_inspection.gd # Inspección y anversos ocultos
+tests/click_grab.gd      # Agarre accesible, UI, foco y persistencia
+tests/grab_recovery.gd   # Recuperación de la última pieza señalada
+tests/save_store.gd      # Fallos, validación y copia anterior
+tests/save_recovery_integration.gd # Recuperación en las mesas con guardado
+tests/ludo_rules.gd     # Reglas, simulaciones y replay
+tests/ludo_view.gd      # Mesa, dado, fichas y guardado de ludo
 tests/island_rules.gd   # Geometría, economía y reglas básicas
 tests/island_extended.gd # Puertos, desarrollo, rutas y guardado
 tests/island_simulation.gd # Partidas simuladas, conservación y replay
 tests/island_view.gd    # Escena, selección, dados y retorno físico
+tests/island_privacy.gd # Traspaso local, ofertas y puntuación pública
 tests/piece_models.gd   # Geometrías y etiquetas
 tests/physical_chess.gd # Piezas rígidas de ajedrez y choques
 tests/guided_physical_chess.gd # Reglas integradas y jugadas especiales
 tests/card_table.gd     # Barajas, mezcla y robo
+tests/card_table_persistence.gd # Guardado y recuperación de la mesa de cartas
 tests/domino_save.gd    # Guardado de dominó por replay
 tests/snap_grid.gd      # Casillas libres, bloqueadas y colocación
 tests/physics_interaction.gd # Fuerzas, colisiones, apilado y recuperación
@@ -161,6 +192,7 @@ En **Project Settings → Layer Names → 3D Physics**:
 | --- | --- | --- | --- |
 | Mesa y suelo `StaticBody3D` | 1: Mesa | 2: Piezas | layer `1`, mask `2` |
 | Piezas `RigidBody3D` | 2: Piezas | 1: Mesa + 2: Piezas | layer `2`, mask `3` |
+| Bandeja de dados de la isla | 3: Bandeja | 0 | layer `4`; los dados de la isla usan mask `7` |
 | Consulta de selección | No tiene layer | 1: Mesa + 2: Piezas | mask `3` |
 
 La consulta incluye la mesa para que una pieza oculta debajo no pueda seleccionarse a través de ella; solo se acepta el resultado si es `InteractiveTableObject`. El rayo de selección no es el colisionador de la cámara y no modifica las máscaras de los cuerpos. La luz y las mallas decorativas no tienen colisionadores. Si se añaden obstáculos, inclúyelos en la máscara del rayo y de las piezas. Si existen áreas de UI interactivas, configura su `mouse_filter` para impedir que sus eventos lleguen a `_unhandled_input`.
@@ -173,14 +205,26 @@ Con Godot instalado, desde la raíz:
 godot --headless --editor --path . --quit  # importar recursos y registrar class_name
 godot --headless --path . --script res://tests/smoke.gd
 godot --headless --path . --script res://tests/menu_navigation.gd
+godot --headless --path . --script res://tests/camera_controls.gd
+godot --headless --path . --script res://tests/camera_bookmarks.gd
+godot --headless --path . --script res://tests/tts_table_tools.gd
+godot --headless --path . --script res://tests/table_inspection.gd
+godot --headless --path . --script res://tests/click_grab.gd
+godot --headless --path . --script res://tests/grab_recovery.gd
+godot --headless --path . --script res://tests/save_store.gd
+godot --headless --path . --script res://tests/save_recovery_integration.gd
+godot --headless --path . --script res://tests/ludo_rules.gd
+godot --headless --path . --script res://tests/ludo_view.gd
 godot --headless --path . --script res://tests/island_rules.gd
 godot --headless --path . --script res://tests/island_extended.gd
 godot --headless --path . --script res://tests/island_simulation.gd
 godot --headless --path . --script res://tests/island_view.gd
+godot --headless --path . --script res://tests/island_privacy.gd
 godot --headless --path . --script res://tests/piece_models.gd
 godot --headless --path . --script res://tests/physical_chess.gd
 godot --headless --path . --script res://tests/guided_physical_chess.gd
 godot --headless --path . --script res://tests/card_table.gd
+godot --headless --path . --script res://tests/card_table_persistence.gd
 godot --headless --path . --script res://tests/domino_save.gd
 godot --headless --path . --script res://tests/snap_grid.gd
 godot --headless --path . --script res://tests/physics_interaction.gd
@@ -213,7 +257,7 @@ El diseño de producto contempla **pago único por copia**, sin suscripción ni 
 
 Dos personas juegan en el mismo equipo. El motor y la vista están separados: `ChessRules` genera movimientos legales, impide dejar el rey en jaque, gestiona turnos, capturas, enroque, captura al paso, promoción a dama/torre/alfil/caballo, jaque, mate y ahogado. Permite deshacer, detectar material insuficiente en los casos implementados, reclamar tablas en una posición ya repetida tres veces o tras 50 movimientos sin captura/avance de peón, y anunciar una jugada legal si esta produciría uno de esos umbrales; las tablas por cinco repeticiones o 75 movimientos son automáticas. La jugada anunciada no se ejecuta. Se puede guardar una partida local en `user://diceon_chess.json` y cargarla mediante repetición validada de hasta 1024 medias jugadas; el archivo no es un guardado en la nube y puede sobrescribirse. Hay tres modalidades: vista simple con selección por clic; **ajedrez físico libre**, con 32 piezas rígidas y reglas manuales; y **ajedrez físico con reglas**, que usa el mismo motor lógico y valida al soltar. En este último, agarra una pieza y espera a que llegue a una casilla iluminada antes de soltar; las piezas desplazadas o capturadas vuelven a sus destinos mediante fuerzas. Enroque y captura al paso también desplazan sus piezas físicas, y la promoción actualiza la silueta y el colisionador. Selecciona el tipo de promoción antes de mover el peón. En la vista simple, activa «Reclamar tablas» y selecciona la pieza y el destino; en la mesa física, activa el anuncio y arrastra la pieza a su destino legal.
 
-Las dos vistas con reglas comparten `user://diceon_chess.json`; guardar en una sobrescribe la partida guardada por la otra. Cambiar de modo inicia una partida nueva, por lo que hay que guardar antes y cargar después para transferirla. Se guarda el historial lógico, no las posiciones físicas exactas; al cargar, las piezas vuelven a sus destinos mediante fuerzas. El guardado escribe a un temporal y reemplaza el archivo mediante renombrado atómico; aún debe probarse ante interrupciones y falta de espacio. La mesa física libre no se guarda y una promoción manual requiere acordar una pieza sustituta. La asistencia física no garantiza estabilidad o alineación perfecta. No hay relojes ni juego en red; el motor necesita más pruebas antes de usarse en competición.
+Las dos vistas con reglas comparten `user://diceon_chess.json`; guardar en una sobrescribe la partida guardada por la otra. Cambiar de modo inicia una partida nueva, por lo que hay que guardar antes y cargar después para transferirla. Se guarda el historial lógico, no las posiciones físicas exactas; al cargar, las piezas vuelven a sus destinos mediante fuerzas. Se mantiene una copia anterior recuperable. La mesa física libre no se guarda y una promoción manual requiere acordar una pieza sustituta. La asistencia física no garantiza estabilidad o alineación perfecta. No hay relojes ni juego en red; el motor necesita más pruebas antes de usarse en competición.
 
 ## Damas locales
 
@@ -223,7 +267,7 @@ La partida para dos personas en el mismo equipo usa una **variante adaptada de d
 
 Hay tres modos: la vista simple con piezas visuales y selección por clic; **damas físicas libres**, sin validación de reglas; y **damas físicas con reglas**, con 24 cuerpos rígidos y el mismo modelo de reglas. En este último, suelta sobre un destino legal cuando la ficha haya llegado físicamente; solo entonces se confirma el movimiento. Las colisiones no cambian por sí solas la partida: las fichas desplazadas vuelven a su casilla mediante fuerzas, las capturadas se mueven a los lados y una marca visual indica la coronación. Deshacer, guardar y cargar requieren soltar primero la ficha; al deshacer o cargar, las fichas recuperan sus destinos mediante fuerzas, no de forma instantánea. No se guardan sus posiciones físicas exactas. La recuperación H recoloca explícitamente un cuerpo y cancela la jugada si se estaba agarrando.
 
-Ambas vistas con reglas comparten el mismo archivo de damas; guardar en una sobrescribe la partida guardada por la otra. Cambiar de modo inicia una partida nueva: guarda antes y carga después si quieres trasladarla. El guardado se escribe a un temporal y se reemplaza mediante renombrado atómico; todavía debe probarse ante interrupciones y falta de espacio. La física asistida no garantiza ausencia de solapamientos o estabilidad en todos los casos y necesita pruebas visuales y manuales.
+Ambas vistas con reglas comparten el mismo archivo de damas; guardar en una sobrescribe la partida guardada por la otra. Cambiar de modo inicia una partida nueva: guarda antes y carga después si quieres trasladarla. El guardado conserva una copia anterior recuperable. La física asistida no garantiza ausencia de solapamientos o estabilidad en todos los casos y necesita pruebas visuales y manuales.
 
 
 ## Dominó físico local
@@ -234,26 +278,41 @@ Desde esa mesa, **Dominó físico con reglas** inicia otra partida para dos pers
 
 Las manos se sitúan a los lados y el pozo en la zona superior del tablero. Agarra una ficha del jugador del turno y llévala a la zona verde **izquierda** o **derecha**; espera a que el cuerpo llegue antes de soltar. El modelo valida el movimiento y las fichas regresan o se reordenan mediante fuerzas. Las fichas jugadas reciben además un resorte angular que intenta orientarlas boca arriba y con los valores en el orden de la cadena, en un recorrido compacto en zigzag; siguen siendo cuerpos dinámicos que chocan. En este modo, al voltear o mover una ficha ya jugada, la asistencia intentará devolverla a su posición y orientación. Las colisiones pueden impedir una alineación perfecta o desplazar fichas: el texto **Cadena** sigue siendo la referencia del orden y los valores. Las colisiones por sí solas no modifican las reglas. La preparación inicial sí recoloca los cuerpos directamente.
 
-Ambos modos son prototipos locales **sin privacidad**: las manos y el pozo están visibles y la selección muestra los valores incluso boca abajo. El modo con reglas permite guardar y cargar una partida local en `user://diceon_domino.json`: guarda el reparto y los eventos, los valida por replay y devuelve las piezas a sus destinos mediante fuerzas; no guarda posiciones físicas exactas. Guardar sobrescribe el archivo anterior mediante escritura temporal y renombrado atómico; aún debe probarse ante interrupciones y falta de espacio. El modo libre no tiene guardado. No hay red ni reconexión; el guardado de la mesa sandbox no incluye el dominó. Cambiar de modo, reiniciar o salir descarta los cambios no guardados. La física asistida no garantiza estabilidad ante todos los choques, y la presentación y el manejo necesitan pruebas visuales y manuales.
+Ambos modos son prototipos locales **sin privacidad**: las manos y el pozo están visibles y la selección muestra los valores incluso boca abajo. El modo con reglas permite guardar y cargar una partida local en `user://diceon_domino.json`: guarda el reparto y los eventos, los valida por replay y devuelve las piezas a sus destinos mediante fuerzas; no guarda posiciones físicas exactas. Guardar reemplaza el archivo principal y conserva una copia anterior recuperable. El modo libre no tiene guardado. No hay red ni reconexión; el guardado de la mesa sandbox no incluye el dominó. Cambiar de modo, reiniciar o salir descarta los cambios no guardados. La física asistida no garantiza estabilidad ante todos los choques, y la presentación y el manejo necesitan pruebas visuales y manuales.
 
 
 ## Mesa de cartas
 
-Desde el menú se puede abrir una mesa manual con una **baraja inglesa de 52 cartas sin comodines** y una **baraja española de 40 cartas**. Las cartas son cuerpos rígidos con valor central y en las esquinas; en la española, O = oros, C = copas, E = espadas y B = bastos. Usa los botones para mezclar o robar, o selecciona un mazo y pulsa R o N. Las cartas aparecen en varios puntos de la mesa, pero no se comprueba que cada punto esté libre: deja espacio para evitar solapamientos. F voltea una carta mediante una animación que la congela temporalmente, no mediante una simulación física completa. No hay reparto automático, manos privadas, reglas de juegos de cartas ni guardado de esta escena.
+Desde el menú se puede abrir una mesa manual con una **baraja inglesa de 52 cartas sin comodines** y una **baraja española de 40 cartas**. Las cartas son cuerpos rígidos con valor central y en las esquinas; en la española, O = oros, C = copas, E = espadas y B = bastos. Usa los botones para mezclar o robar, o selecciona un mazo y pulsa R o N. Señala una carta y pulsa B para devolverla al fondo de su baraja sin mezclarla; tanto la carta como el mazo deben estar sueltos y desbloqueados. Las cartas aparecen en varios puntos de la mesa, pero no se comprueba que cada punto esté libre: deja espacio para evitar solapamientos. F voltea una carta mediante una animación que la congela temporalmente, no mediante una simulación física completa. **Guardar mesa** y **Cargar mesa** usan `user://diceon_cards.json` y conservan las cartas robadas, su posición, orientación y velocidades, además del orden de las barajas. Suelta la pieza y espera a que termine cualquier volteo antes de guardar o cargar; la física continúa tras la carga. El guardado se valida y mantiene una copia anterior; no guarda la cámara ni ofrece nube. No hay reparto automático, manos privadas ni reglas de juegos de cartas.
 
 Para el alcance y las verificaciones que faltan antes de llamar beta a esta base, consulta [la lista de preparación](docs/BETA.md).
 
 
+## Ludo · variante local con físicas
+
+En el menú hay mesas para **dos, tres o cuatro personas**. Cada jugador tiene cuatro fichas numeradas y un recorrido horario de 52 casillas, más su pasillo de llegada. Es una variante de Ludo propia y simplificada, **no una implementación de todas las reglas del parchís**:
+
+- Con un **6** se puede sacar una ficha de casa o mover una ficha ya en juego, y se obtiene otra tirada. Si no hay movimientos legales se pasa la tirada; un 6 sigue concediendo otra. No hay penalización por tres seises.
+- El recorrido tiene ocho casillas seguras de color, incluidas las salidas. No se puede entrar en una casilla segura ocupada por un rival. En las demás, caer sobre un rival lo devuelve a su casa. No se permiten dos fichas en una misma casilla, tampoco propias; no hay barreras ni bonificaciones por captura o llegada.
+- La entrada a meta requiere la tirada exacta, sin rebote. Gana quien lleva sus cuatro fichas a meta. Las casillas claras junto a cada casa representan las fichas ya terminadas.
+- **R/T**, el botón o agarrar y soltar el dado producen una tirada física. Si queda inclinado se intenta desencajar con impulsos; **Recolocar dado** cancela la tirada y lo devuelve a la bandeja. El resultado es la cara física una vez estable. Tras tirar, usa los botones numerados o arrastra la ficha hasta su marca verde. Las fichas son cuerpos rígidos; la asistencia las eleva y desplaza con fuerzas para sortear otras fichas. Una suelta inválida vuelve a su posición lógica.
+- **Guardar/Cargar** utiliza `user://diceon_ludo.json` y reconstruye las fichas a partir de un historial validado; conserva el número de jugadores y el turno, no las poses ni una tirada en curso. Se rechazan historiales de más de 10 000 eventos o 500 000 bytes antes de sobrescribir. Se conserva una copia anterior recuperable; no hay nube. Nueva partida pide confirmación. No hay IA, red ni variantes adicionales.
+
+Las reglas y simulaciones se prueban automáticamente, pero faltan pruebas visuales y partidas manuales con renderizador real para validar legibilidad y manejo.
+
+
 ## Isla de recursos · modo local inspirado en Catán
 
-Es una adaptación propia de las principales reglas del juego base para **tres o cuatro personas locales**, no el juego oficial. Todas las manos y puntuaciones son visibles; las cartas de desarrollo se representan en el panel, no como cartas físicas. El tablero se genera aleatoriamente y sus componentes visuales son propios. J1 es naranja, J2 azul, J3 rojo y J4 blanco; M/L/O/T/R indican madera, ladrillo, lana, trigo y mineral. Los números rojos son 6 y 8 y no aparecen adyacentes.
+Es una adaptación propia de las principales reglas del juego base para **tres o cuatro personas locales**, no el juego oficial. La mano activa se muestra con cartas ilustradas; el marcador oculta los puntos de victoria de cartas hasta el final. Las cartas de desarrollo se representan en el panel, no como cartas físicas. El tablero se genera aleatoriamente y sus componentes visuales son propios. J1 es naranja, J2 azul, J3 rojo y J4 blanco; Los puertos usan las abreviaturas Mad/Lad/Lan/Tri/Min para madera, ladrillo, lana, trigo y mineral. Los números rojos son 6 y 8 y no aparecen adyacentes.
 
 - **Preparación:** en orden serpentino (por ejemplo J1, J2, J3, J3, J2, J1 para tres), coloca un pueblo en una marca verde y después un camino adyacente. Se respeta la distancia de un vértice libre entre pueblos. El segundo pueblo recibe un recurso por cada terreno adyacente no desértico.
-- **Turno:** pulsa **Lanzar dados** y espera a que ambos cuerpos estén estables: el resultado es la cara superior física. Si quedan encajados, cancela sin cambiar el turno y vuelve a lanzar; si salen de la bandeja, recupéralos con H bajo el cursor y arrástralos de nuevo. Los hexágonos con ese número producen un recurso por pueblo o dos por ciudad, salvo el hexágono con ladrón. Si falta un recurso en el banco, cuando hay varios beneficiarios ninguno lo recibe; si solo hay uno recibe lo disponible.
-- **Siete y ladrón:** quien tenga más de siete recursos descarta la mitad redondeada hacia abajo, seleccionando uno cada vez. La persona activa mueve el ladrón a otro hexágono y, si hay víctimas con recursos junto a él, elige una para robarle un recurso al azar. Un caballero también mueve el ladrón, pero sin descarte.
-- **Construcción:** elige la acción y pulsa una marca verde; gris indica que no es válida. Un camino cuesta M+L, un pueblo M+L+O+T y una ciudad 2T+3R. Los caminos deben conectar con la red propia y los pueblos con un camino propio; un pueblo rival bloquea la conexión a través de ese vértice. Máximo 15 caminos, 5 pueblos y 4 ciudades por jugador. Mientras se selecciona una construcción se desactiva el agarre; **Cancelar selección** lo recupera.
-- **Comercio:** el cambio habitual con el banco es 4:1. Construir en cualquiera de los dos extremos de un puerto habilita la tarifa indicada en la costa: 3:1 genérica o 2:1 para el recurso indicado. Para comerciar con una persona, introduce cantidades por recurso en «ofrezco» y «pido», selecciona destinatario y envía; solo ella puede aceptar o rechazar. Debe haber recursos en ambos sentidos y no puede cambiarse un recurso por sí mismo. El estado compartido es público.
-- **Desarrollo:** comprar una carta cuesta O+T+R; hay 14 caballeros, 5 puntos de victoria, 2 de caminos, 2 de abundancia y 2 de monopolio. Las cartas jugables se pueden usar antes o después de tirar, como máximo una por turno y no en el turno de compra. Los puntos de victoria cuentan inmediatamente. Caballero mueve al ladrón; caminos permite construir hasta dos caminos gratis conectados; abundancia toma dos recursos disponibles del banco (pueden coincidir); monopolio recoge de las otras manos el recurso elegido. El panel indica cartas listas y nuevas.
+- **Turno:** pulsa **Lanzar dados**, usa **R o T**, o arrastra y suelta cada uno de los dos dados físicos. La tirada manual se acepta después de soltar ambos y esperar a que estén estables; el resultado es la cara superior física. La tirada puede cancelarse sin alterar las reglas. Si un dado queda inclinado e inmóvil, se intenta desencajarlo mediante pequeños impulsos físicos. Si permanece encajado o sale de la mesa, usa **Recolocar dados** para cancelar la tirada y devolverlos a la bandeja; esta recuperación explícita recoloca los cuerpos y no cuenta como tirada. Los hexágonos con ese número producen un recurso por pueblo o dos por ciudad, salvo el hexágono con ladrón. Si falta un recurso en el banco, cuando hay varios beneficiarios ninguno lo recibe; si solo hay uno recibe lo disponible.
+- **Siete y ladrón:** quien tenga más de siete recursos descarta la mitad redondeada hacia abajo tocando sus cartas ilustradas, una cada vez. La persona activa mueve el ladrón a otro hexágono y, si hay víctimas con recursos junto a él, elige una para robarle un recurso al azar. Un caballero también mueve el ladrón, pero sin descarte.
+- **Construcción:** elige la acción en **Turno** y pulsa una de las marcas verdes; solo se muestran ubicaciones válidas. Un camino cuesta madera y ladrillo; un pueblo, madera, ladrillo, lana y trigo; una ciudad, dos trigos y tres minerales. Los caminos deben conectar con la red propia y los pueblos con un camino propio; un pueblo rival bloquea la conexión a través de ese vértice. Máximo 15 caminos, 5 pueblos y 4 ciudades por jugador. Mientras se selecciona una construcción se desactiva el agarre; **Cancelar selección** lo recupera.
+- **Comercio:** el cambio habitual con el banco es 4:1. Construir en cualquiera de los dos extremos de un puerto habilita la tarifa indicada en la costa: 3:1 genérica o 2:1 para el recurso indicado. En la pestaña **Comercio**, para comerciar con una persona, introduce cantidades por recurso en «ofrezco» y «pido», selecciona destinatario y envía; solo ella puede aceptar o rechazar. Debe haber recursos en ambos sentidos y no puede cambiarse un recurso por sí mismo. La respuesta muestra la mano de la persona destinataria.
+- **Desarrollo:** comprar una carta cuesta lana, trigo y mineral; hay 14 caballeros, 5 puntos de victoria, 2 de caminos, 2 de abundancia y 2 de monopolio. Las cartas jugables se pueden usar antes o después de tirar, como máximo una por turno y no en el turno de compra. Los puntos de victoria cuentan inmediatamente. Caballero mueve al ladrón; caminos permite construir hasta dos caminos gratis conectados; abundancia toma dos recursos disponibles del banco (pueden coincidir); monopolio recoge de las otras manos el recurso elegido. La pestaña **Cartas** indica cartas listas y nuevas; para abundancia o monopolio, elige el recurso pulsando la carta ilustrada de la mano.
 - **Bonificaciones y victoria:** la ruta más larga continua de al menos cinco caminos y el ejército más grande de al menos tres caballeros valen dos puntos cada uno. En caso de empate el titular conserva el título; para arrebatárselo hay que superarlo. Una ruta no repite aristas y los pueblos rivales la interrumpen. Gana quien alcance diez puntos durante su turno, con uno por pueblo y dos por ciudad.
 
-Caminos, pueblos, ciudades y ladrón son cuerpos rígidos con colisiones; fuerzas y torque los ayudan a regresar a su ubicación lógica. Los dados se lanzan físicamente dentro de una bandeja con paredes. El panel es desplazable. **Guardar** sobrescribe `user://diceon_island.json`; **Cargar** reconstruye tablero y cuerpos a partir de acciones validadas y una semilla. Guarda el estado lógico y las tiradas, no las poses físicas, la cámara ni la tirada en curso. El archivo se reemplaza mediante temporal y renombrado atómico; el replay depende del algoritmo aleatorio de la versión y aún se deben probar interrupciones y falta de espacio. No hay nube. No hay privacidad en la pantalla compartida, IA, expansiones ni red. Falta validar gráficamente y con partidas manuales; las pruebas headless no sustituyen esa revisión.
+Caminos, pueblos, ciudades y ladrón son cuerpos rígidos con colisiones; fuerzas y torque los ayudan a regresar a su ubicación lógica. Los dados se lanzan físicamente dentro de una bandeja con paredes translúcidas; esta usa una capa física propia para permitir seleccionar los dados a través de sus paredes. El panel está dividido en Turno, Comercio, Cartas y Partida; cambia automáticamente a la acción obligatoria. Las ilustraciones de recursos son originales y generadas para este prototipo. **Guardar** sobrescribe `user://diceon_island.json`; **Cargar** reconstruye tablero y cuerpos a partir de acciones validadas y una semilla. Guarda el estado lógico y las tiradas, no las poses físicas, la cámara ni la tirada en curso. Rechaza guardados que superen 10 000 eventos o 2 MB antes de sobrescribir el anterior. Se conserva una copia anterior recuperable; el replay depende del algoritmo aleatorio de la versión y no hay nube. En **Partida** puedes activar la ocultación visual opcional: al cambiar el jugador que debe actuar (incluidos descartes y respuestas de comercio), se tapa la pantalla hasta que confirme. Se desactiva al iniciar otra escena y no cifra el guardado ni impide mirar la pantalla; por defecto está desactivada. No hay privacidad de red, IA, expansiones ni multijugador. Falta validar gráficamente y con partidas manuales; las pruebas headless no sustituyen esa revisión.
+
+Inspiración y alcance de las herramientas de mesa: [investigación de Tabletop Simulator](docs/REFERENCIAS-TABLETOP.md).

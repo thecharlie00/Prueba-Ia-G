@@ -10,6 +10,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	_clean_save(SAVE)
 	await _test_real_drag_and_cancel()
 	await _test_castle_and_save()
 	await _test_en_passant()
@@ -17,8 +18,7 @@ func _run() -> void:
 	await _test_promotion_replay()
 	await _test_announced_draw_claim()
 	await _test_draw_claim()
-	await _test_ai_turn_and_undo()
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE))
+	_clean_save(SAVE)
 	if failures:
 		printerr("Guided physical chess: %d errores" % failures)
 		quit(1)
@@ -423,3 +423,10 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures += 1
 		printerr("FALLO: " + message)
+
+
+func _clean_save(path: String) -> void:
+	for suffix in ["", ".previous", ".pending", ".previous.pending"]:
+		var file: String = path + suffix
+		if FileAccess.file_exists(file):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(file))

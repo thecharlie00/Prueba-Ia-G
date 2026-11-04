@@ -13,6 +13,7 @@ func _run() -> void:
 	root.add_child(main)
 	await _ticks(2)
 	var grabber: PhysicsGrabber3D = main.get_node("PhysicsGrabber3D")
+	grabber.click_to_grab = false  # La prueba cubre el modo mantener, sin depender del ajuste local.
 	var grid: SnapGrid3D = main.get_node("SnapGrid3D")
 	var gold: Token3D = main.get_node("Objects/TokenGold")
 	var red: Token3D = main.get_node("Objects/TokenRed")

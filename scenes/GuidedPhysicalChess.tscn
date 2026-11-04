@@ -4,8 +4,8 @@
 
 [node name="GuidedPhysicalChess" instance=ExtResource("1")]
 script = ExtResource("2")
-[node name="Panel" parent="UI"]
-offset_bottom = 430.0
+[node name="PhysicsGrabber3D" parent="." index="7"]
+lock_shortcut_enabled = false
 [node name="Eyebrow" parent="UI/Panel/Margin/Content" index="0"]
 text = "DICE ON!! · PARTIDA LOCAL"
 [node name="Title" parent="UI/Panel/Margin/Content" index="1"]

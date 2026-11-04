@@ -4,6 +4,8 @@
 
 [node name="CardTable" instance=ExtResource("1")]
 script = ExtResource("2")
+[node name="PhysicsGrabber3D" parent="." index="7"]
+lock_shortcut_enabled = true
 [node name="Title" parent="UI/Panel/Margin/Content" index="1"]
 text = "Mesa de cartas"
 [node name="Status" parent="UI/Panel/Margin/Content" index="2"]
@@ -11,7 +13,8 @@ text = "Inglesa: 52 · Española: 40"
 [node name="Help" parent="UI/Panel/Margin/Content" index="3"]
 text = "Barajas libres y visibles, sin reglas automáticas ni manos privadas. Roba, mezcla y mueve las cartas físicamente."
 [node name="Legend" parent="UI/Panel/Margin/Content" index="4"]
-text = "Inglesa: 52 cartas sin comodines\nEspañola: 40 · O oros / C copas\nE espadas / B bastos\nN: robar · R: mezclar · F: voltear\nIzquierdo: agarrar · H: recuperar\nDerecho: orbitar · Rueda: zoom / altura"
+text = "Inglesa: 52 cartas sin comodines\nEspañola: 40 · O oros / C copas\nE espadas / B bastos\nN: robar · R: mezclar · F: voltear\nB: devolver carta al fondo\nIzquierdo: agarrar · H: recuperar
+L: bloquear · Alt: inspeccionar\nDerecho: orbitar · Rueda: zoom / altura"
 [node name="Reset" parent="UI/Panel/Margin/Content" index="5"]
 text = "Reiniciar barajas"
 tooltip_text = "Descarta las cartas robadas y vuelve al estado inicial."
@@ -39,6 +42,16 @@ text = "Mezclar española"
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Robar española"
-[node name="Sandbox" parent="UI/Panel/Margin/Content" index="10"]
+[node name="SaveRow" type="HBoxContainer" parent="UI/Panel/Margin/Content" index="10"]
+layout_mode = 2
+[node name="Save" type="Button" parent="UI/Panel/Margin/Content/SaveRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Guardar mesa"
+[node name="Load" type="Button" parent="UI/Panel/Margin/Content/SaveRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Cargar mesa"
+[node name="Sandbox" parent="UI/Panel/Margin/Content" index="11"]
 text = "Volver a la mesa libre"
 tooltip_text = "Abre una mesa nueva; no conserva las cartas actuales."

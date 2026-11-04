@@ -109,6 +109,7 @@ func _test_forced_chain_and_promotion(packed: PackedScene) -> void:
 	await _ticks(2)
 	view.grabber.set_physics_process(false)
 	view.save_path = "user://test_guided_physical_checkers.json"
+	_clean_save(view.save_path)
 	var chain_path := [
 		[44, 35],
 		[21, 28],
@@ -178,7 +179,7 @@ func _test_forced_chain_and_promotion(packed: PackedScene) -> void:
 			view.rules.board[35] == 1 and view.rules.board[28] == -1,
 			"deshacer recupera la captura tras cargar"
 		)
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(view.save_path))
+		_clean_save(view.save_path)
 
 	# Montar una posición reducida para verificar coronación y deshacer.
 	var white: Token3D
@@ -255,3 +256,10 @@ func _check(condition: bool, message: String) -> void:
 	if not condition:
 		failures += 1
 		printerr("FALLO: " + message)
+
+
+func _clean_save(path: String) -> void:
+	for suffix in ["", ".previous", ".pending", ".previous.pending"]:
+		var file: String = path + suffix
+		if FileAccess.file_exists(file):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(file))

@@ -1,7 +1,9 @@
 class_name GuidedDomino
 extends PhysicalDomino
 
-const AtomicSave = preload("res://scripts/AtomicSaveFile.gd")
+const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
+const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
+
 const MAX_SAVE_BYTES := 262144
 const HOME_SPRING := 28.0
 const HOME_DAMPING := 9.0
@@ -134,39 +136,36 @@ func _save_game() -> void:
 	if is_instance_valid(grabber.held):
 		_help("Suelta la ficha antes de guardar.")
 		return
-	var record := rules.export_record()
-	var json := JSON.stringify(record)
-	if rules.events.size() > 128 or json.to_utf8_buffer().size() > MAX_SAVE_BYTES:
-		_help("La partida supera el límite de guardado.")
+	if rules.events.size() > 128:
+		_help("La partida supera el límite; se conserva el guardado anterior.")
 		return
-	if not AtomicSave.write_text(save_path, json):
-		_help("No se pudo guardar la partida.")
-	else:
-		_help("Partida guardada en este dispositivo.")
+	var json := JSON.stringify(rules.export_record())
+	if not SAVE_STORE.write(save_path, json, MAX_SAVE_BYTES, SAVE_CODECS.domino):
+		_help("No se pudo guardar; comprueba el espacio e inténtalo de nuevo.")
+		return
+	_help("Partida guardada en este dispositivo.")
 
 
 func _load_game() -> void:
 	if is_instance_valid(grabber.held):
 		_help("Suelta la ficha antes de cargar.")
 		return
-	var file := FileAccess.open(save_path, FileAccess.READ)
-	if file == null:
-		_help("No hay una partida guardada disponible.")
+	var loaded := SAVE_STORE.read_validated(save_path, MAX_SAVE_BYTES, SAVE_CODECS.domino)
+	if loaded.is_empty():
+		_help("Guardado ausente o inválido; se conserva la partida actual.")
 		return
-	if file.get_length() > MAX_SAVE_BYTES:
-		_help("Archivo de partida demasiado grande.")
-		return
-	var parser := JSON.new()
-	var candidate := DominoRules.new()
-	if parser.parse(file.get_as_text()) != OK or not candidate.import_record(parser.data):
-		_help("Archivo inválido o partida incompatible.")
-		return
-	rules = candidate
+	rules = loaded["value"] as DominoRules
 	_dragged = null
 	_legal_ends.clear()
 	_sync_homes(false)
 	_refresh()
-	_help("Partida cargada. Las fichas vuelven a sus posiciones mediante fuerzas.")
+	_help(
+		(
+			"Cargada la copia anterior: el guardado principal falta o es inválido."
+			if loaded["backup"]
+			else "Partida cargada en este dispositivo."
+		)
+	)
 
 
 # En la preparación inicial se colocan las fichas; después solo se actualizan destinos.

@@ -32,11 +32,22 @@ func _connect_objects() -> void:
 
 
 func _on_selection_changed(object: InteractiveTableObject) -> void:
-	selection_label.text = (
-		object.display_name.to_upper()
-		if is_instance_valid(object)
-		else "NINGUNA PIEZA SELECCIONADA"
-	)
+	if is_instance_valid(object):
+		selection_label.text = (
+			("CARTA" if object is Card3D else object.display_name.to_upper())
+			+ (" · BLOQUEADA" if object.is_table_locked else "")
+		)
+	elif is_instance_valid(grabber.last_selected):
+		selection_label.text = (
+			"ÚLTIMA: %s · H PARA RECUPERAR"
+			% (
+				"CARTA"
+				if grabber.last_selected is Card3D
+				else grabber.last_selected.display_name.to_upper()
+			)
+		)
+	else:
+		selection_label.text = "NINGUNA PIEZA SELECCIONADA"
 
 
 func _on_dice_result(value: int) -> void:
@@ -88,7 +99,10 @@ func _can_store() -> bool:
 		result_label.text = "Suelta la pieza antes de guardar o cargar."
 		return false
 	for object in $Objects.get_children():
-		if object is InteractiveTableObject and (object.is_grabbed or object.freeze):
+		if (
+			object is InteractiveTableObject
+			and (object.is_grabbed or (object.freeze and not object.is_table_locked))
+		):
 			result_label.text = "Espera a que termine el volteo de la carta."
 			return false
 	return true
@@ -107,10 +121,11 @@ func _on_save_pressed() -> void:
 func _on_load_pressed() -> void:
 	if not _can_store():
 		return
-	var record: Dictionary = SandboxPersistence.read(sandbox_save_path)
-	if record.is_empty():
+	var loaded := SandboxPersistence.read_with_source(sandbox_save_path)
+	if loaded.is_empty():
 		result_label.text = "No se pudo cargar: archivo ausente o inválido."
 		return
+	var record: Dictionary = loaded["value"]
 	var pieces: Array[InteractiveTableObject] = SandboxPersistence.instantiate_pieces(record)
 	if pieces.size() != record["objects"].size():
 		result_label.text = "No se pudieron crear las piezas guardadas."
@@ -119,6 +134,7 @@ func _on_load_pressed() -> void:
 	if is_instance_valid(grabber.hovered):
 		grabber.hovered.set_hovered(false)
 	grabber.hovered = null
+	grabber.last_selected = null
 	grabber._pending_recovery = null
 	grabber._pending_release = false
 	grabber._release_reason = "released"
@@ -132,4 +148,8 @@ func _on_load_pressed() -> void:
 	$SnapGrid3D.enabled = record["snap"]
 	_connect_objects()
 	selection_label.text = "NINGUNA PIEZA SELECCIONADA"
-	result_label.text = "Mesa cargada; la simulación física continúa."
+	result_label.text = (
+		"Archivo principal inválido o ausente: cargada la copia anterior."
+		if loaded["backup"]
+		else "Mesa cargada; la simulación física continúa."
+	)

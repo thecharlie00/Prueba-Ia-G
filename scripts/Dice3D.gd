@@ -20,16 +20,24 @@ func _ready() -> void:
 	_make_pips()
 
 
-func roll() -> void:
+func roll(impulse_scale: float = 1.0) -> void:
 	if is_grabbed:
 		return
 	_awaiting_result = true
 	sleeping = false
 	apply_central_impulse(
-		Vector3(randf_range(-0.8, 0.8), randf_range(2.5, 3.5), randf_range(-0.8, 0.8)) * mass
+		(
+			Vector3(randf_range(-0.8, 0.8), randf_range(2.5, 3.5), randf_range(-0.8, 0.8))
+			* mass
+			* impulse_scale
+		)
 	)
 	apply_torque_impulse(
-		Vector3(randf_range(-2.0, 2.0), randf_range(-2.0, 2.0), randf_range(-2.0, 2.0)) * mass
+		(
+			Vector3(randf_range(-2.0, 2.0), randf_range(-2.0, 2.0), randf_range(-2.0, 2.0))
+			* mass
+			* impulse_scale
+		)
 	)
 
 

@@ -7,6 +7,8 @@ signal released(object: InteractiveTableObject)
 @export var display_name := "Pieza"
 @export var highlight_color := Color(0.36, 0.88, 0.76, 1.0)
 var is_grabbed := false
+# Bloqueo explícito de mesa, independiente del freeze temporal de animaciones.
+var is_table_locked := false
 var hovered := false
 var _highlight: StandardMaterial3D
 
@@ -73,6 +75,21 @@ func on_release() -> void:
 	is_grabbed = false
 	_update_highlight()
 	released.emit(self)
+
+
+func set_table_locked(value: bool) -> bool:
+	if value == is_table_locked:
+		return true
+	if is_grabbed or (freeze and not is_table_locked):
+		return false
+	is_table_locked = value
+	if value:
+		linear_velocity = Vector3.ZERO
+		angular_velocity = Vector3.ZERO
+	freeze = value
+	if not value:
+		sleeping = false
+	return true
 
 
 # Un impulso en vez de teletransportar el cuerpo mantiene las colisiones activas.
