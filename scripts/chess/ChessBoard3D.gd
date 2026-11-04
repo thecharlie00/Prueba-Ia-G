@@ -5,6 +5,8 @@ const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
 const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
 
 const BoardGeometry = preload("res://scripts/BoardGeometry3D.gd")
+const AtomicSave = preload("res://scripts/AtomicSaveFile.gd")
+const ChessAI = preload("res://scripts/chess/ChessAI.gd")
 const CELL := 0.46
 const BOARD_HEIGHT := 0.83
 const MAX_SAVE_BYTES := 262144
@@ -14,6 +16,11 @@ const MAX_SAVE_BYTES := 262144
 var rules := ChessRules.new()
 var selected: int = -1
 var legal_destinations: Array[int] = []
+var _claim_mode := false
+var _ai_thinking := false
+var _ai_failed := false
+var _ai_request_id := 0
+var _random := RandomNumberGenerator.new()
 var squares: Array[MeshInstance3D] = []
 var light_material: StandardMaterial3D
 var dark_material: StandardMaterial3D
@@ -30,6 +37,7 @@ var black_piece: StandardMaterial3D
 @onready var promotion_choice: OptionButton = $UI/Panel/Margin/Content/Promotion
 @onready var undo_button: Button = $UI/Panel/Margin/Content/Undo
 @onready var claim_button: Button = $UI/Panel/Margin/Content/Claim
+@onready var opponent_choice: OptionButton = $UI/Panel/Margin/Content/Opponent
 
 
 func _ready() -> void:
@@ -39,6 +47,11 @@ func _ready() -> void:
 	promotion_choice.add_item("Torre", ChessRules.ROOK)
 	promotion_choice.add_item("Alfil", ChessRules.BISHOP)
 	promotion_choice.add_item("Caballo", ChessRules.KNIGHT)
+	opponent_choice.add_item("Dos personas", ChessRules.OPPONENT_LOCAL)
+	opponent_choice.add_item("IA casual", ChessRules.OPPONENT_AI_CASUAL)
+	opponent_choice.add_item("IA táctica", ChessRules.OPPONENT_AI_TACTICAL)
+	opponent_choice.item_selected.connect(_on_opponent_selected)
+	_random.randomize()
 	$UI/Panel/Margin/Content/Reset.pressed.connect(_reset)
 	undo_button.pressed.connect(_undo)
 	claim_button.pressed.connect(_claim)
@@ -49,7 +62,13 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+	if (
+		not _ai_thinking
+		and not _is_ai_turn()
+		and event is InputEventMouseButton
+		and event.button_index == MOUSE_BUTTON_LEFT
+		and event.pressed
+	):
 		var square: int = BoardGeometry.square_from_mouse(
 			camera, event.position, CELL, BOARD_HEIGHT
 		)
@@ -58,9 +77,37 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _select_square(square: int) -> void:
-	if rules.status() not in ["playing", "check"]:
+	if _ai_thinking or _is_ai_turn() or rules.status() not in ["playing", "check"]:
 		return
 	var piece: int = rules.piece_at(square)
+	if _claim_mode:
+		if selected >= 0 and square in legal_destinations:
+			if rules.claim_draw(selected, square, promotion_choice.get_selected_id()):
+				_claim_mode = false
+				selected = -1
+				legal_destinations.clear()
+				_refresh()
+				help_label.text = "Tablas reclamadas anunciando esa jugada."
+			else:
+				selected = -1
+				legal_destinations.clear()
+				_refresh()
+				help_label.text = "Esa jugada no permite reclamar tablas."
+			return
+		if (
+			(piece > 0 and rules.turn == ChessRules.WHITE)
+			or (piece < 0 and rules.turn == ChessRules.BLACK)
+		):
+			selected = square
+			legal_destinations.clear()
+			for move in rules.legal_moves_from(square):
+				legal_destinations.append(int(move["to"]))
+		else:
+			selected = -1
+			legal_destinations.clear()
+		_refresh()
+		help_label.text = "Elige la jugada que quieres anunciar para reclamar tablas."
+		return
 	if selected >= 0 and square in legal_destinations:
 		var promotion: int = promotion_choice.get_selected_id()
 		if rules.play(selected, square, promotion):
@@ -126,6 +173,8 @@ func _make_piece(square: int, piece: int) -> void:
 
 func _update_status() -> void:
 	var side: String = "Blancas" if rules.turn == ChessRules.WHITE else "Negras"
+	if _is_ai_turn():
+		side = "IA"
 	var state: String = rules.status()
 	match state:
 		"checkmate":
@@ -156,34 +205,77 @@ func _update_status() -> void:
 		else "Partida terminada. Deshaz o inicia una nueva."
 	)
 	undo_button.disabled = rules.history.is_empty()
-	claim_button.disabled = (
-		not active
-		or not (
-			rules.halfmove_clock >= 100
-			or int(rules.repetition_counts.get(rules._position_key(), 0)) >= 3
+	claim_button.disabled = not active or _is_ai_turn() or _ai_thinking
+	claim_button.text = "Cancelar anuncio" if _claim_mode else "Reclamar tablas"
+	opponent_choice.select(opponent_choice.get_item_index(rules.opponent_mode))
+	opponent_choice.disabled = _ai_thinking
+	claim_button.tooltip_text = (
+		(
+			"Selecciona una pieza y una jugada legal que produciría 50 movimientos "
+			+ "o una tercera repetición."
 		)
+		if _claim_mode
+		else "Reclama tablas ahora si corresponde o anuncia una jugada legal que las produciría."
 	)
+	if active and _is_ai_turn():
+		_schedule_ai_turn()
 
 
 func _reset() -> void:
+	var opponent_mode: int = rules.opponent_mode
+	_ai_request_id += 1
+	_ai_thinking = false
+	_ai_failed = false
 	rules.reset()
+	rules.opponent_mode = opponent_mode
+	_claim_mode = false
 	selected = -1
 	legal_destinations.clear()
 	_refresh()
 
 
 func _undo() -> void:
-	if rules.undo():
+	_ai_request_id += 1
+	_ai_thinking = false
+	_ai_failed = false
+	var undo_count := 1
+	if (
+		rules.opponent_mode != ChessRules.OPPONENT_LOCAL
+		and rules.turn == ChessRules.WHITE
+		and rules.history.size() >= 2
+	):
+		undo_count = 2
+	var changed := false
+	for _i in range(undo_count):
+		if rules.undo():
+			changed = true
+	if changed:
+		_claim_mode = false
 		selected = -1
 		legal_destinations.clear()
 		_refresh()
 
 
 func _claim() -> void:
-	if rules.claim_draw():
+	if _is_ai_turn() or _ai_thinking:
+		return
+	if rules.can_claim_draw():
+		rules.claim_draw()
+		_claim_mode = false
 		selected = -1
 		legal_destinations.clear()
 		_refresh()
+		help_label.text = "Tablas reclamadas."
+	elif rules.status() in ["playing", "check"]:
+		_claim_mode = not _claim_mode
+		selected = -1
+		legal_destinations.clear()
+		_refresh()
+		help_label.text = (
+			"Selecciona una pieza y una jugada legal para anunciar."
+			if _claim_mode
+			else "Anuncio de reclamación cancelado."
+		)
 
 
 func _save_game() -> void:
@@ -204,6 +296,10 @@ func _load_game() -> void:
 		return
 	rules = loaded["value"] as ChessRules
 	selected = -1
+	_ai_request_id += 1
+	_ai_thinking = false
+	_ai_failed = false
+	_claim_mode = false
 	legal_destinations.clear()
 	_refresh()
 	help_label.text = (
@@ -211,6 +307,48 @@ func _load_game() -> void:
 		if loaded["backup"]
 		else "Partida cargada en este dispositivo."
 	)
+
+
+func _on_opponent_selected(index: int) -> void:
+	rules.opponent_mode = opponent_choice.get_item_id(index)
+	_ai_failed = false
+	selected = -1
+	legal_destinations.clear()
+	_claim_mode = false
+	_refresh()
+
+
+func _is_ai_turn() -> bool:
+	return rules.opponent_mode != ChessRules.OPPONENT_LOCAL and rules.turn == ChessRules.BLACK
+
+
+func _schedule_ai_turn() -> void:
+	if _ai_thinking or _ai_failed or not _is_ai_turn():
+		return
+	_ai_thinking = true
+	_ai_request_id += 1
+	status_label.text = "Turno de la IA · pensando…"
+	help_label.text = "La IA elegirá una jugada legal."
+	_play_ai_turn.call_deferred(_ai_request_id)
+
+
+func _play_ai_turn(request_id: int) -> void:
+	await get_tree().create_timer(0.35).timeout
+	if request_id != _ai_request_id:
+		return
+	if not _is_ai_turn() or rules.status() not in ["playing", "check"]:
+		_ai_thinking = false
+		_refresh()
+		return
+	var move := ChessAI.choose_move(rules, rules.opponent_mode, _random)
+	_ai_thinking = false
+	if move.is_empty() or not rules.play(int(move["from"]), int(move["to"])):
+		_ai_failed = true
+		help_label.text = "La IA no pudo completar una jugada legal."
+		_refresh()
+		return
+	_refresh()
+	help_label.text = "La IA ha movido."
 
 
 func _open_sandbox() -> void:

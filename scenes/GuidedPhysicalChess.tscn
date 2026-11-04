@@ -16,21 +16,27 @@ text = "Turno: blancas"
 text = "Arrastra una pieza a una casilla iluminada y espera a que llegue antes de soltar."
 [node name="Legend" parent="UI/Panel/Margin/Content" index="4"]
 text = "Turnos y jugadas legales · blancas primero\nP peón · C caballo · A alfil\nT torre · D dama · R rey\nIzquierdo: agarrar · H: recuperar\nRueda: altura / zoom · Derecho: orbitar"
-[node name="Reset" parent="UI/Panel/Margin/Content" index="5"]
+[node name="OpponentLabel" type="Label" parent="UI/Panel/Margin/Content" index="5"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "Oponente"
+[node name="Opponent" type="OptionButton" parent="UI/Panel/Margin/Content" index="6"]
+layout_mode = 2
+[node name="Reset" parent="UI/Panel/Margin/Content" index="7"]
 text = "Nueva partida"
 tooltip_text = "Inicia una partida nueva; pierde cambios no guardados."
-[node name="Rules" parent="UI/Panel/Margin/Content" index="6"]
+[node name="Rules" parent="UI/Panel/Margin/Content" index="8"]
 text = "Ajedrez con reglas · vista simple"
 tooltip_text = "Inicia una partida nueva; guarda y carga para transferirla."
-[node name="Guided" parent="UI/Panel/Margin/Content" index="7"]
+[node name="Guided" parent="UI/Panel/Margin/Content" index="9"]
 visible = false
-[node name="PromotionLabel" type="Label" parent="UI/Panel/Margin/Content" index="8"]
+[node name="PromotionLabel" type="Label" parent="UI/Panel/Margin/Content" index="10"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 12
 text = "Promoción del peón"
-[node name="Promotion" type="OptionButton" parent="UI/Panel/Margin/Content" index="9"]
+[node name="Promotion" type="OptionButton" parent="UI/Panel/Margin/Content" index="11"]
 layout_mode = 2
-[node name="Actions" type="HBoxContainer" parent="UI/Panel/Margin/Content" index="10"]
+[node name="Actions" type="HBoxContainer" parent="UI/Panel/Margin/Content" index="12"]
 layout_mode = 2
 [node name="Undo" type="Button" parent="UI/Panel/Margin/Content/Actions"]
 layout_mode = 2
@@ -40,7 +46,7 @@ text = "Deshacer"
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Reclamar tablas"
-[node name="SaveRow" type="HBoxContainer" parent="UI/Panel/Margin/Content" index="11"]
+[node name="SaveRow" type="HBoxContainer" parent="UI/Panel/Margin/Content" index="13"]
 layout_mode = 2
 [node name="Save" type="Button" parent="UI/Panel/Margin/Content/SaveRow"]
 layout_mode = 2
@@ -51,10 +57,10 @@ tooltip_text = "Sobrescribe la partida local compartida con la vista simple."
 layout_mode = 2
 size_flags_horizontal = 3
 text = "Cargar"
-[node name="Free" type="Button" parent="UI/Panel/Margin/Content" index="12"]
+[node name="Free" type="Button" parent="UI/Panel/Margin/Content" index="14"]
 layout_mode = 2
 text = "Ajedrez físico libre"
 tooltip_text = "Abre una mesa nueva sin reglas ni posición transferida."
-[node name="Sandbox" parent="UI/Panel/Margin/Content" index="13"]
+[node name="Sandbox" parent="UI/Panel/Margin/Content" index="15"]
 text = "Volver a la mesa libre"
 tooltip_text = "Abre una mesa nueva; pierde cambios no guardados."

@@ -20,7 +20,7 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 
 ## Pendiente para completar el GDD
 
-1. Robustecer el ajedrez con pruebas exhaustivas de reglas, casos límite, accesibilidad, relojes, mejoras de guardado y juego libre opcional.
+1. Robustecer el ajedrez con pruebas exhaustivas de reglas, casos límite, accesibilidad, relojes, una IA más avanzada para distintos niveles y juego libre opcional.
 2. Física asistida avanzada: apilado automático, casos extremos del barrido, recuperación configurable y controles accesibles/remapeables; robustecer la integración de física con reglas y llevarla a otros juegos.
 3. Catálogo: ampliar y validar las variantes de damas; ampliar y validar las variantes de parchís/ludo y privacidad de dominó, reglas de barajas y roles ocultos.
 4. Editor no-code: importación validada de imágenes/modelos, generador de fichas y mazos, zonas, lógica visual acotada y paquetes versionados.
@@ -31,4 +31,4 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 El volumen de trabajo y las dependencias externas hacen que el GDD completo no equivalga a un único cambio ni a una función ya terminada.
 
 
-Consulta [BETA.md](BETA.md) para los bloqueos de una beta local verificable. La existencia de un menú y pruebas headless no equivale a una beta ya validada con jugadores.
+Consulta [BETA.md](BETA.md) para los bloqueos de una beta local verificable. Los guardados locales usan temporal y reemplazo atómico; falta probar interrupciones, falta de espacio y comportamiento en sistemas reales. La existencia de un menú y pruebas headless no equivale a una beta ya validada con jugadores.

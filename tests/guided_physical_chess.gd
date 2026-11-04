@@ -16,6 +16,7 @@ func _run() -> void:
 	await _test_en_passant()
 	await _test_promotion()
 	await _test_promotion_replay()
+	await _test_announced_draw_claim()
 	await _test_draw_claim()
 	_clean_save(SAVE)
 	if failures:
@@ -304,6 +305,77 @@ func _test_draw_claim() -> void:
 	view._undo()
 	view._load_game()
 	_check(view.rules.status() == "threefold_repetition", "carga conserva tablas reclamadas")
+	view.queue_free()
+	await process_frame
+
+
+func _test_announced_draw_claim() -> void:
+	var view := _new_view()
+	await _ticks(2)
+	for move in [["g1", "f3"], ["g8", "f6"], ["f3", "g1"]]:
+		_simulated_release(view, move[0], move[1], true)
+	var piece := view._find_piece(view.piece_squares, _sq("g1"))
+	var claim: Button = view.get_node("UI/Panel/Margin/Content/Actions/Claim")
+	claim.pressed.emit()
+	_check(view._claim_mode, "el botón activa el anuncio de tablas")
+	_simulated_release(view, "f6", "g8", true)
+	_check(
+		view.rules.status() == "threefold_repetition",
+		"el arrastre reclama tablas por jugada anunciada"
+	)
+	_check(view.rules.move_log.size() == 3, "la jugada reclamada no se ejecuta")
+	_check(
+		int(view.piece_squares[piece]) == _sq("g1"),
+		"la pieza blanca conserva su casilla lógica"
+	)
+	view._save_game()
+	view.rules.reset()
+	view._load_game()
+	_check(
+		view.rules.status() == "threefold_repetition",
+		"el guardado conserva la reclamación anunciada"
+	)
+	_check(
+		view.rules.claimed_move == {"from": _sq("f6"), "to": _sq("g8"), "promotion": 5},
+		"el guardado físico conserva la jugada anunciada"
+	)
+	view.queue_free()
+	await process_frame
+
+
+func _test_ai_turn_and_undo() -> void:
+	var view := _new_view()
+	await _ticks(2)
+	var opponent: OptionButton = view.get_node("UI/Panel/Margin/Content/Opponent")
+	var ai_option: int = opponent.get_item_index(ChessRules.OPPONENT_AI_CASUAL)
+	opponent.select(ai_option)
+	opponent.item_selected.emit(ai_option)
+	_simulated_release(view, "e2", "e4", true)
+	await _ticks(40)
+	_check(
+		view.rules.move_log.size() == 2 and view.rules.turn == ChessRules.WHITE,
+		"la IA responde en la partida física"
+	)
+	var ai_move: Dictionary = view.rules.move_log.back()
+	var ai_piece := view._find_piece(view.piece_squares, int(ai_move["to"]))
+	_check(
+		ai_piece != null and int(view.piece_squares[ai_piece]) == int(ai_move["to"]),
+		"el modelo físico refleja la jugada de la IA"
+	)
+	view._undo()
+	_check(
+		view.rules.move_log.is_empty()
+		and view.rules.piece_at(_sq("e2")) == ChessRules.PAWN
+		and view.rules.piece_at(_sq("e7")) == -ChessRules.PAWN,
+		"deshacer contra IA revierte sus dos jugadas físicas"
+	)
+	view._reset()
+	_check(
+		view.rules.opponent_mode == ChessRules.OPPONENT_AI_CASUAL
+		and view.rules.move_log.is_empty()
+		and view._find_piece(view.piece_squares, _sq("e2")) != null,
+		"nueva partida física conserva la IA y recupera la posición inicial"
+	)
 	view.queue_free()
 	await process_frame
 

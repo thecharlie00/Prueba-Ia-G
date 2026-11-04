@@ -14,7 +14,8 @@ Este documento es una lista de trabajo, no una declaración de que exista ya una
 
 ## Bloqueos antes de considerar una beta local jugable
 
-- Ejecutar una compilación con renderizador real: inspeccionar las siluetas, lectura de cartas, iluminación, cámara, paneles, foco, pantallas pequeñas y estabilidad gráfica. El entorno actual solo dispone de Godot headless sin renderizador.
+- Ejecutar una compilación con renderizador real: inspeccionar las siluetas, lectura de cartas, iluminación, cámara, paneles, foco, pantallas pequeñas y estabilidad gráfica.
+- Verificar en cada modo el flujo de pausa y confirmación de salida; las partidas locales que no tienen guardado perderán su estado al volver al menú.
 - Probar manualmente con ratón y teclado: agarre, altura, colisiones, recuperación, pausas durante acciones y partidas completas de cada variante. Ajustar masas, fuerzas y objetivos según resultados reales.
 - Comprobar los temporales y la recuperación del guardado anterior ante cortes reales y espacio insuficiente; no se garantiza atomicidad ni durabilidad en todos los sistemas, ni hay bloqueo entre instancias. La mesa de ajedrez físico libre todavía no se guarda; la isla guarda el estado lógico, no poses físicas.
 - Validar el modo de dos clics, el bloqueo, la inspección, las vistas rápidas y la recuperación de piezas en partidas manuales, y ampliar claridad, accesibilidad y opciones de control; verificar que el estado lógico y el físico no confunden al jugador en casos de colisión o piezas desplazadas.

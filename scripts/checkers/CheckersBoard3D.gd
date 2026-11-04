@@ -5,6 +5,7 @@ const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
 const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
 
 const BoardGeometry = preload("res://scripts/BoardGeometry3D.gd")
+const AtomicSave = preload("res://scripts/AtomicSaveFile.gd")
 const CELL := 0.46
 const BOARD_HEIGHT := 0.83
 const MAX_SAVE_BYTES := 262144

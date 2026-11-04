@@ -21,6 +21,11 @@ var _snapshots: Array[Dictionary] = []
 var _dragged: PhysicalChessPiece
 var _drag_from := -1
 var _destinations: Array[int] = []
+var _claim_mode := false
+var _ai_thinking := false
+var _ai_failed := false
+var _ai_request_id := 0
+var _random := RandomNumberGenerator.new()
 var _squares: Array[MeshInstance3D] = []
 var _light: Material
 var _dark: Material
@@ -50,6 +55,12 @@ func _ready() -> void:
 	promotion.add_item("Torre", ChessRules.ROOK)
 	promotion.add_item("Alfil", ChessRules.BISHOP)
 	promotion.add_item("Caballo", ChessRules.KNIGHT)
+	var opponent: OptionButton = $UI/Panel/Margin/Content/Opponent
+	opponent.add_item("Dos personas", ChessRules.OPPONENT_LOCAL)
+	opponent.add_item("IA casual", ChessRules.OPPONENT_AI_CASUAL)
+	opponent.add_item("IA táctica", ChessRules.OPPONENT_AI_TACTICAL)
+	opponent.item_selected.connect(_on_opponent_selected)
+	_random.randomize()
 	grabber.grab_started.connect(_on_grab_started)
 	grabber.grab_finished.connect(_on_grab_finished)
 	$UI/Panel/Margin/Content/Actions/Undo.pressed.connect(_undo)
@@ -82,7 +93,14 @@ func _on_grab_started(object: InteractiveTableObject) -> void:
 	_dragged = object as PhysicalChessPiece
 	_drag_from = int(piece_squares.get(_dragged, -1))
 	_destinations.clear()
-	if _drag_from >= 0 and rules.status() in ["playing", "check"]:
+	if _ai_thinking or _is_ai_turn():
+		grabber.call_deferred("_release", "cancelled")
+		_refresh()
+		_help("Espera a que termine el turno de la IA.")
+		return
+	if (
+		_drag_from >= 0 and rules.status() in ["playing", "check"]
+	):
 		for move in rules.legal_moves_from(_drag_from):
 			_destinations.append(int(move["to"]))
 	_refresh()
@@ -96,6 +114,7 @@ func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: 
 	if not is_instance_valid(_dragged) or object != _dragged:
 		return
 	var accepted := false
+	var announced_claim := false
 	var destination := _square_from_position(target)
 	if reason == "released" and destination in _destinations:
 		var center := _square_center(destination)
@@ -104,18 +123,27 @@ func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: 
 		)
 		if offset.length() <= CELL * 0.55:
 			var promotion: int = $UI/Panel/Margin/Content/Promotion.get_selected_id()
-			var snapshot := _move_with_mapping(
-				rules, piece_squares, homes, capture_counts, _drag_from, destination, promotion
-			)
-			if not snapshot.is_empty():
-				_snapshots.append(snapshot)
-				_update_models()
-				accepted = true
+			if _claim_mode:
+				announced_claim = rules.claim_draw(_drag_from, destination, promotion)
+			else:
+				var snapshot := _move_with_mapping(
+					rules, piece_squares, homes, capture_counts, _drag_from, destination, promotion
+				)
+				if not snapshot.is_empty():
+					_snapshots.append(snapshot)
+					_update_models()
+					accepted = true
 	_dragged = null
 	_drag_from = -1
 	_destinations.clear()
+	if announced_claim:
+		_claim_mode = false
 	_refresh()
-	if accepted:
+	if announced_claim:
+		_help("Tablas reclamadas anunciando la jugada; la pieza vuelve a su casilla.")
+	elif _claim_mode and reason == "released":
+		_help("Esa jugada no permite reclamar tablas; la pieza vuelve a su casilla.")
+	elif accepted:
 		_help("Jugada aceptada; las piezas se estabilizan mediante fuerzas.")
 	elif reason in ["cancelled", "recovered"]:
 		_help("Jugada cancelada; la pieza volverá a su posición.")
@@ -201,28 +229,80 @@ func _update_models() -> void:
 			piece.set_piece_type(absi(rules.piece_at(square)))
 
 
+func _reset() -> void:
+	if is_instance_valid(grabber.held):
+		_help("Suelta la pieza antes de iniciar una partida nueva.")
+		return
+	var opponent_mode: int = rules.opponent_mode
+	_ai_request_id += 1
+	_ai_thinking = false
+	_ai_failed = false
+	rules.reset()
+	rules.opponent_mode = opponent_mode
+	piece_squares = initial_squares.duplicate()
+	homes.clear()
+	for piece in piece_squares:
+		if is_instance_valid(piece):
+			homes[piece] = _square_center(int(piece_squares[piece]))
+	capture_counts = [0, 0]
+	_snapshots.clear()
+	_dragged = null
+	_drag_from = -1
+	_destinations.clear()
+	_claim_mode = false
+	_update_models()
+	_refresh()
+	_help("Nueva partida iniciada.")
+
+
 func _undo() -> void:
 	if is_instance_valid(grabber.held):
 		_help("Suelta la pieza antes de deshacer.")
 		return
-	if _snapshots.is_empty() or not rules.undo():
+	_ai_request_id += 1
+	_ai_thinking = false
+	_ai_failed = false
+	var undo_count := 1
+	if (
+		rules.opponent_mode != ChessRules.OPPONENT_LOCAL
+		and rules.turn == ChessRules.WHITE
+		and _snapshots.size() >= 2
+	):
+		undo_count = 2
+	if _snapshots.size() < undo_count:
 		return
-	var snapshot: Dictionary = _snapshots.pop_back()
-	piece_squares = snapshot["squares"]
-	homes = snapshot["homes"]
-	capture_counts.assign(snapshot["counts"])
+	_claim_mode = false
+	for _i in range(undo_count):
+		if not rules.undo():
+			break
+		var snapshot: Dictionary = _snapshots.pop_back()
+		piece_squares = snapshot["squares"]
+		homes = snapshot["homes"]
+		capture_counts.assign(snapshot["counts"])
 	_update_models()
 	_refresh()
 	_help("Jugada deshecha; las piezas vuelven mediante fuerzas.")
 
 
 func _claim() -> void:
-	if is_instance_valid(grabber.held):
-		_help("Suelta la pieza antes de reclamar tablas.")
+	if _is_ai_turn() or _ai_thinking:
 		return
-	if rules.claim_draw():
+	if rules.can_claim_draw():
+		if is_instance_valid(grabber.held):
+			_help("Suelta la pieza antes de reclamar tablas en la posición actual.")
+			return
+		rules.claim_draw()
+		_claim_mode = false
 		_refresh()
 		_help("Tablas reclamadas.")
+	elif rules.status() in ["playing", "check"]:
+		_claim_mode = not _claim_mode
+		_refresh()
+		_help(
+			"Arrastra una pieza a una jugada legal que produciría tablas y suéltala para anunciarla."
+			if _claim_mode
+			else "Anuncio de reclamación cancelado."
+		)
 
 
 func _save_game() -> void:
@@ -252,6 +332,10 @@ func _load_game() -> void:
 		return
 	_dragged = null
 	_drag_from = -1
+	_ai_request_id += 1
+	_ai_thinking = false
+	_ai_failed = false
+	_claim_mode = false
 	_destinations.clear()
 	_update_models()
 	_refresh()
@@ -306,9 +390,11 @@ func _refresh() -> void:
 	var side := "blancas" if rules.turn == ChessRules.WHITE else "negras"
 	match state:
 		"playing":
-			status_label.text = "Turno: " + side
+			status_label.text = "Turno: " + ("IA (negras)" if _is_ai_turn() else side)
 		"check":
-			status_label.text = "Turno: " + side + " · JAQUE"
+			status_label.text = (
+				"Turno: IA (negras) · JAQUE" if _is_ai_turn() else "Turno: " + side + " · JAQUE"
+			)
 		"checkmate":
 			status_label.text = (
 				"Jaque mate · ganan " + ("negras" if rules.turn == ChessRules.WHITE else "blancas")
@@ -327,13 +413,76 @@ func _refresh() -> void:
 			status_label.text = "Tablas reclamadas · tres repeticiones"
 	var active := state in ["playing", "check"]
 	$UI/Panel/Margin/Content/Actions/Undo.disabled = _snapshots.is_empty()
-	$UI/Panel/Margin/Content/Actions/Claim.disabled = (
-		not active
-		or not (
-			rules.halfmove_clock >= 100
-			or int(rules.repetition_counts.get(rules._position_key(), 0)) >= 3
-		)
+	var claim_button: Button = $UI/Panel/Margin/Content/Actions/Claim
+	claim_button.disabled = not active or _is_ai_turn() or _ai_thinking
+	claim_button.text = "Cancelar anuncio" if _claim_mode else "Reclamar tablas"
+	var opponent: OptionButton = $UI/Panel/Margin/Content/Opponent
+	opponent.select(opponent.get_item_index(rules.opponent_mode))
+	opponent.disabled = _ai_thinking or is_instance_valid(grabber.held)
+	claim_button.tooltip_text = (
+		"Arrastra una pieza a una jugada legal que produciría 50 movimientos o una tercera repetición."
+		if _claim_mode
+		else "Reclama tablas ahora si corresponde o anuncia una jugada legal que las produciría."
 	)
+	if active and _is_ai_turn():
+		_schedule_ai_turn()
+
+
+func _on_opponent_selected(index: int) -> void:
+	rules.opponent_mode = $UI/Panel/Margin/Content/Opponent.get_item_id(index)
+	_ai_failed = false
+	_claim_mode = false
+	_refresh()
+
+
+func _is_ai_turn() -> bool:
+	return rules.opponent_mode != ChessRules.OPPONENT_LOCAL and rules.turn == ChessRules.BLACK
+
+
+func _schedule_ai_turn() -> void:
+	if _ai_thinking or _ai_failed or not _is_ai_turn():
+		return
+	_ai_thinking = true
+	_ai_request_id += 1
+	status_label.text = "Turno de la IA (negras) · pensando…"
+	_help("La IA elegirá una jugada legal.")
+	_play_ai_turn.call_deferred(_ai_request_id)
+
+
+func _play_ai_turn(request_id: int) -> void:
+	await get_tree().create_timer(0.35).timeout
+	if request_id != _ai_request_id:
+		return
+	if not _is_ai_turn() or rules.status() not in ["playing", "check"]:
+		_ai_thinking = false
+		_refresh()
+		return
+	var move := ChessAI.choose_move(rules, rules.opponent_mode, _random)
+	if move.is_empty():
+		_ai_thinking = false
+		_ai_failed = true
+		_refresh()
+		_help("La IA no encontró una jugada legal.")
+		return
+	var snapshot := _move_with_mapping(
+		rules,
+		piece_squares,
+		homes,
+		capture_counts,
+		int(move["from"]),
+		int(move["to"]),
+		ChessRules.QUEEN
+	)
+	_ai_thinking = false
+	if snapshot.is_empty():
+		_ai_failed = true
+		_refresh()
+		_help("La IA eligió una jugada que no pudo reflejarse en las piezas.")
+		return
+	_snapshots.append(snapshot)
+	_update_models()
+	_refresh()
+	_help("La IA ha movido.")
 
 
 func _on_selection_changed(_object: InteractiveTableObject) -> void:

@@ -14,6 +14,7 @@ var camera_save: Button
 var camera_load: Button
 var camera_status: Label
 var overlay: Control
+var _exit_confirmation := false
 var _visible := false
 
 
@@ -62,6 +63,7 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 26)
 	content.add_child(title)
 	var hint := Label.new()
+	hint.name = "PauseHint"
 	hint.text = "Al volver al menú se descartan los cambios no guardados."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(hint)
@@ -122,8 +124,14 @@ func _ready() -> void:
 	var exit := Button.new()
 	exit.name = "ReturnToMenu"
 	exit.text = "Volver al menú principal"
-	exit.pressed.connect(_return_to_menu)
+	exit.pressed.connect(_request_return_to_menu)
 	content.add_child(exit)
+	var cancel_exit := Button.new()
+	cancel_exit.name = "CancelExit"
+	cancel_exit.text = "Seguir jugando"
+	cancel_exit.visible = false
+	cancel_exit.pressed.connect(_cancel_return_to_menu)
+	content.add_child(cancel_exit)
 
 
 func _load_controls() -> void:
@@ -172,6 +180,8 @@ func _unhandled_input(event: InputEvent) -> void:
 func _toggle() -> void:
 	if not _visible:
 		_cancel_grab()
+	_exit_confirmation = false
+	_set_exit_confirmation_visible(false)
 	_visible = not _visible
 	overlay.visible = _visible
 	menu_button.visible = not _visible
@@ -244,7 +254,36 @@ func _cancel_grab() -> void:
 
 
 func _return_to_menu() -> void:
+	_exit_confirmation = false
 	_visible = false
 	overlay.visible = false
 	get_tree().paused = false
 	get_tree().change_scene_to_file(MENU_PATH)
+
+
+func _request_return_to_menu() -> void:
+	if not _exit_confirmation:
+		_exit_confirmation = true
+		_set_exit_confirmation_visible(true)
+		(overlay.find_child("CancelExit", true, false) as Button).grab_focus()
+		return
+	_return_to_menu()
+
+
+func _cancel_return_to_menu() -> void:
+	_exit_confirmation = false
+	_set_exit_confirmation_visible(false)
+	(overlay.find_child("Resume", true, false) as Button).grab_focus()
+
+
+func _set_exit_confirmation_visible(visible: bool) -> void:
+	var hint := overlay.find_child("PauseHint", true, false) as Label
+	var exit := overlay.find_child("ReturnToMenu", true, false) as Button
+	var cancel_exit := overlay.find_child("CancelExit", true, false) as Button
+	if visible:
+		hint.text = "Se perderá el progreso no guardado de esta partida. ¿Quieres salir?"
+		exit.text = "Sí, descartar y salir"
+	else:
+		hint.text = "Al volver al menú se descartan los cambios no guardados."
+		exit.text = "Volver al menú principal"
+	cancel_exit.visible = visible
