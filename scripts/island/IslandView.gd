@@ -2,6 +2,8 @@
 class_name IslandView
 extends Node3D
 
+const CONFIRM_ACTION := preload("res://scripts/ui/ConfirmAction.gd")
+
 const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
 const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
 
@@ -22,6 +24,7 @@ const PORT_NAMES := ["Mad", "Lad", "Lan", "Tri", "Min"]
 
 @export_range(3, 4) var player_count := 3
 
+var confirm_action: ConfirmAction
 var rules := IslandRules.new()
 var save_path := "user://diceon_island.json"
 var dice: Array[Dice3D] = []
@@ -77,6 +80,8 @@ var privacy_ready: Button
 
 
 func _ready() -> void:
+	confirm_action = CONFIRM_ACTION.new()
+	add_child(confirm_action)
 	rules = IslandRules.new(-1, player_count)
 	_make_board()
 	_make_ports()
@@ -654,7 +659,7 @@ func _build_development_tab(column: VBoxContainer) -> void:
 func _build_options_tab(column: VBoxContainer) -> void:
 	_label(column, "PARTIDA LOCAL")
 	_button(column, "save", "Guardar partida", _save_game)
-	_button(column, "load", "Cargar partida guardada", _load_game)
+	_button(column, "load", "Cargar partida guardada", _request_load)
 	_button(column, "new", "Nueva isla (descarta la partida)", _new_game)
 	_button(column, "privacy", "Manos privadas: desactivadas", _toggle_privacy)
 	_label(
@@ -1397,12 +1402,30 @@ func _rebuild_loaded_board() -> void:
 
 
 func _new_game() -> void:
-	new_game_confirmation.popup_centered()
+	if _can_replace_game():
+		new_game_confirmation.popup_centered()
 
 
 func _confirm_new_game() -> void:
-	get_tree().change_scene_to_file(scene_file_path)
+	if _can_replace_game():
+		get_tree().change_scene_to_file(scene_file_path)
 
 
 func _placement_message(message: String) -> void:
 	_help(message)
+
+
+func _can_replace_game() -> bool:
+	if waiting_roll or manual_roll or is_instance_valid(grabber.held) or grabber._pending_press:
+		_help("Suelta el objeto y termina la tirada antes de continuar.")
+		return false
+	return true
+
+
+func _request_load() -> void:
+	confirm_action.request(
+		"Cargar partida",
+		"La partida actual será sustituida por el guardado local. ¿Continuar?",
+		_load_game,
+		_can_replace_game
+	)

@@ -36,6 +36,8 @@ func _run() -> void:
 	file.store_string("{ interrumpido")
 	file.close()
 	(view.get_node("UI/Panel/Margin/Content/SaveRow/Load") as Button).pressed.emit()
+	_check(view.confirm_action.dialog.visible, "cargar solicita confirmación")
+	view.confirm_action.dialog.confirmed.emit()
 	_check(view.status_label.text.contains("copia anterior"), "avisa de recuperación")
 	_check(view.objects.get_child_count() == 4, "restaura ambos mazos y cartas")
 	_check(

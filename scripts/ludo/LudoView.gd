@@ -1,6 +1,8 @@
 class_name LudoView
 extends Node3D
 
+const CONFIRM_ACTION := preload("res://scripts/ui/ConfirmAction.gd")
+
 const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
 const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
 
@@ -14,6 +16,7 @@ const MAX_SAVE_BYTES := 500000
 
 @export_range(2, 4) var player_count := 2
 @export var save_path := "user://diceon_ludo.json"
+var confirm_action: ConfirmAction
 var rules: LudoRules
 var die: Dice3D
 var tokens: Array = []
@@ -36,6 +39,8 @@ var new_game_confirmation: ConfirmationDialog
 
 
 func _ready() -> void:
+	confirm_action = CONFIRM_ACTION.new()
+	add_child(confirm_action)
 	rules = LudoRules.new(player_count)
 	_make_board()
 	_make_tokens()
@@ -242,7 +247,7 @@ func _make_ui() -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.add_theme_font_size_override("font_size", 12)
 	_button(column, "Guardar partida", _save_game)
-	_button(column, "Cargar partida", _load_game)
+	_button(column, "Cargar partida", _request_load)
 	_button(column, "Nueva partida", _new_game)
 	_label(column, "Rueda: zoom · Derecho: orbitar · Inicio: centrar · Esc: menú")
 	new_game_confirmation = ConfirmationDialog.new()
@@ -508,8 +513,26 @@ func _load_game() -> void:
 
 
 func _new_game() -> void:
-	new_game_confirmation.popup_centered()
+	if _can_replace_game():
+		new_game_confirmation.popup_centered()
 
 
 func _confirm_new_game() -> void:
-	get_tree().change_scene_to_file(scene_file_path)
+	if _can_replace_game():
+		get_tree().change_scene_to_file(scene_file_path)
+
+
+func _can_replace_game() -> bool:
+	if waiting_roll or is_instance_valid(grabber.held) or grabber._pending_press:
+		help.text = "Termina la tirada y suelta la ficha antes de continuar."
+		return false
+	return true
+
+
+func _request_load() -> void:
+	confirm_action.request(
+		"Cargar partida",
+		"La partida actual será sustituida por el guardado local. ¿Continuar?",
+		_load_game,
+		_can_replace_game
+	)

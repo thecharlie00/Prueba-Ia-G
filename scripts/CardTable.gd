@@ -1,6 +1,8 @@
 class_name CardTable
 extends Node3D
 
+const CONFIRM_ACTION := preload("res://scripts/ui/ConfirmAction.gd")
+
 const DECK_SCENE := preload("res://scenes/Deck3D.tscn")
 const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
 const MAX_SAVE_BYTES := SandboxPersistence.MAX_BYTES
@@ -9,6 +11,7 @@ const SPANISH_NAME := "Baraja_española"
 
 @export var save_path := "user://diceon_cards.json"
 
+var confirm_action: ConfirmAction
 var english: Deck3D
 var spanish: Deck3D
 
@@ -18,18 +21,38 @@ var spanish: Deck3D
 
 
 func _ready() -> void:
+	confirm_action = CONFIRM_ACTION.new()
+	add_child(confirm_action)
 	english = _make_deck("Baraja inglesa", _english_cards(), Vector3(-1.4, 1.05, -1.3))
 	spanish = _make_deck("Baraja española", _spanish_cards(), Vector3(1.4, 1.05, -1.3))
 	grabber.selection_changed.connect(_on_selection_changed)
 	grabber.placement_message.connect(_on_placement_message)
-	$UI/Panel/Margin/Content/Reset.pressed.connect(_reset)
-	$UI/Panel/Margin/Content/Sandbox.pressed.connect(_open_sandbox)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Reset as Button,
+		"Reiniciar mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_reset,
+		_can_store
+	)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Sandbox as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_open_sandbox,
+		_can_store
+	)
 	$UI/Panel/Margin/Content/English/Shuffle.pressed.connect(_shuffle.bind(true))
 	$UI/Panel/Margin/Content/English/Draw.pressed.connect(_draw.bind(true))
 	$UI/Panel/Margin/Content/Spanish/Shuffle.pressed.connect(_shuffle.bind(false))
 	$UI/Panel/Margin/Content/Spanish/Draw.pressed.connect(_draw.bind(false))
 	$UI/Panel/Margin/Content/SaveRow/Save.pressed.connect(_save_game)
-	$UI/Panel/Margin/Content/SaveRow/Load.pressed.connect(_load_game)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/SaveRow/Load as Button,
+		"Cargar mesa",
+		"La partida actual será sustituida por el guardado local. ¿Continuar?",
+		_load_game,
+		_can_store
+	)
 
 
 func _make_deck(title: String, cards: Array[String], position: Vector3) -> Deck3D:
@@ -167,6 +190,7 @@ func _load_game() -> void:
 		status_label.text = "No se pudieron reconstruir las cartas; se conserva la mesa."
 		return
 	# El formato ya garantiza exactamente los dos mazos antes de reemplazar la escena.
+	grabber.clear_movement_undo()
 	grabber.last_selected = null
 	if is_instance_valid(grabber.hovered):
 		grabber.hovered.set_hovered(false)

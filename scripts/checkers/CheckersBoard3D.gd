@@ -1,6 +1,8 @@
 class_name CheckersBoard3D
 extends Node3D
 
+const CONFIRM_ACTION := preload("res://scripts/ui/ConfirmAction.gd")
+
 const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
 const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
 
@@ -12,6 +14,7 @@ const MAX_SAVE_BYTES := 262144
 
 @export var save_path := "user://diceon_checkers.json"
 
+var confirm_action: ConfirmAction
 var rules := CheckersRules.new()
 var selected: int = -1
 var legal_destinations: Array[int] = []
@@ -33,14 +36,36 @@ var crown_material: StandardMaterial3D
 
 
 func _ready() -> void:
+	confirm_action = CONFIRM_ACTION.new()
+	add_child(confirm_action)
 	_make_materials()
 	_make_board()
-	$UI/Panel/Margin/Content/Reset.pressed.connect(_reset)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Reset as Button,
+		"Nueva partida",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_reset
+	)
 	undo_button.pressed.connect(_undo)
 	$UI/Panel/Margin/Content/Save.pressed.connect(_save_game)
-	$UI/Panel/Margin/Content/Load.pressed.connect(_load_game)
-	$UI/Panel/Margin/Content/Sandbox.pressed.connect(_open_sandbox)
-	$UI/Panel/Margin/Content/Physical.pressed.connect(_open_physical)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Load as Button,
+		"Cargar partida",
+		"La partida actual será sustituida por el guardado local. ¿Continuar?",
+		_load_game
+	)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Sandbox as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_open_sandbox
+	)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Physical as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_open_physical
+	)
 	_refresh()
 
 

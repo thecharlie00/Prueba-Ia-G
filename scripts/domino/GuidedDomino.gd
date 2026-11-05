@@ -42,11 +42,23 @@ func _ready() -> void:
 	_make_zone("right", RIGHT_ZONE, "DERECHA")
 	grabber.grab_started.connect(_on_grab_started)
 	grabber.grab_finished.connect(_on_grab_finished)
-	$UI/Panel/Margin/Content/Rules.pressed.connect(_open_free)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Rules as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_open_free,
+		_can_leave_table
+	)
 	$UI/Panel/Margin/Content/Actions/Draw.pressed.connect(_draw)
 	$UI/Panel/Margin/Content/Actions/Pass.pressed.connect(_pass)
 	$UI/Panel/Margin/Content/SaveRow/Save.pressed.connect(_save_game)
-	$UI/Panel/Margin/Content/SaveRow/Load.pressed.connect(_load_game)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/SaveRow/Load as Button,
+		"Cargar partida",
+		"La partida actual será sustituida por el guardado local. ¿Continuar?",
+		_load_game,
+		_can_leave_table
+	)
 	_sync_homes(true)
 	_refresh()
 

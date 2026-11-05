@@ -64,6 +64,8 @@ func _run() -> void:
 	grid.enabled = false
 	grabber.last_selected = dice
 	(main.get_node("UI/Margin/Panel/Content/SaveRow/Load") as Button).pressed.emit()
+	_check(main.confirm_action.dialog.visible, "cargar solicita confirmación")
+	main.confirm_action.dialog.confirmed.emit()
 	_check(grabber.last_selected == null, "cargar olvida referencias a piezas sustituidas")
 	_check(objects.get_child_count() == count, "carga restaura cantidad de cuerpos")
 	var restored_dice: Dice3D = objects.get_node_or_null("Dice") as Dice3D

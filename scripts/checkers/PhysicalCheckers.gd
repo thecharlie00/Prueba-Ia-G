@@ -1,11 +1,14 @@
 class_name PhysicalCheckers
 extends Node3D
 
+const CONFIRM_ACTION := preload("res://scripts/ui/ConfirmAction.gd")
+
 const BoardGeometry = preload("res://scripts/BoardGeometry3D.gd")
 const TOKEN_SCENE = preload("res://scenes/Token3D.tscn")
 const CELL := 0.46
 const BOARD_HEIGHT := 0.83
 
+var confirm_action: ConfirmAction
 @onready var tiles_root: Node3D = $Board/Tiles
 @onready var objects: Node3D = $Objects
 @onready var grabber: PhysicsGrabber3D = $PhysicsGrabber3D
@@ -13,14 +16,40 @@ const BOARD_HEIGHT := 0.83
 
 
 func _ready() -> void:
+	confirm_action = CONFIRM_ACTION.new()
+	add_child(confirm_action)
 	_make_board()
 	_spawn_tokens()
 	grabber.selection_changed.connect(_on_selection_changed)
 	grabber.placement_message.connect(_on_placement_message)
-	$UI/Panel/Margin/Content/Reset.pressed.connect(_reset)
-	$UI/Panel/Margin/Content/Rules.pressed.connect(_open_rules)
-	$UI/Panel/Margin/Content/Guided.pressed.connect(_open_guided)
-	$UI/Panel/Margin/Content/Sandbox.pressed.connect(_open_sandbox)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Reset as Button,
+		"Reiniciar mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_reset,
+		_can_leave_table
+	)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Rules as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_open_rules,
+		_can_leave_table
+	)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Guided as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_open_guided,
+		_can_leave_table
+	)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Sandbox as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_open_sandbox,
+		_can_leave_table
+	)
 
 
 func _make_board() -> void:
@@ -71,3 +100,10 @@ func _open_sandbox() -> void:
 
 func _open_guided() -> void:
 	get_tree().change_scene_to_file("res://scenes/GuidedPhysicalCheckers.tscn")
+
+
+func _can_leave_table() -> bool:
+	if is_instance_valid(grabber.held) or grabber._pending_press:
+		status_label.text = "Suelta la pieza antes de cambiar o reiniciar la mesa."
+		return false
+	return true

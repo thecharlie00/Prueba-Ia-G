@@ -8,12 +8,17 @@ var click_to_grab := false
 var controls_status: Label
 var grab_option: CheckButton
 var menu_button: Button
+var help_button: Button
+var undo_button: Button
+var controls_dialog: AcceptDialog
 var camera_button: Button
 var camera_slot: OptionButton
 var camera_save: Button
 var camera_load: Button
 var camera_status: Label
 var overlay: Control
+var _ui_scene: Node
+var _ui_grabber: PhysicsGrabber3D
 var _exit_confirmation := false
 var _visible := false
 
@@ -32,6 +37,34 @@ func _ready() -> void:
 	menu_button.offset_bottom = 56
 	menu_button.pressed.connect(_toggle)
 	add_child(menu_button)
+	help_button = Button.new()
+	help_button.name = "ControlsHelp"
+	help_button.text = "Ayuda · F1"
+	help_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	help_button.offset_left = -290
+	help_button.offset_right = -164
+	help_button.offset_top = 20
+	help_button.offset_bottom = 56
+	help_button.pressed.connect(_toggle_help)
+	add_child(help_button)
+	undo_button = Button.new()
+	undo_button.name = "UndoPhysical"
+	undo_button.text = "Deshacer pieza"
+	undo_button.tooltip_text = "Ctrl+Z: devuelve la última pieza movida, sin deshacer otras acciones."
+	undo_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	undo_button.offset_left = -456
+	undo_button.offset_right = -302
+	undo_button.offset_top = 20
+	undo_button.offset_bottom = 56
+	undo_button.pressed.connect(_request_movement_undo)
+	add_child(undo_button)
+	controls_dialog = AcceptDialog.new()
+	controls_dialog.name = "ControlsGuide"
+	controls_dialog.title = "Controles de mesa"
+	controls_dialog.dialog_autowrap = true
+	controls_dialog.exclusive = true
+	add_child(controls_dialog)
+	controls_dialog.get_ok_button().text = "Entendido"
 	overlay = Control.new()
 	overlay.name = "PauseOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -166,15 +199,80 @@ func set_click_to_grab(enabled: bool) -> void:
 
 func _process(_delta: float) -> void:
 	var scene := get_tree().current_scene
-	menu_button.visible = scene != null and scene.scene_file_path != MENU_PATH and not _visible
+	var in_game := scene != null and scene.scene_file_path != MENU_PATH
+	menu_button.visible = in_game and not _visible
+	help_button.visible = in_game and not _visible
+	if scene != _ui_scene or (is_instance_valid(_ui_grabber) and not _ui_grabber.is_inside_tree()):
+		_ui_scene = scene
+		_ui_grabber = _find_grabber() if in_game else null
+	var physical_undo := is_instance_valid(_ui_grabber) and _ui_grabber.lock_shortcut_enabled
+	undo_button.visible = in_game and not _visible and physical_undo
+	undo_button.disabled = (
+		not physical_undo
+		or not _ui_grabber.can_undo_movement()
+		or is_instance_valid(_ui_grabber.held)
+		or _ui_grabber._pending_press
+		or _ui_grabber._pending_release
+		or _ui_grabber._pending_undo
+	)
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.keycode == KEY_F1 and event.pressed and not event.echo:
+		var focus := get_viewport().gui_get_focus_owner()
+		if focus is LineEdit or focus is TextEdit:
+			return
+		if not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed:
+			var scene := get_tree().current_scene
+			if scene != null and scene.scene_file_path != MENU_PATH:
+				_toggle_help()
+				get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.keycode == KEY_ESCAPE and event.pressed and not event.echo:
 		var scene := get_tree().current_scene
 		if scene != null and scene.scene_file_path != MENU_PATH:
 			_toggle()
 			get_viewport().set_input_as_handled()
+
+
+func _request_movement_undo() -> void:
+	var grabber := _find_grabber()
+	if grabber != null and not get_tree().paused:
+		grabber.request_movement_undo()
+
+
+func _toggle_help() -> void:
+	if controls_dialog.visible:
+		controls_dialog.hide()
+		return
+	# Abrir ayuda no puede confirmar una jugada que estaba en curso.
+	_cancel_grab()
+	var grabber := _find_grabber()
+	var guide := "CÁMARA\nDerecho: orbitar · Rueda: zoom · Inicio: recentrar.\n"
+	if grabber != null:
+		guide += "\nPIEZAS\n"
+		guide += (
+			"Un clic agarra y otro suelta. "
+			if grabber.click_to_grab
+			else "Mantén pulsado para agarrar y suelta para colocar. "
+		)
+		guide += (
+			"Rueda con pieza sujeta: altura. X: cancelar el agarre.\n"
+			+ "H: recuperar la pieza señalada o la última señalada.\n"
+			+ "Q/E: girar · F: voltear carta o dominó · R: mezclar o lanzar según la mesa.\n"
+		)
+		if grabber.lock_shortcut_enabled:
+			guide += "L: bloquear o desbloquear · Alt: inspeccionar sin revelar cartas ocultas.\n"
+			guide += "Ctrl+Z: devolver la última pieza movida si su destino está libre.\n"
+		if is_instance_valid(grabber.snap_grid):
+			guide += "S: activar o desactivar la cuadrícula magnética.\n"
+	else:
+		guide += "\nElige una pieza y después su destino con clic.\n"
+	guide += (
+		"\nEsc: pausa y menú · F1: esta ayuda. " + "Las acciones disponibles dependen de la mesa."
+	)
+	controls_dialog.dialog_text = guide
+	controls_dialog.popup_centered(Vector2i(560, 360))
 
 
 func _toggle() -> void:

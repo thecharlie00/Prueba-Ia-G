@@ -1,24 +1,71 @@
 extends Node3D
 
+const CONFIRM_ACTION := preload("res://scripts/ui/ConfirmAction.gd")
+
 @export var sandbox_save_path := "user://diceon_sandbox.json"
 
+var confirm_action: ConfirmAction
 @onready var selection_label: Label = $UI/Margin/Panel/Content/Selection
 @onready var result_label: Label = $UI/Margin/Panel/Content/Result
 @onready var grabber: PhysicsGrabber3D = $PhysicsGrabber3D
 
 
 func _ready() -> void:
+	confirm_action = CONFIRM_ACTION.new()
+	add_child(confirm_action)
 	grabber.selection_changed.connect(_on_selection_changed)
 	grabber.snap_status_changed.connect(_on_snap_status_changed)
 	grabber.placement_message.connect(_on_placement_message)
 	$UI/Margin/Panel/Content/SaveRow/Save.pressed.connect(_on_save_pressed)
-	$UI/Margin/Panel/Content/SaveRow/Load.pressed.connect(_on_load_pressed)
-	$UI/Margin/Panel/Content/Reset.pressed.connect(_on_reset_pressed)
-	$UI/Margin/Panel/Content/Chess.pressed.connect(_on_chess_pressed)
-	$UI/Margin/Panel/Content/Checkers.pressed.connect(_on_checkers_pressed)
-	$UI/Margin/Panel/Content/PhysicalCheckers.pressed.connect(_on_physical_checkers_pressed)
-	$UI/Margin/Panel/Content/GuidedPhysicalCheckers.pressed.connect(_on_guided_checkers_pressed)
-	$UI/Margin/Panel/Content/PhysicalDomino.pressed.connect(_on_physical_domino_pressed)
+	confirm_action.bind_button(
+		$UI/Margin/Panel/Content/SaveRow/Load as Button,
+		"Cargar mesa",
+		"La partida actual será sustituida por el guardado local. ¿Continuar?",
+		_on_load_pressed,
+		_can_store
+	)
+	confirm_action.bind_button(
+		$UI/Margin/Panel/Content/Reset as Button,
+		"Reiniciar mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_on_reset_pressed,
+		_can_store
+	)
+	confirm_action.bind_button(
+		$UI/Margin/Panel/Content/Chess as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_on_chess_pressed,
+		_can_store
+	)
+	confirm_action.bind_button(
+		$UI/Margin/Panel/Content/Checkers as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_on_checkers_pressed,
+		_can_store
+	)
+	confirm_action.bind_button(
+		$UI/Margin/Panel/Content/PhysicalCheckers as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_on_physical_checkers_pressed,
+		_can_store
+	)
+	confirm_action.bind_button(
+		$UI/Margin/Panel/Content/GuidedPhysicalCheckers as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_on_guided_checkers_pressed,
+		_can_store
+	)
+	confirm_action.bind_button(
+		$UI/Margin/Panel/Content/PhysicalDomino as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_on_physical_domino_pressed,
+		_can_store
+	)
 	_connect_objects()
 
 
@@ -134,6 +181,7 @@ func _on_load_pressed() -> void:
 	if is_instance_valid(grabber.hovered):
 		grabber.hovered.set_hovered(false)
 	grabber.hovered = null
+	grabber.clear_movement_undo()
 	grabber.last_selected = null
 	grabber._pending_recovery = null
 	grabber._pending_release = false

@@ -72,9 +72,11 @@ func _run() -> void:
 		nav.call("_toggle")
 		nav.call("_request_return_to_menu")
 		_check(
-			paused
-			and current_scene.scene_file_path == "res://scenes/GuidedPhysicalCheckers.tscn"
-			and nav.get("overlay").find_child("CancelExit", true, false).visible,
+			(
+				paused
+				and current_scene.scene_file_path == "res://scenes/GuidedPhysicalCheckers.tscn"
+				and nav.get("overlay").find_child("CancelExit", true, false).visible
+			),
 			"salir pide confirmar antes de descartar el estado"
 		)
 		nav.call("_cancel_return_to_menu")

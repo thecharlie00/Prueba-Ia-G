@@ -16,10 +16,7 @@ func _initialize() -> void:
 func _run() -> void:
 	_cleanup()
 	_check(AtomicSave.write_text(SAVE_PATH, "first"), "initial write succeeds")
-	_check(
-		FileAccess.get_file_as_string(SAVE_PATH) == "first",
-		"initial contents are present"
-	)
+	_check(FileAccess.get_file_as_string(SAVE_PATH) == "first", "initial contents are present")
 	_check(AtomicSave.write_text(SAVE_PATH, "replacement"), "existing file is replaced")
 	_check(
 		FileAccess.get_file_as_string(SAVE_PATH) == "replacement",
@@ -33,8 +30,7 @@ func _run() -> void:
 		"replacement failure is reported"
 	)
 	_check(
-		DirAccess.dir_exists_absolute(BLOCKED_PATH),
-		"failed replacement preserves the destination"
+		DirAccess.dir_exists_absolute(BLOCKED_PATH), "failed replacement preserves the destination"
 	)
 	_check(
 		not _has_temporary_files(BLOCKED_TEMP_PREFIX),
@@ -58,9 +54,9 @@ func _cleanup() -> void:
 		DirAccess.remove_absolute(BLOCKED_PATH)
 	for file_name in DirAccess.get_files_at("user://"):
 		if (
-			file_name.begins_with(SAVE_TEMP_PREFIX)
-			or file_name.begins_with(BLOCKED_TEMP_PREFIX)
-		) and file_name.ends_with(".tmp"):
+			(file_name.begins_with(SAVE_TEMP_PREFIX) or file_name.begins_with(BLOCKED_TEMP_PREFIX))
+			and file_name.ends_with(".tmp")
+		):
 			DirAccess.remove_absolute("user://" + file_name)
 
 
