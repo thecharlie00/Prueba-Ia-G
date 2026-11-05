@@ -41,6 +41,13 @@ var _inspecting := false
 var _inspection_panel: PanelContainer
 var _inspection_title: Label
 var _inspection_body: Label
+var _context_hint: PanelContainer
+var _context_hint_text: Label
+# Solo el último agarre en mesas libres; no es un historial de reglas ni de azar.
+var _grab_start_position := Vector3.ZERO
+var _undo_object: InteractiveTableObject
+var _undo_position := Vector3.ZERO
+var _pending_undo := false
 
 
 func _ready() -> void:
@@ -49,11 +56,16 @@ func _ready() -> void:
 		click_to_grab = bool(navigation.get("click_to_grab"))
 	if lock_shortcut_enabled:
 		_create_inspection_panel()
+		_create_context_hint()
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_PAUSED:
 		_hide_inspection()
+		_pending_undo = false
+		_pending_recovery = null
+		if is_instance_valid(_context_hint):
+			_context_hint.hide()
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_pending_press = false
 		if is_instance_valid(held):
@@ -74,17 +86,13 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if click_to_grab and event.pressed and (is_instance_valid(held) or _pending_press):
-				_pending_release = true
-				_release_position = event.position
-				# Sobre la UI se cancela el movimiento y el clic no activa el botón subyacente.
-				_release_reason = (
-					"cancelled" if get_viewport().gui_get_hovered_control() != null else "released"
-				)
+				_queue_pointer_release(event.position)
+				# El clic de suelta no activa el botón de la UI que haya debajo.
 				get_viewport().set_input_as_handled()
 			elif not click_to_grab and not event.pressed:
-				# La suelta llega incluso cuando ocurre encima de un botón de la UI.
+				# Capturar también la suelta consumida por un botón de la UI.
 				if is_instance_valid(held) or _pending_press:
-					_pending_release = true
+					_queue_pointer_release(event.position)
 		if is_instance_valid(held) and event.pressed:
 			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 				_adjust_height(height_step)
@@ -92,6 +100,21 @@ func _input(event: InputEvent) -> void:
 			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 				_adjust_height(-height_step)
 				get_viewport().set_input_as_handled()
+
+
+# Guardar el lugar exacto de suelta; un movimiento posterior del ratón no debe
+# cambiar el destino antes del siguiente tick físico. Una cancelación prevalece.
+func _queue_pointer_release(position: Vector2) -> void:
+	var cancel := (
+		get_viewport().gui_get_hovered_control() != null
+		or not get_viewport().get_visible_rect().has_point(position)
+	)
+	if not _pending_release:
+		_release_position = position
+		_release_reason = "cancelled" if cancel else "released"
+	elif cancel:
+		_release_reason = "cancelled"
+	_pending_release = true
 
 
 func _adjust_height(amount: float) -> void:
@@ -105,13 +128,32 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.pressed:
 			_pending_press = true
 			_press_position = event.position
-		elif not click_to_grab:
-			_pending_release = true
+		elif not click_to_grab and (is_instance_valid(held) or _pending_press):
+			_queue_pointer_release(event.position)
 	elif event is InputEventKey and event.pressed and not event.echo:
 		var focus := get_viewport().gui_get_focus_owner()
 		if focus is LineEdit or focus is TextEdit:
 			return
+		if (
+			event.keycode == KEY_Z
+			and event.ctrl_pressed
+			and not event.shift_pressed
+			and not event.alt_pressed
+			and not event.meta_pressed
+			and lock_shortcut_enabled
+		):
+			request_movement_undo()
+			get_viewport().set_input_as_handled()
+			return
 		if event.ctrl_pressed or event.alt_pressed or event.meta_pressed:
+			return
+		if event.keycode == KEY_X and (is_instance_valid(held) or _pending_press):
+			# Cancelar nunca confirma una jugada, incluso entre dos ticks físicos.
+			_pending_press = false
+			_pending_recovery = null
+			_pending_release = is_instance_valid(held)
+			_release_reason = "cancelled" if _pending_release else "released"
+			get_viewport().set_input_as_handled()
 			return
 		if event.keycode == KEY_S and is_instance_valid(snap_grid):
 			snap_grid.enabled = not snap_grid.enabled
@@ -168,6 +210,9 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(camera):
 		return
 	var mouse := camera.get_viewport().get_mouse_position()
+	if _pending_undo:
+		_pending_undo = false
+		_undo_last_movement()
 	if _pending_press:
 		_pending_press = false
 		_update_hover(_press_position)
@@ -177,7 +222,7 @@ func _physics_process(delta: float) -> void:
 		_recover_object(_pending_recovery)
 	_pending_recovery = null
 	if is_instance_valid(held):
-		var pointer := _release_position if click_to_grab and _pending_release else mouse
+		var pointer := _release_position if _pending_release else mouse
 		var hit = _plane_point(pointer, _drag_height)
 		if hit != null and (not _pending_release or _release_reason != "cancelled"):
 			_target = hit + _grab_offset
@@ -199,6 +244,70 @@ func _physics_process(delta: float) -> void:
 			_update_hover(mouse)
 	if _inspecting:
 		_refresh_inspection()
+	_refresh_context_hint()
+
+
+func _create_context_hint() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 14
+	add_child(layer)
+	_context_hint = PanelContainer.new()
+	_context_hint.name = "ContextHint"
+	_context_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_context_hint.offset_left = -240
+	_context_hint.offset_right = 240
+	_context_hint.offset_top = -72
+	_context_hint.offset_bottom = -20
+	_context_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.045, 0.09, 0.08, 0.94)
+	style.set_content_margin_all(10)
+	style.set_corner_radius_all(7)
+	_context_hint.add_theme_stylebox_override("panel", style)
+	layer.add_child(_context_hint)
+	_context_hint_text = Label.new()
+	_context_hint_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_context_hint_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_context_hint_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_context_hint_text.add_theme_font_size_override("font_size", 13)
+	_context_hint.add_child(_context_hint_text)
+	_context_hint.hide()
+
+
+func _refresh_context_hint() -> void:
+	if not is_instance_valid(_context_hint):
+		return
+	var focus := get_viewport().gui_get_focus_owner()
+	if _inspecting or focus is LineEdit or focus is TextEdit:
+		_context_hint.hide()
+		return
+	if is_instance_valid(held):
+		_context_hint_text.text = (
+			"Clic para colocar · X cancelar · Rueda ajustar altura"
+			if click_to_grab
+			else "Suelta para colocar · X cancelar · Rueda ajustar altura"
+		)
+		_context_hint.show()
+		return
+	if (
+		not is_instance_valid(hovered)
+		or not hovered.is_inside_tree()
+		or get_viewport().gui_get_hovered_control() != null
+	):
+		_context_hint.hide()
+		return
+	if hovered.is_table_locked:
+		_context_hint_text.text = "Pieza bloqueada · L desbloquear · Alt inspeccionar"
+	elif hovered is Card3D:
+		# La ayuda nunca incluye el valor de una carta boca abajo.
+		_context_hint_text.text = "Carta · F voltear · Q/E girar · H recuperar · Alt inspeccionar"
+	elif hovered is Deck3D:
+		_context_hint_text.text = "Baraja · N robar · R mezclar · L bloquear · Alt inspeccionar"
+	elif hovered is Dice3D and dice_shortcuts_enabled:
+		_context_hint_text.text = "Dado · R/T lanzar · Q/E girar · H recuperar · L bloquear"
+	else:
+		_context_hint_text.text = "Pieza · Q/E girar · H recuperar · L bloquear · Alt inspeccionar"
+	_context_hint.show()
 
 
 func _create_inspection_panel() -> void:
@@ -326,6 +435,7 @@ func _begin_grab(mouse: Vector2) -> void:
 	_grab_offset = held.global_position - point
 	_grab_offset.y = 0.0
 	_target = point + _grab_offset
+	_grab_start_position = held.global_position
 	held.on_grab()
 	grab_started.emit(held)
 	if click_to_grab:
@@ -348,11 +458,83 @@ func _release(reason: String = "released") -> void:
 			if not result.is_empty():
 				placement_message.emit("Casilla ocupada: colocación libre.")
 		held.on_release()
+		if (
+			lock_shortcut_enabled
+			and reason in ["released", "cancelled"]
+			and held.global_position.distance_to(_grab_start_position) > 0.02
+		):
+			_undo_object = held
+			_undo_position = _grab_start_position
+		if reason == "cancelled":
+			placement_message.emit("Agarre cancelado; la pieza puede quedar desplazada.")
 	if is_instance_valid(snap_grid):
 		snap_grid.show_candidate({})
 	held = null
 	if is_instance_valid(released_object):
 		grab_finished.emit(released_object, _target, reason)
+
+
+# Devuelve solo una pieza a donde se agarró. No revierte cartas, dados ni reglas.
+func can_undo_movement() -> bool:
+	return (
+		lock_shortcut_enabled
+		and is_instance_valid(_undo_object)
+		and _undo_object.is_inside_tree()
+		and not _undo_object.is_queued_for_deletion()
+	)
+
+
+func clear_movement_undo() -> void:
+	_pending_undo = false
+	_undo_object = null
+
+
+func request_movement_undo() -> void:
+	if not can_undo_movement():
+		clear_movement_undo()
+		placement_message.emit("No hay ningún movimiento de pieza para deshacer.")
+		return
+	if is_instance_valid(held) or _pending_press or _pending_release:
+		placement_message.emit("Suelta o cancela el agarre antes de deshacer.")
+		return
+	_pending_undo = true
+
+
+func _undo_last_movement() -> void:
+	if not can_undo_movement():
+		clear_movement_undo()
+		placement_message.emit("La pieza anterior ya no está en la mesa.")
+		return
+	if is_instance_valid(held) or _pending_press or _pending_release:
+		placement_message.emit("Suelta o cancela el agarre antes de deshacer.")
+		return
+	var object := _undo_object
+	if object.freeze or (object is Dice3D and object._awaiting_result):
+		placement_message.emit("Desbloquea la pieza y espera a que termine su acción.")
+		return
+	var shape_node := object.get_node_or_null("CollisionShape3D") as CollisionShape3D
+	if shape_node == null or shape_node.shape == null or shape_node.disabled:
+		placement_message.emit("No se puede comprobar la posición anterior.")
+		return
+	# Un pequeño margen sobre la posición anterior evita penetrar la mesa por contacto.
+	var destination := _undo_position + Vector3.UP * 0.04
+	var transform := object.global_transform
+	transform.origin = destination
+	var query := PhysicsShapeQueryParameters3D.new()
+	query.shape = shape_node.shape
+	query.transform = transform * shape_node.transform
+	query.collision_mask = ray_mask
+	query.exclude = [object.get_rid()]
+	query.margin = 0.005
+	if not camera.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
+		placement_message.emit("La posición anterior está ocupada; deshacer no ha movido nada.")
+		return
+	object.global_position = destination
+	object.linear_velocity = Vector3.ZERO
+	object.angular_velocity = Vector3.ZERO
+	object.sleeping = false
+	clear_movement_undo()
+	placement_message.emit("Pieza devuelta a su posición anterior; la física continúa.")
 
 
 # El objetivo sigue la superficie situada bajo el cursor, incluidos otros cuerpos.
@@ -398,6 +580,8 @@ func _recover_object(object: InteractiveTableObject) -> bool:
 		query.transform = shape_transform
 		query.transform.origin += destination - object.global_position
 		if camera.get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty():
+			if object == _undo_object:
+				clear_movement_undo()
 			var was_held: bool = object == held
 			if was_held:
 				object.on_release()

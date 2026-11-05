@@ -131,7 +131,9 @@ func _run() -> void:
 	_check(game.claim_draw(_sq("a1"), _sq("a2")), "reclamar 50 movimientos anunciando torre")
 	_check(game.status() == "fifty_moves", "anuncio termina la partida en tablas")
 	_check(game.board == board_before_claim, "la jugada anunciada no cambia el tablero")
-	_check(game.move_log.is_empty() and game.turn == ChessRules.WHITE, "el anuncio no consume turno")
+	_check(
+		game.move_log.is_empty() and game.turn == ChessRules.WHITE, "el anuncio no consume turno"
+	)
 	game.reset()
 	for move in [["g1", "f3"], ["g8", "f6"], ["f3", "g1"], ["f6", "g8"]]:
 		_check(game.play(_sq(move[0]), _sq(move[1])), "preparar repetición anunciada")
@@ -189,11 +191,13 @@ func _run() -> void:
 		"IA táctica captura una dama disponible"
 	)
 	_check(
-		game.board == ai_board_before
-		and game.turn == ChessRules.WHITE
-		and game.history == ai_history_before
-		and game.move_log == ai_log_before
-		and game.repetition_counts == ai_repetitions_before,
+		(
+			game.board == ai_board_before
+			and game.turn == ChessRules.WHITE
+			and game.history == ai_history_before
+			and game.move_log == ai_log_before
+			and game.repetition_counts == ai_repetitions_before
+		),
 		"buscar jugadas no altera el estado de la partida"
 	)
 	game.reset()
@@ -201,8 +205,10 @@ func _run() -> void:
 	casual_random.seed = 19
 	var casual_move := ChessAI.choose_move(game, ChessRules.OPPONENT_AI_CASUAL, casual_random)
 	_check(
-		not casual_move.is_empty()
-		and casual_move in game.legal_moves_from(int(casual_move.get("from", -1))),
+		(
+			not casual_move.is_empty()
+			and casual_move in game.legal_moves_from(int(casual_move.get("from", -1)))
+		),
 		"IA casual elige una jugada legal"
 	)
 

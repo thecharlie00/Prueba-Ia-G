@@ -1,3 +1,4 @@
+# gdlint: disable=max-returns
 class_name ChessRules
 extends RefCounted
 
@@ -174,9 +175,7 @@ func import_record(data: Variant) -> bool:
 	elif (
 		not _valid_record_move(claim_move)
 		or not candidate.claim_draw(
-			int(claim_move["from"]),
-			int(claim_move["to"]),
-			int(claim_move["promotion"])
+			int(claim_move["from"]), int(claim_move["to"]), int(claim_move["promotion"])
 		)
 		or candidate.claimed_draw != claim
 	):

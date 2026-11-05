@@ -48,6 +48,10 @@ func _click(path: String, expected: String) -> void:
 		_check(false, "falta el botón " + path)
 		return
 	button.pressed.emit()
+	var confirmation: ConfirmAction = current_scene.get("confirm_action")
+	_check(confirmation != null and confirmation.dialog.visible, "cambio de mesa pide confirmación")
+	if confirmation != null and confirmation.dialog.visible:
+		confirmation.dialog.confirmed.emit()
 	await _frames()
 	_check(
 		current_scene != null and current_scene.scene_file_path == expected, "navegar a " + expected

@@ -3,6 +3,7 @@ extends PhysicalChess
 
 const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
 const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
+const ChessAI := preload("res://scripts/chess/ChessAI.gd")
 
 const MAX_SAVE_BYTES := 262144
 const SPRING := 28.0
@@ -66,8 +67,20 @@ func _ready() -> void:
 	$UI/Panel/Margin/Content/Actions/Undo.pressed.connect(_undo)
 	$UI/Panel/Margin/Content/Actions/Claim.pressed.connect(_claim)
 	$UI/Panel/Margin/Content/SaveRow/Save.pressed.connect(_save_game)
-	$UI/Panel/Margin/Content/SaveRow/Load.pressed.connect(_load_game)
-	$UI/Panel/Margin/Content/Free.pressed.connect(_open_free)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/SaveRow/Load as Button,
+		"Cargar partida",
+		"La partida actual será sustituida por el guardado local. ¿Continuar?",
+		_load_game,
+		_can_leave_table
+	)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Free as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_open_free,
+		_can_leave_table
+	)
 	_refresh()
 
 
@@ -98,9 +111,7 @@ func _on_grab_started(object: InteractiveTableObject) -> void:
 		_refresh()
 		_help("Espera a que termine el turno de la IA.")
 		return
-	if (
-		_drag_from >= 0 and rules.status() in ["playing", "check"]
-	):
+	if _drag_from >= 0 and rules.status() in ["playing", "check"]:
 		for move in rules.legal_moves_from(_drag_from):
 			_destinations.append(int(move["to"]))
 	_refresh()
@@ -299,9 +310,11 @@ func _claim() -> void:
 		_claim_mode = not _claim_mode
 		_refresh()
 		_help(
-			"Arrastra una pieza a una jugada legal que produciría tablas y suéltala para anunciarla."
-			if _claim_mode
-			else "Anuncio de reclamación cancelado."
+			(
+				"Arrastra una pieza a una jugada legal que produciría tablas y suéltala para anunciarla."
+				if _claim_mode
+				else "Anuncio de reclamación cancelado."
+			)
 		)
 
 

@@ -108,6 +108,8 @@ func _test_view() -> void:
 		_simulated_release(view, another[0]["id"], another[0]["end"])
 	_check(view.rules.events.size() > record["events"].size(), "la partida cambió antes de cargar")
 	(view.get_node("UI/Panel/Margin/Content/SaveRow/Load") as Button).pressed.emit()
+	_check(view.confirm_action.dialog.visible, "cargar solicita confirmación")
+	view.confirm_action.dialog.confirmed.emit()
 	_check(view.rules.export_record() == record, "carga restaura el historial")
 	_check(view.rules.chain.size() == 1 and view.rules.turn == 1, "carga restaura cadena y turno")
 	var tile := _tile(view, int(record["events"][0]["id"]))

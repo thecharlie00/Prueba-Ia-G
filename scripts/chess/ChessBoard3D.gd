@@ -1,6 +1,8 @@
 class_name ChessBoard3D
 extends Node3D
 
+const CONFIRM_ACTION := preload("res://scripts/ui/ConfirmAction.gd")
+
 const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
 const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
 
@@ -13,14 +15,10 @@ const MAX_SAVE_BYTES := 262144
 
 @export var save_path := "user://diceon_chess.json"
 
+var confirm_action: ConfirmAction
 var rules := ChessRules.new()
 var selected: int = -1
 var legal_destinations: Array[int] = []
-var _claim_mode := false
-var _ai_thinking := false
-var _ai_failed := false
-var _ai_request_id := 0
-var _random := RandomNumberGenerator.new()
 var squares: Array[MeshInstance3D] = []
 var light_material: StandardMaterial3D
 var dark_material: StandardMaterial3D
@@ -28,6 +26,11 @@ var selected_material: StandardMaterial3D
 var legal_material: StandardMaterial3D
 var white_piece: StandardMaterial3D
 var black_piece: StandardMaterial3D
+var _claim_mode := false
+var _ai_thinking := false
+var _ai_failed := false
+var _ai_request_id := 0
+var _random := RandomNumberGenerator.new()
 
 @onready var camera: Camera3D = $CameraRig/Camera3D
 @onready var tiles_root: Node3D = $Board/Tiles
@@ -41,6 +44,8 @@ var black_piece: StandardMaterial3D
 
 
 func _ready() -> void:
+	confirm_action = CONFIRM_ACTION.new()
+	add_child(confirm_action)
 	_make_materials()
 	_make_board()
 	promotion_choice.add_item("Dama", ChessRules.QUEEN)
@@ -52,12 +57,27 @@ func _ready() -> void:
 	opponent_choice.add_item("IA táctica", ChessRules.OPPONENT_AI_TACTICAL)
 	opponent_choice.item_selected.connect(_on_opponent_selected)
 	_random.randomize()
-	$UI/Panel/Margin/Content/Reset.pressed.connect(_reset)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Reset as Button,
+		"Nueva partida",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_reset
+	)
 	undo_button.pressed.connect(_undo)
 	claim_button.pressed.connect(_claim)
 	$UI/Panel/Margin/Content/Save.pressed.connect(_save_game)
-	$UI/Panel/Margin/Content/Load.pressed.connect(_load_game)
-	$UI/Panel/Margin/Content/Sandbox.pressed.connect(_open_sandbox)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Load as Button,
+		"Cargar partida",
+		"La partida actual será sustituida por el guardado local. ¿Continuar?",
+		_load_game
+	)
+	confirm_action.bind_button(
+		$UI/Panel/Margin/Content/Sandbox as Button,
+		"Cambiar de mesa",
+		"Se descartarán los cambios actuales. ¿Continuar?",
+		_open_sandbox
+	)
 	_refresh()
 
 
