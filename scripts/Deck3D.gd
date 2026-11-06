@@ -21,6 +21,7 @@ func _ready() -> void:
 	if $Visual.material_override is StandardMaterial3D:
 		($Visual.material_override as StandardMaterial3D).albedo_color = Color("ff6b5e")
 	_add_page_lines()
+	_add_back_art()
 	if initial_cards.is_empty():
 		for number in range(1, maxi(cards_remaining, 0) + 1):
 			_cards.append(str(number))
@@ -69,3 +70,22 @@ func _add_page_lines() -> void:
 		band.position.y = -0.07 + i * 0.07
 		band.material_override = paper
 		pages.add_child(band)
+
+
+# Reverso ilustrado (CardArt) en la cara de arriba del mazo.
+func _add_back_art() -> void:
+	if has_node("Visual/BackArt"):
+		return
+	var face := MeshInstance3D.new()
+	face.name = "BackArt"
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.7, 0.98)
+	face.mesh = quad
+	face.rotation_degrees.x = -90
+	face.position.y = 0.123
+	var material := StandardMaterial3D.new()
+	material.albedo_texture = CardArt.texture("back")
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	face.material_override = material
+	$Visual.add_child(face)

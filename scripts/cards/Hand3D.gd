@@ -169,53 +169,41 @@ func _rebuild() -> void:
 func _make_card(item: Dictionary) -> Node3D:
 	var card := Node3D.new()
 	var face_kind := str(item.get("face", "playing"))
-	var paper := Palette.PAPER
-	if face_kind == "resource":
-		paper = IslandTerrain.CARD[int(item.get("resource", 0))]
-	elif face_kind == "development":
-		paper = Color("e7dcff")
-	if faces_hidden:
-		paper = Palette.CORAL
-	if bool(item.get("dim", false)):
-		paper = paper.darkened(0.35)
 	var body := MeshInstance3D.new()
 	body.name = "Body"
 	body.mesh = PieceKit.rounded_slab(CARD, 0.08, 0.012)
 	var material := StandardMaterial3D.new()
-	material.albedo_color = paper
+	material.albedo_color = Palette.PAPER if not faces_hidden else Palette.CORAL
 	body.material_override = material
 	card.add_child(body)
+	# Ilustración de la carta (CardArt) sobre la cara que mira a la cámara.
+	var art: Texture2D
 	if faces_hidden:
-		return card
-	match face_kind:
-		"resource":
-			var quad := MeshInstance3D.new()
-			var mesh := QuadMesh.new()
-			mesh.size = Vector2(0.54, 0.54)
-			quad.mesh = mesh
-			quad.rotation_degrees.x = -90
-			quad.position = Vector3(0, CARD.y * 0.5 + 0.004, -0.08)
-			var icon_material := StandardMaterial3D.new()
-			icon_material.albedo_texture = _icon_texture(int(item.get("resource", 0)))
-			icon_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			icon_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			quad.material_override = icon_material
-			card.add_child(quad)
-			card.add_child(_text(IslandBoard.RESOURCE_NAMES[int(item.get("resource", 0))], 64, Palette.INK, Vector3(0, 0, 0.32)))
-		"development":
-			card.add_child(_text("Desarrollo", 46, Palette.MUTED.darkened(0.3), Vector3(0, 0, -0.3)))
-			card.add_child(_text(str(item.get("text", "")), 58, Palette.PANEL, Vector3(0, 0, 0.0)))
-			if bool(item.get("dim", false)):
-				card.add_child(_text("nueva", 46, Palette.PAPER, Vector3(0, 0, 0.3)))
-		_:
-			var parts := str(item.get("text", "")).split(" ")
-			var rank := parts[0]
-			var suit := parts[1] if parts.size() > 1 else ""
-			var color: Color = SUIT_COLORS.get(suit, Palette.INK)
-			card.add_child(_text(rank, 190, color, Vector3(0, 0, -0.04)))
-			card.add_child(_text(SUIT_GLYPHS.get(suit, suit), 110 if not SUIT_GLYPHS.has(suit) else 60, color, Vector3(0, 0, 0.3)))
-			var corner := _text(rank, 70, color, Vector3(-0.22, 0, -0.36))
-			card.add_child(corner)
+		art = CardArt.texture("back")
+	elif face_kind == "resource":
+		art = CardArt.texture("resource", int(item.get("resource", 0)))
+	elif face_kind == "development":
+		art = CardArt.texture("development", IslandRules.DEV_NAMES.find(str(item.get("text", ""))))
+	else:
+		art = CardArt.texture("playing", str(item.get("text", "")))
+	var face := MeshInstance3D.new()
+	face.name = "Face"
+	var quad := QuadMesh.new()
+	quad.size = Vector2(CARD.x, CARD.z)
+	face.mesh = quad
+	face.rotation_degrees.x = -90
+	face.position.y = CARD.y * 0.5 + 0.003
+	var face_material := StandardMaterial3D.new()
+	face_material.albedo_texture = art
+	face_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	face_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	face_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	if bool(item.get("dim", false)):
+		face_material.albedo_color = Color(0.62, 0.62, 0.68)
+	face.material_override = face_material
+	card.add_child(face)
+	if bool(item.get("dim", false)) and not faces_hidden:
+		card.add_child(_text("nueva", 60, Palette.CORAL, Vector3(0, 0.002, -0.34)))
 	return card
 
 

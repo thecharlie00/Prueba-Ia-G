@@ -25,6 +25,9 @@ func _run() -> void:
 	for i in 4:
 		table.draw_to_hand(i % 2 == 0)
 	table.draw_to_hand(true)
+	for i in 3:
+		table.english.draw_card()
+		table.spanish.draw_card()
 	await _shot(out + "/hand_cards.png")
 	quit()
 

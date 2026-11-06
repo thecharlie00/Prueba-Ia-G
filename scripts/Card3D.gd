@@ -34,6 +34,7 @@ func _ready() -> void:
 
 func set_card_label(value: String) -> void:
 	card_label = value
+	_apply_art()
 	display_name = "Carta " + value + " · F para voltear"
 	var label := get_node_or_null("Visual/FaceLabel") as Label3D
 	if label:
@@ -68,20 +69,38 @@ func _finish_flip() -> void:
 	_flipping = false
 
 
-# Carta de canto grueso y esquinas muy redondeadas; anverso crema y reverso de la paleta.
-# La caja de colisión de la escena no cambia.
+# Carta de canto grueso y esquinas redondeadas con la ilustración de CardArt en las dos caras.
+# La caja de colisión de la escena no cambia. Las etiquetas de texto se conservan (inspección
+# y tests) pero ocultas: el aspecto lo da la ilustración.
 func _shape_card() -> void:
 	$Visual.mesh = PieceKit.rounded_slab(Vector3(0.68, 0.05, 0.96), 0.08, 0.022)
-	var face := PieceKit.rounded_slab(Vector3(0.58, 0.006, 0.86), 0.06, 0.003)
-	for side in ["Front", "Back"]:
-		var node := get_node_or_null("Visual/" + side) as MeshInstance3D
-		if node != null:
-			node.mesh = face
-	var front := get_node_or_null("Visual/Front") as MeshInstance3D
-	if front != null and front.material_override is StandardMaterial3D:
-		(front.material_override as StandardMaterial3D).albedo_color = Color("fff8ec")
-	var back := get_node_or_null("Visual/Back") as MeshInstance3D
-	if back != null and back.material_override is StandardMaterial3D:
-		(back.material_override as StandardMaterial3D).albedo_color = Color("ff6b5e")
 	if $Visual.material_override is StandardMaterial3D:
 		($Visual.material_override as StandardMaterial3D).albedo_color = Color("fff1d9")
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.68, 0.96)
+	for side in ["Front", "Back"]:
+		var node := get_node_or_null("Visual/" + side) as MeshInstance3D
+		if node == null:
+			continue
+		node.mesh = quad
+		node.rotation_degrees.x = -90 if side == "Front" else 90
+		node.position.y = 0.0265 if side == "Front" else -0.0265
+		var material := StandardMaterial3D.new()
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		material.albedo_texture = CardArt.texture("back") if side == "Back" else null
+		node.material_override = material
+	_apply_art.call_deferred()
+
+
+func _apply_art() -> void:
+	for node_name in ["FaceLabel", "Corner0", "Corner1"]:
+		var label := get_node_or_null("Visual/" + node_name) as Label3D
+		if label != null:
+			label.visible = false
+	var front := get_node_or_null("Visual/Front") as MeshInstance3D
+	if front != null and front.material_override is StandardMaterial3D:
+		(front.material_override as StandardMaterial3D).albedo_texture = CardArt.texture(
+			"playing", card_label
+		)

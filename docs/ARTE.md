@@ -83,6 +83,19 @@ Todas las piezas comparten un kit de formas ([`scripts/style/PieceKit.gd`](../sc
 - **Isla:** el pueblo es una casita con tejado a dos aguas y puerta. La ciudad es una casa ancha con una torre de tejado en punta, para que se distinga del pueblo por la silueta. El camino es un tablón y el ladrón, una figura oscura con ojos. Los jugadores son naranja, azul, rojo y blanco.
 - **Casillas de la isla:** prismas hexagonales en 3D sobre un mar azul, con paisaje en miniatura (árboles, colinas con ladrillos, ovejas, trigo, montañas nevadas y cactus en el desierto) y una ficha de número con puntos de probabilidad (6 y 8 en rojo). El paisaje se coloca lejos de esquinas y lados para no tapar pueblos ni caminos. Ya no se usan fotografías.
 
+## Arte de las cartas
+
+![Muestras del arte de cartas](img/cartas.png)
+
+Simple y legible a cualquier tamaño ([`scripts/cards/CardArt.gd`](../scripts/cards/CardArt.gd)): todas las cartas se dibujan con formas planas y contorno de tinta y se guardan como textura compartida, así que se ven igual en la mano y sobre la mesa.
+
+- **Anverso:** crema, con un marco fino del color del palo, el índice (valor y palo) en dos esquinas y un motivo grande en el centro. El as lleva el palo más grande y las figuras (J, Q, K; sota, caballo, rey) un medallón con la letra.
+- **Palos dibujados**, sin depender de la fuente: picas y tréboles en tinta, corazones y diamantes en coral; oros (moneda dorada), copas (cáliz coral), espadas (azul) y bastos (garrote de madera).
+- **Reverso:** coral, con un marco crema, una celosía de puntos y el dado de Dice on!! en el centro. Es también la cara de arriba de los mazos.
+- **Isla:** las cartas de recurso llevan una ventana del color del terreno con su icono y el nombre debajo. Las de desarrollo, un emblema: escudo (caballero), estrella (punto), caminos cruzados, destellos (abundancia) y monedas (monopolio).
+
+`tools/card_sheet.gd` genera una hoja de muestras para revisar el arte.
+
 ## Cartas en la mano
 
 ![Manos 3D, isla, mesa de cartas, ajedrez y ludo](img/fase1-mesa-y-manos.png)
