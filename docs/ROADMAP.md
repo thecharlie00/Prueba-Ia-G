@@ -89,14 +89,14 @@ Es la diferencia que se ve en una captura de Steam, así que va antes que el onl
 
 Todo en local primero, con el diseño preparado para red.
 
-- [ ] **Menú radial contextual** (clic derecho corto sobre una pieza) con las acciones disponibles y su atajo. El clic derecho mantenido sigue orbitando.
+- [x] **Menú radial contextual** (clic derecho corto sobre una pieza) con las acciones disponibles y su atajo. El clic derecho mantenido sigue orbitando. Llega a todas las mesas desde el agarre y comparte la lógica de las teclas.
 - [ ] **Atajos visibles** al pasar sobre una pieza (ampliar la ayuda contextual actual).
 - [ ] **Tutorial jugable** de 3 minutos: cámara, agarrar, voltear, tirar, mezclar, robar.
-- [ ] **Rebobinado**: historial de instantáneas de la mesa libre (las de `SandboxPersistence` ya sirven de base) con una línea de tiempo para volver a un punto concreto.
+- [x] **Rebobinado** de la mesa libre: guarda un momento cada vez que la mesa queda quieta tras una acción (hasta 40) y una tira «hace 12 s · hace 1 min…» permite volver a cualquiera. Usa el mismo formato validado que guardar y cargar. *Pendiente en los modos con reglas.*
 - [ ] **Manos privadas** 2D con orden y selección múltiple, y **zonas ocultas** por jugador en local (pantalla de traspaso como en la isla).
 - [ ] **Snap points y zonas editables** en lugar de la cuadrícula 4×4 fija; cartas que caen alineadas en zonas de descarte.
 - [ ] **Componentes utilitarios**: contador, bolsa con número de piezas, nota de texto, temporizador, tablero de puntuación.
-- [ ] **Pincel y "ping"** para dibujar y señalar sobre la mesa.
+- [x] **Señalar ("ping")**: tecla P o «Señalar» en el menú; aro amarillo que se expande y flecha que bota. *Falta el pincel para dibujar.*
 - [ ] **Voltear la mesa** como gesto cómico (con confirmación y rebobinado).
 - [ ] **Inspección 3D ampliada** de cartas y piezas (hoy es textual).
 - [ ] **Vistas por asiento** y vista cenital.

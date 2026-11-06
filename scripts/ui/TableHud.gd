@@ -16,7 +16,7 @@ extends CanvasLayer
 ## hud_seat_status(index) -> String para el texto bajo cada nombre.
 
 ## Botones que van a la barra de acciones si existen en el panel (por nombre de nodo).
-const DOCK_NAMES := ["Undo", "Claim", "Draw", "ToHand", "Pass", "Shuffle", "Roll"]
+const DOCK_NAMES := ["Undo", "Rewind", "Claim", "Draw", "ToHand", "Pass", "Shuffle", "Roll"]
 ## Etiquetas que se muestran como fichas de información.
 const INFO_NAMES := ["Result", "Selection", "Selected", "Chain"]
 

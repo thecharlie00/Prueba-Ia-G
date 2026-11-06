@@ -50,7 +50,13 @@ var _undo_position := Vector3.ZERO
 var _pending_undo := false
 
 
+var radial_menu: RadialMenu
+
+
 func _ready() -> void:
+	radial_menu = RadialMenu.new()
+	radial_menu.grabber = self
+	add_child(radial_menu)
 	var navigation := get_node_or_null("/root/SessionNavigation")
 	if navigation != null:
 		click_to_grab = bool(navigation.get("click_to_grab"))
@@ -155,6 +161,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_release_reason = "cancelled" if _pending_release else "released"
 			get_viewport().set_input_as_handled()
 			return
+		if event.keycode == KEY_P and not is_instance_valid(held) and not _pending_press:
+			ping(hovered.global_position if is_instance_valid(hovered) else _pointer_point())
+			get_viewport().set_input_as_handled()
+			return
 		if event.keycode == KEY_S and is_instance_valid(snap_grid):
 			snap_grid.enabled = not snap_grid.enabled
 			snap_grid.show_candidate({})
@@ -165,45 +175,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			selected = last_selected
 		if not is_instance_valid(selected) or not selected.is_inside_tree():
 			return
-		match event.keycode:
-			KEY_L:
-				if (
-					lock_shortcut_enabled
-					and not is_instance_valid(held)
-					and not _pending_press
-					and get_viewport().gui_get_hovered_control() == null
-					and not event.ctrl_pressed
-					and not event.alt_pressed
-					and not event.meta_pressed
-				):
-					if selected.set_table_locked(not selected.is_table_locked):
-						selection_changed.emit(selected)
-						placement_message.emit(
-							(
-								"Pieza bloqueada · L para desbloquear."
-								if selected.is_table_locked
-								else "Pieza desbloqueada; vuelve a tener física."
-							)
-						)
-					else:
-						placement_message.emit("Espera a que termine la acción antes de bloquear.")
-			KEY_H:
-				_pending_recovery = selected
-			KEY_R, KEY_T:
-				if dice_shortcuts_enabled and selected is Dice3D and not is_instance_valid(held):
-					selected.roll()
-				elif event.keycode == KEY_R and selected is Deck3D and not is_instance_valid(held):
-					selected.shuffle_deck()
-			KEY_E:
-				selected.rotate_object(0.7)
-			KEY_Q:
-				selected.rotate_object(-0.7)
-			KEY_F:
-				if (selected is Card3D or selected is Domino3D) and not is_instance_valid(held):
-					selected.flip()
-			KEY_N:
-				if selected is Deck3D and not is_instance_valid(held):
-					selected.draw_card()
+		if event.keycode == KEY_L and get_viewport().gui_get_hovered_control() != null:
+			return
+		apply_shortcut(event.keycode, selected)
 
 
 func _physics_process(delta: float) -> void:
@@ -609,3 +583,98 @@ func _plane_point(mouse: Vector2, height: float) -> Variant:
 	if t < 0.0 or t > ray_length:
 		return null
 	return origin + direction * t
+
+
+## Punto de la mesa bajo el ratón (o el centro si no hay nada debajo).
+func _pointer_point() -> Vector3:
+	if camera == null:
+		return Vector3.ZERO
+	var mouse := get_viewport().get_mouse_position()
+	var origin := camera.project_ray_origin(mouse)
+	var query := PhysicsRayQueryParameters3D.create(
+		origin, origin + camera.project_ray_normal(mouse) * ray_length, ray_mask
+	)
+	var hit := camera.get_world_3d().direct_space_state.intersect_ray(query)
+	return hit["position"] if not hit.is_empty() else Vector3.ZERO
+
+
+## Señal visible para todos en un punto de la mesa: aro que se expande y flecha que bota.
+func ping(at: Vector3) -> Node3D:
+	var marker := Node3D.new()
+	marker.name = "Ping"
+	get_parent().add_child(marker)
+	marker.global_position = at + Vector3.UP * 0.03
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = Palette.SUN
+	var ring := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.34
+	torus.outer_radius = 0.42
+	ring.mesh = torus
+	ring.material_override = material
+	marker.add_child(ring)
+	var arrow := MeshInstance3D.new()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.16
+	cone.bottom_radius = 0.0
+	cone.height = 0.32
+	arrow.mesh = cone
+	arrow.position.y = 0.75
+	var arrow_material := StandardMaterial3D.new()
+	arrow_material.albedo_color = Palette.SUN
+	arrow.material_override = arrow_material
+	marker.add_child(arrow)
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx != null:
+		sfx.play("pop")
+	var tween := marker.create_tween()
+	tween.tween_property(ring, "scale", Vector3.ONE * 2.6, 1.1).from(Vector3.ONE * 0.3).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(material, "albedo_color:a", 0.0, 1.1).from(1.0)
+	var bounce := arrow.create_tween().set_loops(3)
+	bounce.tween_property(arrow, "position:y", 0.45, 0.18).set_trans(Tween.TRANS_SINE)
+	bounce.tween_property(arrow, "position:y", 0.75, 0.18).set_trans(Tween.TRANS_SINE)
+	tween.tween_callback(marker.queue_free)
+	return marker
+
+
+## Atajos sobre una pieza (teclado y menú radial comparten esta lógica).
+func apply_shortcut(keycode: int, selected: InteractiveTableObject) -> void:
+	if not is_instance_valid(selected) or not selected.is_inside_tree():
+		return
+	match keycode:
+		KEY_L:
+			if (
+				lock_shortcut_enabled
+				and not is_instance_valid(held)
+				and not _pending_press
+			):
+				if selected.set_table_locked(not selected.is_table_locked):
+					selection_changed.emit(selected)
+					placement_message.emit(
+						(
+							"Pieza bloqueada · L para desbloquear."
+							if selected.is_table_locked
+							else "Pieza desbloqueada; vuelve a tener física."
+						)
+					)
+				else:
+					placement_message.emit("Espera a que termine la acción antes de bloquear.")
+		KEY_H:
+			_pending_recovery = selected
+		KEY_R, KEY_T:
+			if dice_shortcuts_enabled and selected is Dice3D and not is_instance_valid(held):
+				selected.roll()
+			elif keycode == KEY_R and selected is Deck3D and not is_instance_valid(held):
+				selected.shuffle_deck()
+		KEY_E:
+			selected.rotate_object(0.7)
+		KEY_Q:
+			selected.rotate_object(-0.7)
+		KEY_F:
+			if (selected is Card3D or selected is Domino3D) and not is_instance_valid(held):
+				selected.flip()
+		KEY_N:
+			if selected is Deck3D and not is_instance_valid(held):
+				selected.draw_card()
