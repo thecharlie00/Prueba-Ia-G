@@ -38,6 +38,10 @@ func setup(new_seats: Array) -> void:
 
 
 func set_active(index: int) -> void:
+	if index != active and active != -1 and index != -1:
+		var sfx := get_node_or_null("/root/Sfx")
+		if sfx != null:
+			sfx.play("turn")
 	active = index
 	for i in _avatars.size():
 		var on := i == index

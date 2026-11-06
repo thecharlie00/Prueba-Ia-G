@@ -25,6 +25,7 @@ func roll(impulse_scale: float = 1.0) -> void:
 		return
 	_awaiting_result = true
 	sleeping = false
+	_sound("dice")
 	apply_central_impulse(
 		(
 			Vector3(randf_range(-0.8, 0.8), randf_range(2.5, 3.5), randf_range(-0.8, 0.8))
@@ -55,6 +56,7 @@ func top_face() -> int:
 func _on_sleeping_changed() -> void:
 	if sleeping and _awaiting_result and not is_grabbed:
 		_awaiting_result = false
+		_celebrate(top_face())
 		result_ready.emit(top_face())
 
 
@@ -98,3 +100,79 @@ func _make_pips() -> void:
 			pip.basis = Basis(Quaternion(Vector3.UP, normal))
 			pip.position = normal * 0.243 + (u * p.x + v * p.y) * 0.125
 			pip_parent.add_child(pip)
+
+
+## Al quedar quieto: el número salta encima del dado y salen chispas de colores
+## (sin chispas ni salto con "Reducir animaciones").
+func _celebrate(value: int) -> void:
+	if not is_inside_tree():
+		return
+	_sound("pop")
+	var style := get_node_or_null("/root/ToonStyle")
+	var calm: bool = style != null and style.reduce_motion
+	var label := Label3D.new()
+	label.name = "ResultPop"
+	label.text = str(value)
+	label.font_size = 150
+	label.pixel_size = 0.004
+	label.modulate = Palette.SUN
+	label.outline_size = 36
+	label.outline_modulate = Palette.INK
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.render_priority = 3
+	if style != null:
+		label.font = style.DISPLAY_FONT
+	get_parent().add_child(label)
+	label.global_position = global_position + Vector3.UP * 0.65
+	var tween := label.create_tween()
+	if calm:
+		tween.tween_interval(1.0)
+	else:
+		label.scale = Vector3.ONE * 0.2
+		tween.tween_property(label, "scale", Vector3.ONE * 1.25, 0.16).set_ease(Tween.EASE_OUT)
+		tween.tween_property(label, "scale", Vector3.ONE, 0.18).set_trans(Tween.TRANS_BACK)
+		tween.parallel().tween_property(label, "position:y", label.position.y + 0.35, 0.5)
+		tween.tween_interval(0.6)
+	tween.tween_property(label, "modulate:a", 0.0, 0.3)
+	tween.parallel().tween_property(label, "outline_modulate:a", 0.0, 0.3)
+	tween.tween_callback(label.queue_free)
+	if calm:
+		return
+	var sparks := CPUParticles3D.new()
+	sparks.name = "ResultSparks"
+	sparks.one_shot = true
+	sparks.emitting = false
+	sparks.amount = 16
+	sparks.lifetime = 0.7
+	sparks.explosiveness = 1.0
+	sparks.direction = Vector3.UP
+	sparks.spread = 70.0
+	sparks.initial_velocity_min = 1.6
+	sparks.initial_velocity_max = 2.8
+	sparks.scale_amount_min = 0.6
+	sparks.scale_amount_max = 1.2
+	var dot := SphereMesh.new()
+	dot.radius = 0.035
+	dot.height = 0.07
+	dot.radial_segments = 8
+	dot.rings = 4
+	var spark_material := StandardMaterial3D.new()
+	spark_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	spark_material.vertex_color_use_as_albedo = true
+	dot.material = spark_material
+	sparks.mesh = dot
+	var colors := Gradient.new()
+	colors.offsets = PackedFloat32Array([0.0, 0.33, 0.66, 1.0])
+	colors.colors = PackedColorArray([Palette.SUN, Palette.CORAL, Palette.MINT, Palette.PLAYER_BLUE])
+	sparks.color_initial_ramp = colors
+	get_parent().add_child(sparks)
+	sparks.global_position = global_position + Vector3.UP * 0.3
+	sparks.emitting = true
+	get_tree().create_timer(1.2).timeout.connect(sparks.queue_free)
+
+
+func _sound(effect: String) -> void:
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx != null:
+		sfx.play(effect)

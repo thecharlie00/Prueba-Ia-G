@@ -49,6 +49,9 @@ func _ready() -> void:
 
 func add(label: String) -> void:
 	cards.append(label)
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx != null:
+		sfx.play("card")
 	_rebuild()
 	changed.emit()
 

@@ -69,6 +69,8 @@ func _ready() -> void:
 
 
 func _on_node_added(node: Node) -> void:
+	if node is StaticBody3D and node.name == "Floor":
+		_add_room.call_deferred(node)
 	if node is MeshInstance3D or node is WorldEnvironment or node is DirectionalLight3D or node is Control:
 		# Diferido: muchas escenas asignan malla o material justo después de add_child o en _ready.
 		_style_later.call_deferred(node)
@@ -342,10 +344,18 @@ func _box(fill: Color, border: Color, border_width: int, radius: int) -> StyleBo
 
 
 ## Paneles y etiquetas con estilos propios de cada escena: se adaptan sin perder su intención.
+func _button_sound() -> void:
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx != null:
+		sfx.play("ui")
+
+
 func _style_control(control: Control) -> void:
 	if not is_instance_valid(control) or control.has_meta(DONE_META):
 		return
 	control.set_meta(DONE_META, true)
+	if control is BaseButton:
+		(control as BaseButton).pressed.connect(_button_sound)
 	if control.has_theme_stylebox_override("panel"):
 		var box := control.get_theme_stylebox("panel") as StyleBoxFlat
 		if box != null and box.bg_color.a > 0.5 and box.bg_color.get_luminance() < 0.3:
@@ -361,3 +371,13 @@ func _style_control(control: Control) -> void:
 	if control is Label and control.has_theme_font_size_override("font_size"):
 		if control.get_theme_font_size("font_size") >= DISPLAY_SIZE:
 			control.add_theme_font_override("font", DISPLAY_FONT)
+
+
+## Habitación alrededor de la mesa (RoomDecor), una vez por escena.
+func _add_room(floor_node: Variant) -> void:
+	if not is_instance_valid(floor_node):
+		return
+	var scene := (floor_node as Node).get_parent()
+	if scene == null or scene.has_node("RoomDecor"):
+		return
+	scene.add_child(RoomDecor.new())

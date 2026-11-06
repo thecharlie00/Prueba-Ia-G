@@ -49,6 +49,9 @@ func flip() -> void:
 	if _flipping or is_grabbed or freeze:
 		return
 	_flipping = true
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx != null:
+		sfx.play("card")
 	freeze = true
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
