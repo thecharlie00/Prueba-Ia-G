@@ -75,6 +75,7 @@ scripts/
   Main.gd               # Conecta señales con la interfaz
   ui/Menu.gd            # Menú de modos locales
   ui/SessionNavigation.gd # Pausa y vuelta al menú
+  style/ToonStyle.gd    # Estilo cartoon común: luz toon, contornos, paleta y tema (docs/ARTE.md)
   CardTable.gd          # Barajas físicas manuales
   ludo/LudoRules.gd     # Variante local, reglas y replay
   ludo/LudoView.gd      # Fichas y dado físicos, mesa y controles
@@ -109,6 +110,11 @@ scripts/
   Domino3D.gd
   Card3D.gd
   Deck3D.gd
+shaders/toon_outline.gdshader # Contorno de tinta por casco invertido
+assets/fonts/           # Lilita One y Nunito (licencia OFL)
+tools/screenshot.gd, tools/shots.sh # Capturas con renderizador real para revisar el arte
+tests/run_all.sh        # Ejecuta todos los tests con resumen
+tests/toon_style.gd     # Estilo cartoon, tema y rebote
 tests/smoke.gd          # Comprobaciones mínimas sin interfaz
 tests/menu_navigation.gd # Menú, pausa y rutas
 tests/camera_controls.gd # Recentrado de cámara en modos de mesa

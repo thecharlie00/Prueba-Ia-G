@@ -1,8 +1,10 @@
 extends Control
 
-const BUTTON_STYLE := Color("203d32")
-const ACCENT := Color("9ad3ad")
-const MUTED := Color("aec2b2")
+# Paleta cartoon común (scripts/style/ToonStyle.gd, docs/ARTE.md).
+const BUTTON_STYLE := Color("fff8ec")
+const ACCENT := Color("ffc83d")
+const MUTED := Color("c9c5ef")
+const INK := Color("1d1a3a")
 var controls_feedback: Label
 
 
@@ -12,7 +14,7 @@ func _ready() -> void:
 
 func _build() -> void:
 	var background := ColorRect.new()
-	background.color = Color("0b1713")
+	background.color = Color("2a2552")
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 	var margin := MarginContainer.new()
@@ -80,7 +82,15 @@ func _build() -> void:
 		option.toggled.connect(navigation.set_click_to_grab)
 		navigation.controls_changed.connect(option.set_pressed_no_signal)
 	column.add_child(option)
-	controls_feedback = _label("El ajuste de agarre se guarda en este equipo.", 12, MUTED)
+	var motion := CheckButton.new()
+	motion.name = "ReduceMotion"
+	motion.text = "Reducir animaciones (sin rebotes al agarrar y soltar)"
+	var style := get_node_or_null("/root/ToonStyle")
+	if style != null:
+		motion.button_pressed = bool(style.get("reduce_motion"))
+		motion.toggled.connect(style.set_reduce_motion)
+	column.add_child(motion)
+	controls_feedback = _label("Los ajustes de agarre y animación se guardan en este equipo.", 12, MUTED)
 	column.add_child(controls_feedback)
 	if navigation != null:
 		navigation.controls_changed.connect(_on_controls_changed)
@@ -119,10 +129,11 @@ func _game(parent: VBoxContainer, id: String, title: String, scene: String) -> v
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.custom_minimum_size = Vector2(0, 42)
 	button.add_theme_font_size_override("font_size", 16)
-	button.add_theme_color_override("font_color", Color("eff7ec"))
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(state, INK)
 	button.add_theme_stylebox_override("normal", _style(BUTTON_STYLE))
-	button.add_theme_stylebox_override("hover", _style(Color("2f5744")))
-	button.add_theme_stylebox_override("pressed", _style(Color("406b51")))
+	button.add_theme_stylebox_override("hover", _style(Color("ffd96e")))
+	button.add_theme_stylebox_override("pressed", _style(ACCENT, true))
 	button.add_theme_stylebox_override("focus", _focus_style())
 	button.pressed.connect(_open.bind(scene))
 	parent.add_child(button)
@@ -140,15 +151,16 @@ func _label(text: String, font_size: int, color: Color) -> Label:
 	return label
 
 
-func _style(color: Color) -> StyleBoxFlat:
+func _style(color: Color, pressed := false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
+	style.border_color = INK
+	style.set_border_width_all(3)
+	style.border_width_bottom = 3 if pressed else 6
 	style.content_margin_left = 16
 	style.content_margin_right = 16
-	style.corner_radius_top_left = 6
-	style.corner_radius_top_right = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
+	style.content_margin_top = 9 if pressed else 6
+	style.set_corner_radius_all(12)
 	return style
 
 
@@ -156,6 +168,10 @@ func _focus_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.draw_center = false
 	style.border_color = ACCENT
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(6)
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(14)
+	style.expand_margin_left = 4
+	style.expand_margin_right = 4
+	style.expand_margin_top = 4
+	style.expand_margin_bottom = 4
 	return style
