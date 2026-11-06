@@ -11,7 +11,7 @@ Las fases se ordenan por dependencias, no por fechas. Cada fase tiene un criteri
 
 | | Tabletop Simulator | Tabletop Playground | **Dice on!! (objetivo)** |
 |---|---|---|---|
-| Precio | 19,99 $; rebajas a ~10 $; cada jugador compra su copia | 14,99 $; cada jugador compra su copia | **9,99–12,99 €** de lanzamiento, pack de 4 con descuento |
+| Precio | 19,99 $; rebajas a ~10 $; cada jugador compra su copia | 14,99 $; cada jugador compra su copia | **9,99–12,99 €** de lanzamiento, pack de 4 con descuento y **demo gratuita que puede unirse a salas** |
 | Estética | Realista, depende de cada mod | Realista / neutra | **Cartoon coherente**: sombreado plano, contornos, piezas redondeadas, animación con "juice" |
 | Reglas | No impide jugadas ilegales salvo scripts del mod | Igual, scripting en JavaScript | **Juegos incluidos con reglas opcionales** (ya hay 7 modos) y reglas no-code en el editor |
 | Contenido | Miles de mods gratis; marketplace de mods de pago anunciado en la 2.0 | Unos cientos de juegos | Catálogo propio + **Workshop siempre gratuito** |
@@ -40,7 +40,7 @@ Resumen de reseñas de Steam agregadas, hilos de Reddit, el tablero de sugerenci
 | 8 | Mal soporte de mando y Steam Deck | Steam Deck Verified como objetivo, controles con mando | **Pendiente** | 2 |
 | 9 | Polémica por los mods de pago del marketplace de la 2.0 | Workshop gratuito como compromiso público | **Pendiente** | 4 |
 | 10 | Mods de calidad irregular, que se rompen | Paquetes con assets incluidos y validados (no enlaces externos que caducan) | **Pendiente** | 4 |
-| 11 | Cada amigo tiene que comprar el juego | Precio bajo + pack de 4; demo gratuita con modos locales | **Decisión abierta** (ver §5) | 5 |
+| 11 | Cada amigo tiene que comprar el juego | Precio bajo, pack de 4 y demo gratuita que se une a salas de quien tiene el juego completo (ver §5) | **Decidido**, pendiente de implementar | 3, 5 |
 | 12 | Traducciones automáticas y fuentes sin soporte | Localización revisada por personas, fuentes con cobertura completa | **Pendiente** (hoy solo español) | 5 |
 | 13 | VR rota | Fuera de alcance | — | — |
 | 14 | Moderación y toxicidad en chat (polémicas de moderación) | Silenciar, bloquear, denunciar, permisos del anfitrión y política clara | **Pendiente** | 3 |
@@ -114,6 +114,8 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 - [ ] Reconexión y recuperación de la partida.
 - [ ] **Moderación**: silenciar, bloquear, expulsar, denunciar, permisos del anfitrión (quién puede tocar qué), filtro de chat opcional.
 - [ ] Chat de texto y registro de eventos.
+- [ ] **Licencias en salas**: solo el juego completo crea y aloja salas; la demo solo puede unirse. El host comprueba la licencia, no el cliente.
+- [ ] Enviar a los jugadores de la demo el contenido del Workshop que use la sala, solo para esa sesión (sin guardarlo ni instalarlo).
 - [ ] Pruebas con latencia, pérdida de paquetes y 8 jugadores.
 
 **Salida:** 20 sesiones de prueba con amigos en redes domésticas distintas: ≥ 95 % de uniones a la primera, partidas de 1 h sin desincronización ni cuelgues.
@@ -135,8 +137,9 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 - [ ] Catálogo de lanzamiento: ajedrez, damas, dominó, ludo, isla de recursos, cartas y **roles ocultos** (pendiente del GDD).
 - [ ] Bots básicos para completar mesas en ludo, dominó y damas (ajedrez ya tiene IA).
 - [ ] Localización revisada: español, catalán e inglés; después francés, alemán, portugués.
-- [ ] Página de Steam con capturas y tráiler cartoon, **demo gratuita** con los modos locales.
-- [ ] Precio y pack de 4 (ver §5).
+- [ ] Página de Steam con capturas y tráiler cartoon.
+- [ ] **Demo gratuita** con los modos locales y unión a salas online (ver §5).
+- [ ] Precio y **pack de 4** del juego completo (ver §5).
 - [ ] Rama beta pública para probar cada actualización antes de publicarla.
 - [ ] Objetivo **Steam Deck Verified** y Linux nativo.
 
@@ -159,12 +162,28 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 | El online consume más tiempo del previsto | Refactor de estado lógico antes de tocar red; empezar con 2–4 jugadores |
 | Contenido de la comunidad con derechos ajenos | Licencia declarada, denuncia, retirada; no buscar "clones" de juegos comerciales |
 | Un precio bajo no cubre el desarrollo | Coste contenido: Godot, sin servidores dedicados al principio (host local + relé de Steam) |
+| La demo no puede unirse a lobbies del juego completo si Steam los trata como apps distintas | Comprobarlo en un spike de Steam al empezar la fase 3; alternativa: app base gratuita y el juego completo como desbloqueo de pago (DLC) |
+| Grupos donde solo una persona compra el juego | Es intencionado: baja la barrera de entrada. Medir conversión de demo a compra y ajustar lo que ofrece el juego completo, no restringir la demo |
 | TTS 2.0 mejora sus controles y su UI | Competir en precio, estética, reglas incluidas y Workshop gratuito, no solo en controles |
 
-## 5. Decisiones abiertas
+## 5. Modelo de venta (decidido el 6 de noviembre de 2026)
+
+Responde a la queja de TTS de que todo el grupo tiene que comprar el juego: basta con que **una persona** tenga el juego completo para que sus amigos jueguen online con la demo.
+
+| | **Juego completo** (pago único) | **Pack de 4** | **Demo gratuita** |
+|---|---|---|---|
+| Modos locales y juegos incluidos | ✓ | ✓ (4 copias completas) | ✓ |
+| Crear y alojar salas online | ✓ | ✓ | ✗ |
+| **Unirse** a salas online | ✓ | ✓ | ✓, solo a salas de alguien con el juego completo |
+| Descargar juegos del Workshop | ✓ | ✓ | ✗; juega los que use la sala, que le envía el anfitrión solo para esa sesión |
+| Editor y publicar en el Workshop | ✓ | ✓ | ✗ |
+
+Sin suscripción ni microtransacciones. El pack de 4 son cuatro copias completas con descuento para regalar al grupo.
+
+### Decisiones abiertas
 
 1. **Precio exacto** dentro de 9,99–12,99 € y descuento del pack de 4.
-2. **Coste de jugar con amigos.** El GDD descarta pases gratuitos para invitados, pero los usuarios de TTS se quejan de que todos deban comprar el juego. Opciones: mantener una copia por persona con pack de 4 (coherente con el GDD), o permitir que una demo gratuita se una a salas de quien tenga el juego completo solo para los juegos incluidos.
+2. Si la demo tiene algún límite en salas (por ejemplo, número de jugadores con demo por sala).
 3. Número máximo de jugadores en Early Access.
 4. Si el volteo de mesa y otros gestos cómicos se pueden desactivar por sala.
 

@@ -26,7 +26,7 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 3. Catálogo: ampliar y validar las variantes de damas; ampliar y validar las variantes de parchís/ludo y privacidad de dominó, reglas de barajas y roles ocultos.
 4. Editor no-code: importación validada de imágenes/modelos, generador de fichas y mazos, zonas, lógica visual acotada y paquetes versionados.
 5. Red: servidor autoritativo, bloqueos, reconexión, filtros de información privada y pruebas de latencia. El juego actual no es multijugador de red.
-6. Steam: integración de plataforma, invitaciones, Workshop, licencias por copia y moderación; código de sala requiere un servicio compatible. Sin Friend Pass ni suscripción.
+6. Steam: integración de plataforma, invitaciones, Workshop, licencias (solo el juego completo aloja salas; la demo se une) y moderación; código de sala requiere un servicio compatible. Sin suscripción.
 7. HUD completo, ajustes y accesibilidad, persistencia, localización, pruebas de rendimiento, seguridad y publicación; evaluación posterior de tablets.
 
 El volumen de trabajo y las dependencias externas hacen que el GDD completo no equivalga a un único cambio ni a una función ya terminada.
