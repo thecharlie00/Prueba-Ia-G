@@ -9,12 +9,14 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var samples := [
-		["playing", "A ♠"], ["playing", "7 ♥"], ["playing", "Q ♦"], ["playing", "3 ♣"],
-		["playing", "1 O"], ["playing", "5 C"], ["playing", "11 E"], ["playing", "7 B"],
-		["back", ""], ["resource", 4], ["development", 0], ["development", 4],
+		["playing", "A ♠"], ["playing", "7 ♥"], ["playing", "10 ♦"], ["playing", "K ♣"],
+		["playing", "Q ♥"], ["playing", "J ♠"], ["playing", "1 O"], ["playing", "5 C"],
+		["playing", "3 E"], ["playing", "11 B"], ["playing", "12 O"], ["playing", "10 E"],
+		["back", ""], ["resource", 0], ["resource", 2], ["development", 0], ["development", 2],
+		["development", 4], ["playing", "7 B"], ["playing", "6 E"],
 	]
 	var grid := GridContainer.new()
-	grid.columns = 6
+	grid.columns = 8
 	grid.position = Vector2(20, 20)
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 16)
@@ -22,7 +24,7 @@ func _run() -> void:
 	for sample in samples:
 		var rect := TextureRect.new()
 		rect.texture = CardArt.texture(sample[0], sample[1])
-		rect.custom_minimum_size = Vector2(190, 268)
+		rect.custom_minimum_size = Vector2(150, 212)
 		rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
 		grid.add_child(rect)

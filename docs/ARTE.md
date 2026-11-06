@@ -89,10 +89,12 @@ Todas las piezas comparten un kit de formas ([`scripts/style/PieceKit.gd`](../sc
 
 Simple y legible a cualquier tamaño ([`scripts/cards/CardArt.gd`](../scripts/cards/CardArt.gd)): todas las cartas se dibujan con formas planas y contorno de tinta y se guardan como textura compartida, así que se ven igual en la mano y sobre la mesa.
 
-- **Anverso:** crema, con un marco fino del color del palo, el índice (valor y palo) en dos esquinas y un motivo grande en el centro. El as lleva el palo más grande y las figuras (J, Q, K; sota, caballo, rey) un medallón con la letra.
+- **Estilo vectorial:** formas planas con contorno de tinta, sombras planas desplazadas (sin degradados) y un pequeño brillo en los palos redondeados. Se dibujan al doble de resolución para verse nítidas de cerca.
+- **Anverso:** crema, con un marco fino del color del palo y el índice (valor y palo) en dos esquinas. Los números del 2 al 10 siguen la distribución clásica de palos; en la baraja francesa los de la mitad inferior van invertidos y en la española no. El as lleva un palo grande sobre un círculo suave.
+- **Figuras:** un arco del color del palo con su emblema y una cinta con la letra: corona (K, rey), tiara (Q), gorro con pluma (J, sota) y cabeza de caballo (caballo).
 - **Palos dibujados**, sin depender de la fuente: picas y tréboles en tinta, corazones y diamantes en coral; oros (moneda dorada), copas (cáliz coral), espadas (azul) y bastos (garrote de madera).
-- **Reverso:** coral, con un marco crema, una celosía de puntos y el dado de Dice on!! en el centro. Es también la cara de arriba de los mazos.
-- **Isla:** las cartas de recurso llevan una ventana del color del terreno con su icono y el nombre debajo. Las de desarrollo, un emblema: escudo (caballero), estrella (punto), caminos cruzados, destellos (abundancia) y monedas (monopolio).
+- **Reverso:** coral, con rombos geométricos en dos tonos, doble marco crema y un medallón con el dado de Dice on!! en el centro. Es también la cara de arriba de los mazos.
+- **Isla:** las cartas de recurso llevan una ventana a dos tonos (cielo claro y suelo del terreno) con su icono y el nombre en una cinta. Las de desarrollo, un emblema sobre un círculo crema: escudo (caballero), estrella (punto), caminos cruzados, destellos (abundancia) y monedas (monopolio).
 
 `tools/card_sheet.gd` genera una hoja de muestras para revisar el arte.
 
