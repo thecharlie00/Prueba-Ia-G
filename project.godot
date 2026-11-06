@@ -32,9 +32,12 @@ Locale="*res://scripts/i18n/Locale.gd"
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/size/mode=2
-window/size/resizable=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[internationalization]
+
+locale/fallback="es"
 
 [layer_names]
 
@@ -42,16 +45,12 @@ window/stretch/aspect="expand"
 3d_physics/layer_2="Piezas"
 3d_physics/layer_3="Bandeja de dados"
 
-[internationalization]
-
-locale/fallback="es"
-
 [physics]
 
+common/physics_ticks_per_second=90
 3d/physics_engine="Jolt Physics"
 3d/sleep_threshold_linear=0.04
 3d/sleep_threshold_angular=0.12
-common/physics_ticks_per_second=90
 
 [rendering]
 
