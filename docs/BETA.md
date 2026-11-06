@@ -23,4 +23,4 @@ Este documento es una lista de trabajo, no una declaración de que exista ya una
 
 ## Más allá de la beta local básica
 
-Multijugador autoritativo, manos privadas con filtrado por destinatario, editor no-code, Steam y Workshop, más juegos y variantes, localización, seguridad, accesibilidad ampliada y publicación siguen pendientes. El modelo previsto continúa siendo de pago único por copia, sin suscripción ni Friend Pass.
+Multijugador autoritativo, manos privadas con filtrado por destinatario, editor no-code, Steam y Workshop, más juegos y variantes, localización, seguridad, accesibilidad ampliada y publicación siguen pendientes. El modelo previsto es un juego completo de pago único (también en pack de 4) y una demo gratuita que solo puede unirse a salas, sin suscripción; ver [ROADMAP.md](ROADMAP.md).

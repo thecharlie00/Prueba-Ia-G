@@ -17,7 +17,7 @@
 | **Género** | Simulador sandbox de juegos de mesa 3D, creador no-code y multijugador. |
 | **Plataformas** | PC mediante Steam: Windows, macOS y Linux. Futuras aplicaciones para tablets iOS y Android, sujetas a validación de rendimiento, entrada táctil y condiciones de publicación. |
 | **Público objetivo** | Jugadores casuales de mesa, grupos de amigos, creadores de contenido y diseñadores indie que quieren prototipar sin programar. |
-| **Modelo** | Juego completo de pago único por usuario; sin suscripción ni pases gratuitos para invitados. |
+| **Modelo** | Juego completo de pago único (también en pack de 4) que crea salas y descarga del Workshop; demo gratuita que solo puede unirse a salas. Sin suscripción. Ver [ROADMAP](ROADMAP.md#5-modelo-de-venta-decidido-el-6-de-noviembre-de-2026). |
 | **Experiencia** | Una mesa compartida donde se puede jugar libremente, activar reglas asistidas o crear un juego a partir de imágenes y componentes. |
 | **Motor** | Godot 4. La elección de plugins, versión concreta y lenguaje por módulo se valida antes de cada lanzamiento. |
 
@@ -56,7 +56,7 @@ Dice on!! combina una mesa 3D sandbox con automatizaciones inteligentes e import
 |---|---|---|
 | **Accesibilidad primero** | Cámara predecible, objetivos amplios, ayudas físicas ajustables, deshacer y avisos claros. Nunca depender solo del color. | En pruebas moderadas, al menos 90 % de participantes novatos mueve y suelta una pieza sin ayuda en su primer intento. |
 | **Creación en 5 minutos** | Plantillas y valores seguros; generar un mazo a partir de una hoja 2D, una ficha simple y una zona sin scripting. | Medir tiempo hasta el primer prototipo jugable en una tarea acotada; objetivo de mediana ≤ 5 min con recursos preparados. No significa que un juego complejo pueda diseñarse en cinco minutos. |
-| **Multijugador sin fricción** | Invitación Steam y código de sala cuando exista un servicio compatible; cada participante necesita su propia copia del juego. | Objetivo de al menos 95 % de intentos de unión exitosos en pruebas controladas con red compatible; registrar causa y tiempo de conexión. |
+| **Multijugador sin fricción** | Invitación Steam y código de sala cuando exista un servicio compatible; para alojar hace falta el juego completo; con la demo gratuita se puede unir. | Objetivo de al menos 95 % de intentos de unión exitosos en pruebas controladas con red compatible; registrar causa y tiempo de conexión. |
 
 Los objetivos son hipótesis de producto, no resultados medidos. Se revisan con pruebas de usabilidad y telemetría agregada y consentida.
 
@@ -340,7 +340,8 @@ En modo libre, deshacer acciones propias según política de sala; en reglas act
 
 ### Modelo de negocio
 
-- **Pago único:** cada jugador compra una copia completa que permite jugar, alojar, crear y usar el catálogo incluido. No hay suscripción, pases de invitado, microtransacciones ni funciones básicas bloqueadas detrás de pagos adicionales. Precio y territorios pendientes de investigación.
+- **Pago único:** el juego completo permite jugar, crear y alojar salas, descargar del Workshop, usar el editor y el catálogo incluido. Se vende también en **pack de 4** con descuento. No hay suscripción ni microtransacciones.
+- **Demo gratuita:** modos locales y **unirse** a salas de quien tenga el juego completo, incluidos los juegos del Workshop que use esa sala, que el anfitrión envía solo para la sesión. No puede crear salas, descargar del Workshop ni usar el editor. La licencia la comprueba el anfitrión. Precio y territorios pendientes de investigación; detalle en el [ROADMAP](ROADMAP.md#5-modelo-de-venta-decidido-el-6-de-noviembre-de-2026).
 - **Contenido comunitario:** política de licencias, moderación y retirada antes de publicar; no asumir que todas las imágenes compartidas son legales. La distribución comunitaria no cambia el modelo de pago único.
 
 ### Roadmap propuesto y puertas de salida
