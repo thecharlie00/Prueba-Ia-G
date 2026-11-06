@@ -257,7 +257,7 @@ Usa un servidor autoritativo con IDs estables por pieza y un único simulador f�
 
 ## Modelo de negocio y siguientes pasos
 
-El diseño de producto contempla **pago único por copia**, sin suscripción ni pase gratuito para invitados; el modelo comercial aún no está implementado ni conectado a Steam. Cada jugador necesitará su copia para el multijugador futuro. Consulta el [GDD](docs/GDD-Dice-on.md) para las fases previstas. El prototipo actual es local: incluye primeros modos asistidos de ajedrez y damas, pero todavía no incluye editor no-code ni multijugador. Consulta el [estado de implementación](docs/ESTADO.md) para sus límites.
+El diseño de producto contempla **pago único por copia**, sin suscripción ni pase gratuito para invitados; el modelo comercial aún no está implementado ni conectado a Steam. Cada jugador necesitará su copia para el multijugador futuro. Consulta el [GDD](docs/GDD-Dice-on.md) para el diseño y el [roadmap](docs/ROADMAP.md) para las fases hacia una alternativa más barata y con estética cartoon a Tabletop Simulator, incluidas las peticiones de sus usuarios. El prototipo actual es local: incluye primeros modos asistidos de ajedrez y damas, pero todavía no incluye editor no-code ni multijugador. Consulta el [estado de implementación](docs/ESTADO.md) para sus límites.
 
 ## Ajedrez local
 

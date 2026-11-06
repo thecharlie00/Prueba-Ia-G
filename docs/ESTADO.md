@@ -32,4 +32,4 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 El volumen de trabajo y las dependencias externas hacen que el GDD completo no equivalga a un único cambio ni a una función ya terminada.
 
 
-Consulta [BETA.md](BETA.md) para los bloqueos de una beta local verificable. Los guardados usan temporal y copia anterior validada, sin garantía de atomicidad o durabilidad en todos los sistemas; falta probar interrupciones y falta de espacio en equipos reales. La existencia de un menú y pruebas headless no equivale a una beta ya validada con jugadores.
+El orden de trabajo previsto está en [ROADMAP.md](ROADMAP.md). Consulta [BETA.md](BETA.md) para los bloqueos de una beta local verificable. Los guardados usan temporal y copia anterior validada, sin garantía de atomicidad o durabilidad en todos los sistemas; falta probar interrupciones y falta de espacio en equipos reales. La existencia de un menú y pruebas headless no equivale a una beta ya validada con jugadores.
