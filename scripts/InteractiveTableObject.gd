@@ -11,6 +11,8 @@ var is_grabbed := false
 var is_table_locked := false
 var hovered := false
 var _highlight: StandardMaterial3D
+var _juice_tween: Tween
+var _juice_base := Vector3.ONE
 
 
 func _ready() -> void:
@@ -68,13 +70,36 @@ func on_grab() -> void:
 	is_grabbed = true
 	sleeping = false
 	_update_highlight()
+	# Al levantarla se estira hacia arriba; al soltarla se aplasta y rebota.
+	_juice(Vector3(0.9, 1.14, 0.9))
 	grabbed.emit(self)
 
 
 func on_release() -> void:
 	is_grabbed = false
 	_update_highlight()
+	_juice(Vector3(1.14, 0.84, 1.14))
 	released.emit(self)
+
+
+## Estirar y aplastar ("squash and stretch") solo la malla visual: el colisionador y la física
+## no cambian. Se desactiva con ToonStyle.reduce_motion.
+func _juice(target: Vector3) -> void:
+	var style := get_node_or_null("/root/ToonStyle")
+	if style != null and style.reduce_motion:
+		return
+	var visual := get_node_or_null("Visual") as Node3D
+	if visual == null or not is_inside_tree():
+		return
+	if _juice_tween != null and _juice_tween.is_valid():
+		_juice_tween.kill()
+		visual.scale = _juice_base
+	_juice_base = visual.scale
+	_juice_tween = create_tween()
+	_juice_tween.tween_property(visual, "scale", _juice_base * target, 0.07).set_ease(Tween.EASE_OUT)
+	_juice_tween.tween_property(visual, "scale", _juice_base, 0.22).set_trans(Tween.TRANS_BACK).set_ease(
+		Tween.EASE_OUT
+	)
 
 
 func set_table_locked(value: bool) -> bool:

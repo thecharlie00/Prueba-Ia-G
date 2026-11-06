@@ -21,6 +21,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+ToonStyle="*res://scripts/style/ToonStyle.gd"
 SessionNavigation="*res://scripts/ui/SessionNavigation.gd"
 
 [display]
