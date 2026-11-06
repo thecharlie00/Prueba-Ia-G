@@ -114,10 +114,12 @@ func _run() -> void:
 	await physics_frame
 	_check(zone2.inside.has(dice), "la zona detecta la pieza que tiene dentro")
 	_check(bool(dice.get_meta(&"private_hidden", false)), "desde el asiento 1 la mano de J2 está oculta")
-	_check(zone2.get_node("Cover").visible and not zone1.get_node("Cover").visible, "solo se tapa la mano ajena")
+	_check(not dice.visible and zone2.hidden_count() == 1, "la pieza ajena se ve como una nubecilla")
+	_check(zone1.hidden_count() == 0, "la mano propia no se oculta")
 	rig.set_view("seat2", true)
 	await physics_frame
 	_check(not bool(dice.get_meta(&"private_hidden", false)), "J2 ve su propia mano")
+	_check(dice.visible and zone2.hidden_count() == 0, "al cambiar de asiento la pieza vuelve a verse")
 	rig.set_view("seat1", true)
 	await physics_frame
 	grabber._update_hover(rig.camera.unproject_position(dice.global_position))

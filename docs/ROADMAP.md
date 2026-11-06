@@ -1,7 +1,7 @@
 # Roadmap · Tablerama
 
 **Objetivo:** convertir el prototipo local en una alternativa a Tabletop Simulator (TTS) **más barata, más fácil de usar y más completa en lo que importa**, con una identidad visual **cartoon** propia.<br>
-**Fecha:** 6 de noviembre de 2026 · **Estado:** plan de trabajo, no una lista de funciones ya terminadas. Lo implementado está en [ESTADO.md](ESTADO.md); el diseño de detalle, en el [GDD](GDD-Tablerama.md).
+**Fecha:** 7 de noviembre de 2026 · **Estado:** plan de trabajo, no una lista de funciones ya terminadas. Lo implementado está en [ESTADO.md](ESTADO.md); el diseño de detalle, en el [GDD](GDD-Tablerama.md).
 
 Las fases se ordenan por dependencias, no por fechas. Cada fase tiene un criterio de salida comprobable; no se pasa a la siguiente sin cumplirlo.
 
@@ -64,7 +64,7 @@ Cumplir los bloqueos de [BETA.md](BETA.md) antes de abrir frentes nuevos.
 - [ ] Ejecución con renderizador real y revisión visual de todos los modos.
 - [ ] Partidas manuales completas en cada modo, con ratón y teclado; ajustar masas y fuerzas.
 - [ ] Exportaciones de Windows, Linux y macOS que arranquen en equipos reales.
-- [ ] Ejecutar la suite completa de tests en CI (GitHub Actions con Godot headless) en cada PR.
+- [x] Ejecutar la suite completa de tests en CI (GitHub Actions con Godot headless) en cada PR, con exportaciones de Windows, Linux y macOS como artefactos.
 
 **Salida:** 3 personas ajenas al proyecto completan una partida de cada modo sin bloqueos.
 
@@ -78,9 +78,9 @@ Es la diferencia que se ve en una captura de Steam, así que va antes que el onl
 - [x] **Rediseño de piezas**: kit de formas común para dados, dominó, cartas, fichas, ajedrez, damas, ludo e isla (casillas 3D con paisaje; pueblo, ciudad y camino con silueta propia).
 - [x] **Cartas**: arte vectorial para la baraja inglesa y la española, el reverso y las cartas de la isla; manos de cartas en 3D sujetas delante de la cámara.
 - [x] **Mesa y entorno**: suelo de tablones, alfombra y habitación con paredes de una cara, ventana, estantería y planta.
-- [x] **"Juice"**: estirar y aplastar al agarrar y soltar, chispas y número que salta al resolverse un dado, con opción de **reducir animaciones**. *Falta el temblor de cámara al voltear la mesa (llegará con el volteo, fase 2).*
+- [x] **"Juice"**: estirar y aplastar al agarrar y soltar, chispas y número que salta al resolverse un dado, con opción de **reducir animaciones**. Volcar la mesa ya hace temblar la cámara.
 - [x] **Audio**: efectos generados por código (agarrar, soltar, dados, cartas, botones, turno), con opción para apagarlos. *Falta música ambiental y volúmenes separados.*
-- [x] **UI cartoon**: tema común, fuentes Lilita One y Nunito, información en la mesa (jugadores sentados, cartel de turno, barra de acciones, cajón «Partida»). *La isla y el ludo conservan su panel de acciones.*
+- [x] **UI cartoon**: tema común, fuentes Lilita One y Nunito, información en la mesa (jugadores sentados, cartel de turno, barra de acciones, cajón «Partida»). Cada juego tiene su color de acento y su emblema (`GameThemes`). *La isla y el ludo conservan su panel de acciones.*
 - [x] Mantener la **legibilidad**: jugadores con número y nombre además del color; números de la isla con puntos de probabilidad; cartas con índice en dos esquinas.
 
 **Salida:** captura comparativa antes/después de cada modo; 60 FPS en un portátil con gráficos integrados de referencia; test de lectura con 5 personas.
@@ -92,18 +92,20 @@ Es la diferencia que se ve en una captura de Steam, así que va antes que el onl
 Todo en local primero, con el diseño preparado para red.
 
 - [x] **Menú radial contextual** (clic derecho corto sobre una pieza) con las acciones disponibles y su atajo. El clic derecho mantenido sigue orbitando. Llega a todas las mesas desde el agarre y comparte la lógica de las teclas.
-- [ ] **Atajos visibles** al pasar sobre una pieza (ampliar la ayuda contextual actual).
-- [ ] **Tutorial jugable** de 3 minutos: cámara, agarrar, voltear, tirar, mezclar, robar.
+- [x] **Atajos visibles**: bocadillo con los atajos flotando sobre la pieza bajo el ratón.
+- [x] **Tutorial jugable** de 9 pasos que se completan haciéndolos (agarrar, orbitar, zoom, tirar, menú radial, vistas, señalar, pincel). Desde «Empieza aquí» y la primera vez en la mesa libre.
 - [x] **Rebobinado** de la mesa libre: guarda un momento cada vez que la mesa queda quieta tras una acción (hasta 40) y una tira «hace 12 s · hace 1 min…» permite volver a cualquiera. Usa el mismo formato validado que guardar y cargar. *Pendiente en los modos con reglas.*
-- [ ] **Manos privadas** 2D con orden y selección múltiple, y **zonas ocultas** por jugador en local (pantalla de traspaso como en la isla).
+- [x] **Zonas privadas** por jugador en la mesa libre: lo que hay dentro solo lo ve su asiento (V cambia de asiento); los demás ven una nubecilla con «?» por pieza. *Faltan las manos 2D con orden y selección múltiple.*
 - [ ] **Snap points y zonas editables** en lugar de la cuadrícula 4×4 fija; cartas que caen alineadas en zonas de descarte.
-- [ ] **Componentes utilitarios**: contador, bolsa con número de piezas, nota de texto, temporizador, tablero de puntuación.
-- [x] **Señalar ("ping")**: tecla P o «Señalar» en el menú; aro amarillo que se expande y flecha que bota. *Falta el pincel para dibujar.*
-- [ ] **Voltear la mesa** como gesto cómico (con confirmación y rebobinado).
+- [x] **Componentes utilitarios**: contador, bolsa con número de piezas, nota de texto y reloj con cuenta atrás; se guardan y se rebobinan. *Falta el tablero de puntuación.*
+- [x] **Señalar ("ping")**: tecla P o «Señalar» en el menú; aro amarillo que se expande y flecha que bota. **Pincel** (D) con 5 colores en todas las mesas físicas. *Los dibujos aún no se guardan.*
+- [x] **Volcar la mesa** como gesto cómico (Ctrl+F): las piezas saltan, la mesa da un respingo y la cámara tiembla; se deshace con Rebobinar.
 - [ ] **Inspección 3D ampliada** de cartas y piezas (hoy es textual).
-- [ ] **Vistas por asiento** y vista cenital.
-- [ ] **Mando y Steam Deck**: control con stick y gatillos, cursor virtual, UI navegable; remapeo de teclas.
+- [x] **Vistas por asiento** y vista cenital con V (Mayús+V hacia atrás).
+- [x] **Mando**: cursor con el stick, A/B como clics, stick derecho orbita, gatillos zoom, botones a los atajos. *Falta probarlo en una Steam Deck, glifos de mando y remapeo de teclas.*
 - [ ] Apilado automático de cartas y fichas compatibles (pendiente del GDD).
+
+**Estado (7 de noviembre de 2026):** hecho casi todo en local; además, pantalla adaptable con F11, física con Jolt, zoom de cartas en la mano e idiomas español, inglés y catalán. Quedan las manos 2D, los snap points editables, la inspección 3D, el apilado automático y las pruebas con personas y en Steam Deck.
 
 **Salida:** test de usabilidad: el 90 % de novatos mueve, voltea y roba sin ayuda en su primer intento (objetivo del GDD); partida completa con mando en Steam Deck.
 
