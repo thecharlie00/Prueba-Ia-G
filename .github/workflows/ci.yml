@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.1
+  GODOT_RELEASE: 4.7.1-stable
+
+jobs:
+  tests:
+    name: Tests headless
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Godot
+        run: |
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_RELEASE}_linux.x86_64" /usr/local/bin/godot
+          godot --version
+
+      - name: Ejecutar tests
+        run: tests/run_all.sh godot
+
+      - name: Guardar registros de los tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: .test-logs/
+          retention-days: 14
+
+  export:
+    name: Exportar ${{ matrix.preset }}
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: Windows
+            dir: windows
+          - preset: Linux
+            dir: linux
+          - preset: macOS
+            dir: macos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Caché de plantillas de exportación
+        id: templates
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/godot/export_templates/${{ env.GODOT_VERSION }}.stable
+          key: godot-templates-${{ env.GODOT_RELEASE }}
+
+      - name: Instalar Godot
+        run: |
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_RELEASE}_linux.x86_64" /usr/local/bin/godot
+
+      - name: Instalar plantillas de exportación
+        if: steps.templates.outputs.cache-hit != 'true'
+        run: |
+          curl -sSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          unzip -q templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+
+      - name: Importar proyecto
+        run: godot --headless --editor --path . --quit
+
+      - name: Exportar
+        run: |
+          mkdir -p build/${{ matrix.dir }}
+          godot --headless --path . --export-release "${{ matrix.preset }}" 2>&1 | tee export.log
+          test -n "$(ls -A build/${{ matrix.dir }})"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DiceOn-${{ matrix.dir }}
+          path: build/${{ matrix.dir }}/
+          retention-days: 14
