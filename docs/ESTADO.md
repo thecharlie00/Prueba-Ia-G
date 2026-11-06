@@ -24,7 +24,7 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 ### Quejas de TTS resueltas en local (noviembre de 2026)
 
 - **Herramientas de mesa** (mesa libre, «Partida → Añadir a la mesa»): contador (+/−, R a cero), bolsa (suelta piezas encima, N saca una al azar), nota (Intro para escribir) y reloj (R arranca, +/− cuenta atrás). Se guardan y se rebobinan.
-- **Zonas privadas**: mano de J1 y de J2 en la mesa libre; lo de dentro queda tapado y no se puede agarrar desde otro asiento.
+- **Zonas privadas**: mano de J1 y de J2 en la mesa libre; desde otro asiento cada pieza de dentro se ve como una nubecilla con «?» (se sabe cuántas hay, no cuáles) y no se puede agarrar.
 - **Vistas**: V recorre vista cenital y los 4 asientos (Mayús+V hacia atrás).
 - **Pincel** (D) en todas las mesas con piezas físicas y **volcar la mesa** (Ctrl+F, se deshace con Rebobinar).
 - **Mando y Steam Deck**: stick izquierdo mueve el cursor, A agarra, B abre el menú radial, stick derecho orbita, gatillos hacen zoom.
