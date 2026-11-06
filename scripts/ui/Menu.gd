@@ -46,6 +46,9 @@ func _build() -> void:
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	list.add_theme_constant_override("separation", 10)
 	scroll.add_child(list)
+	_group(list, "EMPIEZA AQUÍ", "Aprende a jugar en la mesa libre en tres minutos, paso a paso.")
+	var tutorial := _game(list, "Tutorial", "Tutorial jugable", "res://scenes/Main.tscn")
+	tutorial.pressed.connect(func() -> void: Tutorial.requested = true)
 	_group(list, "ISLA DE RECURSOS", "Tres o cuatro jugadores · estrategia inspirada en Catán.")
 	_game(list, "Island", "Isla de recursos · 3 jugadores", "res://scenes/Island.tscn")
 	_game(list, "IslandFour", "Isla de recursos · 4 jugadores", "res://scenes/IslandFour.tscn")
@@ -102,6 +105,13 @@ func _build() -> void:
 	column.add_child(controls_feedback)
 	if navigation != null:
 		navigation.controls_changed.connect(_on_controls_changed)
+	var locale := get_node_or_null("/root/Locale")
+	if locale != null:
+		var language_row := HBoxContainer.new()
+		language_row.add_theme_constant_override("separation", 12)
+		language_row.add_child(_label("Idioma", 14, ACCENT))
+		language_row.add_child(locale.make_selector())
+		column.add_child(language_row)
 	var footer := _label("Prototipo local · Sin juego en red", 12, MUTED)
 	column.add_child(footer)
 	var quit_button := Button.new()
@@ -130,7 +140,7 @@ func _group(parent: VBoxContainer, title: String, description: String) -> void:
 	box.add_child(detail)
 
 
-func _game(parent: VBoxContainer, id: String, title: String, scene: String) -> void:
+func _game(parent: VBoxContainer, id: String, title: String, scene: String) -> Button:
 	var button := Button.new()
 	button.name = id
 	button.text = title + "   →"
@@ -145,6 +155,7 @@ func _game(parent: VBoxContainer, id: String, title: String, scene: String) -> v
 	button.add_theme_stylebox_override("focus", _focus_style())
 	button.pressed.connect(_open.bind(scene))
 	parent.add_child(button)
+	return button
 
 
 func _open(path: String) -> void:

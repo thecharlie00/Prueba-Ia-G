@@ -21,6 +21,16 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 - Los modos con guardado conservan la versión anterior validada y recurren a ella si falla el principal; no garantizan durabilidad ante cortes ni soportan escrituras simultáneas de varias instancias. No hay nube.
 - Pruebas automatizadas para agarre, colisiones, apilado, menú, modelos, barajas, guardado de mesa, tablero físico, ajedrez físico con reglas, dominó físico, orientación de cadena y reglas (50 partidas simuladas), reglas y guardado físicos, navegación, cuadrícula, ajedrez y damas, ejecutadas en Godot 4.7 en modo headless; incluyen perft, 206 posiciones de ajedrez y 171 de damas contrastadas con referentes independientes. Falta validar presentación, interacción con ratón y rendimiento gráfico en un Godot con renderizador real.
 
+### Quejas de TTS resueltas en local (noviembre de 2026)
+
+- **Herramientas de mesa** (mesa libre, «Partida → Añadir a la mesa»): contador (+/−, R a cero), bolsa (suelta piezas encima, N saca una al azar), nota (Intro para escribir) y reloj (R arranca, +/− cuenta atrás). Se guardan y se rebobinan.
+- **Zonas privadas**: mano de J1 y de J2 en la mesa libre; lo de dentro queda tapado y no se puede agarrar desde otro asiento.
+- **Vistas**: V recorre vista cenital y los 4 asientos (Mayús+V hacia atrás).
+- **Pincel** (D) en todas las mesas con piezas físicas y **volcar la mesa** (Ctrl+F, se deshace con Rebobinar).
+- **Mando y Steam Deck**: stick izquierdo mueve el cursor, A agarra, B abre el menú radial, stick derecho orbita, gatillos hacen zoom.
+- **Tutorial jugable** de 9 pasos (menú «Empieza aquí» y la primera vez que se abre la mesa libre) y atajos flotando sobre cada pieza.
+- **Idiomas**: español, inglés y catalán (selector en el menú principal).
+
 ## Pendiente para completar el GDD
 
 1. Robustecer el ajedrez con pruebas exhaustivas de reglas, casos límite, accesibilidad, relojes, una IA más avanzada para distintos niveles y juego libre opcional.

@@ -8,7 +8,11 @@ const SCENES := {
 	"dice": preload("res://scenes/Dice3D.tscn"),
 	"token": preload("res://scenes/Token3D.tscn"),
 	"card": preload("res://scenes/Card3D.tscn"),
-	"deck": preload("res://scenes/Deck3D.tscn")
+	"deck": preload("res://scenes/Deck3D.tscn"),
+	"counter": "res://scenes/Counter3D.tscn",
+	"bag": "res://scenes/Bag3D.tscn",
+	"note": "res://scenes/Note3D.tscn",
+	"timer": "res://scenes/Timer3D.tscn",
 }
 const MAX_BYTES := 262144
 const MAX_OBJECTS := 100
@@ -22,55 +26,79 @@ static func snapshot(objects: Node, snap_enabled: bool) -> Dictionary:
 		var object := child as InteractiveTableObject
 		if object == null or object.is_grabbed or (object.freeze and not object.is_table_locked):
 			return {}
-		var kind := ""
-		if object is Dice3D:
-			kind = "dice"
-		elif object is Token3D:
-			kind = "token"
-		elif object is Card3D:
-			kind = "card"
-		elif object is Deck3D:
-			kind = "deck"
-		else:
+		var data := piece_data(object)
+		if data.is_empty():
 			return {}
-		var q := object.global_basis.get_rotation_quaternion().normalized()
-		# Los nombres internos automáticos con @ no pueden asignarse al cargar.
-		var base_name := str(object.name).substr(0, 90)
-		for invalid in ["/", ":", ".", '"', "%", "@"]:
-			base_name = base_name.replace(invalid, "_")
-		if base_name.is_empty():
-			base_name = "Pieza"
+		var base_name: String = data["name"]
 		var saved_name := base_name
 		var suffix := 1
 		while used_names.has(saved_name):
 			saved_name = base_name + "_" + str(suffix)
 			suffix += 1
 		used_names[saved_name] = true
-		var data := {
-			"type": kind,
-			"name": saved_name,
-			"display_name": object.display_name,
-			"position": _vector_data(object.global_position),
-			"rotation": [q.x, q.y, q.z, q.w],
-			"velocity": _vector_data(object.linear_velocity),
-			"angular_velocity": _vector_data(object.angular_velocity),
-			"locked": object.is_table_locked
-		}
-		if object is Token3D:
-			var color: Color = object.piece_color
-			data["color"] = [color.r, color.g, color.b, color.a]
-			data["king"] = object.is_king
-		elif object is Card3D:
-			data["label"] = object.card_label
-		elif object is Deck3D:
-			data["cards"] = object._cards.duplicate()
-		elif object is Dice3D:
-			data["awaiting_result"] = object._awaiting_result
+		data["name"] = saved_name
 		pieces.append(data)
 	var record := {
 		"format": "diceon_sandbox", "version": 1, "snap": snap_enabled, "objects": pieces
 	}
 	return record if validate(record) else {}
+
+
+static func kind_of(object: InteractiveTableObject) -> String:
+	if object is Dice3D:
+		return "dice"
+	if object is Token3D:
+		return "token"
+	if object is Card3D:
+		return "card"
+	if object is Deck3D:
+		return "deck"
+	if object is Counter3D:
+		return "counter"
+	if object is Bag3D:
+		return "bag"
+	if object is Note3D:
+		return "note"
+	if object is Timer3D:
+		return "timer"
+	return ""
+
+
+## Datos de una pieza (también los usa la bolsa para guardar lo que lleva dentro).
+static func piece_data(object: InteractiveTableObject) -> Dictionary:
+	var kind := kind_of(object)
+	if kind.is_empty():
+		return {}
+	var q := object.global_basis.get_rotation_quaternion().normalized()
+	# Los nombres internos automáticos con @ no pueden asignarse al cargar.
+	var base_name := str(object.name).substr(0, 90)
+	for invalid in ["/", ":", ".", '"', "%", "@"]:
+		base_name = base_name.replace(invalid, "_")
+	if base_name.is_empty():
+		base_name = "Pieza"
+	var data := {
+		"type": kind,
+		"name": base_name,
+		"display_name": object.display_name,
+		"position": _vector_data(object.global_position),
+		"rotation": [q.x, q.y, q.z, q.w],
+		"velocity": _vector_data(object.linear_velocity),
+		"angular_velocity": _vector_data(object.angular_velocity),
+		"locked": object.is_table_locked
+	}
+	if object is Token3D:
+		var color: Color = object.piece_color
+		data["color"] = [color.r, color.g, color.b, color.a]
+		data["king"] = object.is_king
+	elif object is Card3D:
+		data["label"] = object.card_label
+	elif object is Deck3D:
+		data["cards"] = object._cards.duplicate()
+	elif object is Dice3D:
+		data["awaiting_result"] = object._awaiting_result
+	elif object is TableUtility:
+		data.merge((object as TableUtility).extra_data())
+	return data
 
 
 static func save(path: String, record: Dictionary) -> bool:
@@ -112,7 +140,7 @@ static func validate(record: Variant) -> bool:
 	return true
 
 
-static func _validate_piece(piece: Variant) -> bool:
+static func _validate_piece(piece: Variant, nested := false) -> bool:
 	if not piece is Dictionary or not piece.get("type") is String or not SCENES.has(piece["type"]):
 		return false
 	if typeof(piece.get("locked", false)) != TYPE_BOOL:
@@ -148,7 +176,36 @@ static func _validate_piece(piece: Variant) -> bool:
 				if not _text(card, 80):
 					return false
 			return true
+		"counter":
+			return (
+				_utility_color(piece)
+				and typeof(piece.get("value")) in [TYPE_INT, TYPE_FLOAT]
+				and _number(piece["value"], Counter3D.MIN_VALUE, Counter3D.MAX_VALUE)
+			)
+		"note":
+			return _utility_color(piece) and _text(piece.get("text"), Note3D.MAX_LENGTH)
+		"timer":
+			return (
+				_utility_color(piece)
+				and _number(piece.get("seconds"), 0.0, Timer3D.MAX_SECONDS)
+				and _number(piece.get("countdown"), 0.0, Timer3D.MAX_SECONDS)
+			)
+		"bag":
+			# Una bolsa no puede contener otra bolsa.
+			var contents: Variant = piece.get("contents")
+			if nested or not _utility_color(piece) or not contents is Array:
+				return false
+			if contents.size() > Bag3D.MAX_CONTENTS:
+				return false
+			for entry in contents:
+				if not _validate_piece(entry, true):
+					return false
+			return true
 	return false
+
+
+static func _utility_color(piece: Dictionary) -> bool:
+	return _array_numbers(piece.get("color"), 4, 0.0, 1.0)
 
 
 static func _valid_name(value: Variant) -> bool:
@@ -195,21 +252,41 @@ static func instantiate_pieces(record: Dictionary) -> Array[InteractiveTableObje
 	if not validate(record):
 		return result
 	for data in record["objects"]:
-		var object := SCENES[data["type"]].instantiate() as InteractiveTableObject
+		var object := instantiate_piece(data)
 		if object == null:
 			for created in result:
 				created.free()
 			return []
-		object.name = data["name"]
-		object.display_name = data["display_name"]
-		if object is Token3D:
-			var c: Array = data["color"]
-			object.piece_color = Color(float(c[0]), float(c[1]), float(c[2]), float(c[3]))
-			object.is_king = data["king"]
-		elif object is Card3D:
-			object.card_label = data["label"]
 		result.append(object)
 	return result
+
+
+## Crea una pieza (sin añadirla al árbol) a partir de datos ya validados.
+static func instantiate_piece(data: Dictionary) -> InteractiveTableObject:
+	if not SCENES.has(data.get("type")):
+		return null
+	var scene: Variant = SCENES[data["type"]]
+	# Las escenas de los utilitarios se cargan al usarlas: precargarlas aquí crea un ciclo con
+	# sus scripts (que consultan este archivo) y el motor no los libera al salir.
+	if scene is String:
+		scene = load(scene)
+	var object := (scene as PackedScene).instantiate() as InteractiveTableObject
+	if object == null:
+		return null
+	object.name = data["name"]
+	object.display_name = data["display_name"]
+	if object is Token3D:
+		var c: Array = data["color"]
+		object.piece_color = Color(float(c[0]), float(c[1]), float(c[2]), float(c[3]))
+		object.is_king = data["king"]
+	elif object is Card3D:
+		object.card_label = data["label"]
+	elif object is TableUtility:
+		var u: Array = data["color"]
+		var utility := object as TableUtility
+		utility.piece_color = Color(float(u[0]), float(u[1]), float(u[2]), float(u[3]))
+		utility.ready.connect(func() -> void: utility.apply_extra(data), CONNECT_ONE_SHOT)
+	return object
 
 
 # Solo se llama después de añadir la instancia al árbol y ejecutar su _ready().

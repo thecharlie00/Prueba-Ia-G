@@ -24,6 +24,8 @@ config/icon="res://icon.svg"
 ToonStyle="*res://scripts/style/ToonStyle.gd"
 Sfx="*res://scripts/audio/Sfx.gd"
 SessionNavigation="*res://scripts/ui/SessionNavigation.gd"
+Gamepad="*res://scripts/ui/Gamepad.gd"
+Locale="*res://scripts/i18n/Locale.gd"
 
 [display]
 
@@ -39,6 +41,10 @@ window/stretch/aspect="expand"
 3d_physics/layer_1="Mesa"
 3d_physics/layer_2="Piezas"
 3d_physics/layer_3="Bandeja de dados"
+
+[internationalization]
+
+locale/fallback="es"
 
 [physics]
 

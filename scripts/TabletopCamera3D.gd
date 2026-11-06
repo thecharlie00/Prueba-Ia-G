@@ -1,6 +1,9 @@
 class_name TabletopCamera3D
 extends Node3D
 
+## Vista elegida con V (queja 15 de TTS): "" libre, "top" cenital o "seat1".."seat4".
+signal view_changed(view_name: String)
+
 @export var focus := Vector3(0, 0.8, 0)
 @export var distance := 8.5
 @export var min_distance := 3.0
@@ -11,6 +14,17 @@ extends Node3D
 @export var smoothing := 12.0
 @export_range(10.0, 85.0) var min_elevation := 15.0
 @export_range(10.0, 89.0) var max_elevation := 80.0
+## Asientos alrededor de la mesa para las vistas por asiento (1 abajo, 2 enfrente, 3 y 4 a
+## los lados).
+@export_range(0, 4) var seat_count := 4
+
+const VIEW_ORDER := ["top", "seat1", "seat2", "seat3", "seat4", ""]
+const SEAT_YAWS := [0.0, PI, PI * 0.5, -PI * 0.5]
+const TOP_ELEVATION := deg_to_rad(89.0)
+const SEAT_ELEVATION := deg_to_rad(48.0)
+
+var current_view := ""
+var _view_tween: Tween
 
 var _yaw := 0.65
 var _elevation := 0.8
@@ -42,8 +56,8 @@ func _ready() -> void:
 	_view_notice.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_view_notice.offset_left = -220
 	_view_notice.offset_right = 220
-	_view_notice.offset_top = 20
-	_view_notice.offset_bottom = 56
+	_view_notice.offset_top = 156
+	_view_notice.offset_bottom = 192
 	_view_notice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_view_notice.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_view_notice.add_theme_color_override("font_color", Color.WHITE)
@@ -67,6 +81,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
 		)
 		if (
+			event.keycode == KEY_V
+			and not event.ctrl_pressed
+			and not event.alt_pressed
+			and not event.meta_pressed
+		):
+			cycle_view(-1 if event.shift_pressed else 1)
+			get_viewport().set_input_as_handled()
+		elif (
 			event.keycode == KEY_HOME
 			and not event.ctrl_pressed
 			and not event.alt_pressed
@@ -115,12 +137,85 @@ func _unhandled_input(event: InputEvent) -> void:
 				* pan_sensitivity
 			)
 		elif (event.button_mask & MOUSE_BUTTON_MASK_RIGHT) != 0:
+			_stop_view_tween()
 			_yaw -= event.relative.x * orbit_sensitivity
 			_elevation = clampf(
 				_elevation + event.relative.y * orbit_sensitivity,
 				deg_to_rad(min_elevation),
 				deg_to_rad(max_elevation)
 			)
+
+
+## Vistas disponibles en orden de V: cenital, asientos y vuelta a la vista inicial.
+func available_views() -> Array[String]:
+	var list: Array[String] = []
+	for view_name in VIEW_ORDER:
+		if view_name.begins_with("seat") and int(view_name.substr(4)) > seat_count:
+			continue
+		list.append(view_name)
+	return list
+
+
+func cycle_view(direction := 1) -> String:
+	var views := available_views()
+	var index := views.find(current_view)
+	var next: String = views[posmod(index + direction, views.size())]
+	set_view(next)
+	return next
+
+
+static func view_title(view_name: String) -> String:
+	if view_name == "top":
+		return TranslationServer.translate("Vista cenital")
+	if view_name.begins_with("seat"):
+		return TranslationServer.translate("Asiento %s") % view_name.substr(4)
+	return TranslationServer.translate("Vista inicial")
+
+
+## Cambia de vista con una transición corta (instantánea si se pide o con movimiento reducido).
+func set_view(view_name: String, instant := false) -> void:
+	var target_yaw := _initial_yaw
+	var target_elevation := _initial_elevation
+	var target_distance := _initial_distance
+	if view_name == "top":
+		target_yaw = _seat_yaw(current_view) if current_view.begins_with("seat") else 0.0
+		target_elevation = TOP_ELEVATION
+		target_distance = _initial_distance * 1.05
+	elif view_name.begins_with("seat"):
+		target_yaw = _seat_yaw(view_name)
+		target_elevation = SEAT_ELEVATION
+		target_distance = _initial_distance * 0.88
+	current_view = view_name
+	target_yaw = _yaw + wrapf(target_yaw - _yaw, -PI, PI)
+	_stop_view_tween()
+	var style := get_node_or_null("/root/ToonStyle")
+	if instant or (style != null and style.reduce_motion) or not is_inside_tree():
+		_yaw = target_yaw
+		_elevation = target_elevation
+		focus = _initial_focus
+		distance = target_distance
+		_target_distance = target_distance
+		_update_camera()
+	else:
+		_target_distance = target_distance
+		_view_tween = create_tween().set_parallel().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_view_tween.tween_property(self, "_yaw", target_yaw, 0.45)
+		_view_tween.tween_property(self, "_elevation", target_elevation, 0.45)
+		_view_tween.tween_property(self, "focus", _initial_focus, 0.45)
+	if _view_notice != null:
+		_notice(tr("%s  ·  V cambia de vista") % view_title(view_name))
+	view_changed.emit(view_name)
+
+
+func _seat_yaw(view_name: String) -> float:
+	var seat := clampi(int(view_name.substr(4)) - 1, 0, SEAT_YAWS.size() - 1)
+	return SEAT_YAWS[seat]
+
+
+func _stop_view_tween() -> void:
+	if _view_tween != null and _view_tween.is_valid():
+		_view_tween.kill()
+	_view_tween = null
 
 
 func has_bookmark(slot: int) -> bool:
