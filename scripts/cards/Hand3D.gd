@@ -15,6 +15,8 @@ signal item_pressed(index: int)
 
 const CARD := Vector3(0.68, 0.03, 0.96)
 const DEPTH := 6.5
+## Tamaño de la carta bajo el ratón respecto a las demás.
+const ZOOM := 1.9
 const SUIT_COLORS := {
 	"♠": Palette.INK, "♣": Palette.INK, "♥": Palette.CORAL, "♦": Palette.CORAL,
 	"O": Color("c98a00"), "C": Palette.CORAL, "E": Palette.PLAYER_BLUE, "B": Color("8a4f2a"),
@@ -89,7 +91,14 @@ func card_nodes() -> Array[Node3D]:
 ## Índice de la carta bajo un punto de la pantalla (la de más arriba), o -1.
 func card_at(point: Vector2) -> int:
 	var local := point - get_global_rect().position
+	# La carta ampliada está delante de todas: se comprueba primero.
+	var order: Array[int] = []
+	if _hovered >= 0 and _hovered < _cards.size():
+		order.append(_hovered)
 	for i in range(_cards.size() - 1, -1, -1):
+		if i != _hovered:
+			order.append(i)
+	for i in order:
 		var card := _cards[i]
 		var half := Vector2(CARD.x, CARD.z) * 0.5
 		var polygon := PackedVector2Array()
@@ -119,16 +128,22 @@ func _input(event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	var hovered := -1
 	if is_visible_in_tree() and not _blocked_by_gui():
+		# También las cartas que no se pueden usar ahora se amplían para leerlas.
 		hovered = card_at(get_viewport().get_mouse_position())
-		if hovered >= 0 and bool(items[hovered].get("disabled", false)):
-			hovered = -1
 	_hovered = hovered
 	var weight := clampf(delta * 14.0, 0.0, 1.0)
 	for i in _cards.size():
-		var rest: Transform3D = _cards[i].get_meta("rest")
+		var target: Transform3D = _cards[i].get_meta("rest")
 		if i == _hovered:
-			rest.origin += Vector3(0, 0.32, 0.12)
-		_cards[i].transform = _cards[i].transform.interpolate_with(rest, weight)
+			target = _zoomed(target)
+		_cards[i].transform = _cards[i].transform.interpolate_with(target, weight)
+
+
+## Carta ampliada: recta, al doble de tamaño, más alta y delante de las demás para leerla.
+func _zoomed(rest: Transform3D) -> Transform3D:
+	var basis := Basis(Vector3.RIGHT, PI / 2.0).scaled(Vector3.ONE * ZOOM)
+	var origin := rest.origin + Vector3(0, CARD.z * (ZOOM - 1.0) * 0.5 + 0.35, 0.9)
+	return Transform3D(basis, origin)
 
 
 # Un control 2D bajo el ratón (paneles, botones de la barra) tiene prioridad sobre la mano.

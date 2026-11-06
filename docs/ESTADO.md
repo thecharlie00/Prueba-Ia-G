@@ -1,6 +1,6 @@
-# Estado de desarrollo · Dice on!!
+# Estado de desarrollo · Tablerama
 
-Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD-Dice-on.md). Los elementos marcados como prototipo requieren pruebas visuales y físicas; no son promesas de lanzamiento.
+Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD-Tablerama.md). Los elementos marcados como prototipo requieren pruebas visuales y físicas; no son promesas de lanzamiento.
 
 ## Implementado como primer prototipo local
 

@@ -255,9 +255,8 @@ func _make_ui() -> void:
 	panel.offset_right = 330
 	panel.anchor_bottom = 1.0
 	panel.offset_bottom = -18
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("142b25")
-	style.set_corner_radius_all(10)
+	var theme := GameThemes.theme_for(self)
+	var style := GameThemes.panel_box(theme)
 	style.content_margin_left = 14
 	style.content_margin_right = 14
 	style.content_margin_top = 12
@@ -267,12 +266,19 @@ func _make_ui() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 7)
 	panel.add_child(column)
-	var title := _label(column, "LUDO · MESA LOCAL")
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 10)
+	column.add_child(header)
+	header.add_child(GameThemes.emblem(theme, 36.0))
+	var title := _label(header, "LUDO · MESA LOCAL")
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", theme["accent"].lightened(0.2))
 	status = _label(column, "")
 	help = _label(column, "")
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	roll_button = _button(column, "Lanzar dado · R", _roll)
+	GameThemes.style_button(roll_button, theme)
 	reset_button = _button(column, "Recolocar dado", _reset_die)
 	_label(column, "Elige una ficha o arrástrala a su marca verde:")
 	var row := HBoxContainer.new()

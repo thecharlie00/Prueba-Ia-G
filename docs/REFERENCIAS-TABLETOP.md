@@ -8,7 +8,7 @@ Se consultaron la documentación de controles de Tabletop Simulator y conversaci
 - En [esta conversación sobre alternativas a la mesa física](https://www.reddit.com/r/boardgames/comments/xcd5gv/is_tabletop_simulator_a_good_alternative_to/) se valoran el carácter táctil, las configuraciones automatizadas, guardar partidas largas y revertir errores; otros participantes critican controles difíciles y la limitación de visibilidad de la mesa. [Otra conversación](https://www.reddit.com/r/boardgames/comments/1rwlcrl/tabletop_simulator/) destaca la lectura de cartas, la preparación rápida y una interfaz consistente, junto con críticas a lo engorroso de la manipulación.
 - Los mismos debates y [esta reseña](https://gnomestew.com/tabletop-simulator-review/) también destacan personalización, contenido de la comunidad y juego compartido. Son objetivos importantes, pero este prototipo **no implementa** todavía Workshop, importación general de contenidos, editor no-code ni multijugador.
 
-## Aplicación en Dice on!!
+## Aplicación en Tablerama
 
 - Se mantiene la interacción mediante cuerpos rígidos y fuerzas, con atajos para girar, voltear, lanzar y mezclar; la alternativa de dos clics evita mantener el botón pulsado.
 - Las mesas libres permiten bloquear piezas con L para evitar desplazarlas accidentalmente. En sandbox y cartas el bloqueo se conserva al guardar; se excluyen los modos con reglas para no bloquear piezas controladas por el motor de juego.

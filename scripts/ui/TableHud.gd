@@ -44,6 +44,8 @@ var _last_hint := ""
 var _hint_time := 0.0
 var _seat_signature := ""
 var _seat_check := 0.0
+## Identidad del juego (GameThemes): acento, nombre y emblema.
+var game_theme: Dictionary = {}
 
 
 static func attach(target: Node) -> TableHud:
@@ -59,7 +61,20 @@ func _ready() -> void:
 	_discover()
 	_build()
 	_build_seats()
+	_tint_drawer()
 	set_drawer_open(false)
+
+
+## El cajón «Partida» lleva el borde del acento del juego.
+func _tint_drawer() -> void:
+	if not (panel is PanelContainer):
+		return
+	var box := panel.get_theme_stylebox("panel")
+	if box is StyleBoxFlat:
+		var tinted := (box as StyleBoxFlat).duplicate() as StyleBoxFlat
+		tinted.border_color = game_theme["accent"]
+		tinted.set_border_width_all(maxi(tinted.border_width_left, 4))
+		panel.add_theme_stylebox_override("panel", tinted)
 
 
 func set_drawer_open(open: bool) -> void:
@@ -115,6 +130,7 @@ func _find_label(root: Node, label_name: String) -> Label:
 
 
 func _build() -> void:
+	game_theme = GameThemes.theme_for(view)
 	var screen := Control.new()
 	screen.name = "Screen"
 	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -131,12 +147,21 @@ func _build() -> void:
 	var banner := PanelContainer.new()
 	banner.name = "Banner"
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner.add_theme_stylebox_override("panel", GameThemes.panel_box(game_theme))
 	top.add_child(banner)
+	var banner_row := HBoxContainer.new()
+	banner_row.add_theme_constant_override("separation", 12)
+	banner_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	banner.add_child(banner_row)
+	var emblem := GameThemes.emblem(game_theme, 38.0)
+	emblem.name = "GameEmblem"
+	emblem.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	banner_row.add_child(emblem)
 	var banner_column := VBoxContainer.new()
 	banner_column.add_theme_constant_override("separation", 0)
 	banner_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	banner.add_child(banner_column)
-	_banner_title = _make_label(13, Palette.LAVENDER)
+	banner_row.add_child(banner_column)
+	_banner_title = _make_label(13, game_theme["accent"].lightened(0.25))
 	_banner_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner_column.add_child(_banner_title)
 	_banner_status = _make_label(24, Palette.PAPER)
@@ -157,6 +182,7 @@ func _build() -> void:
 	_drawer_button.offset_bottom = 54
 	_drawer_button.tooltip_text = "Guardar, cargar, cambiar de modo y opciones"
 	_drawer_button.pressed.connect(func() -> void: set_drawer_open(not is_drawer_open()))
+	GameThemes.style_button(_drawer_button, game_theme)
 	screen.add_child(_drawer_button)
 
 	# Barra de acciones y bocadillo, abajo al centro.
@@ -214,6 +240,7 @@ func _build() -> void:
 		proxy.add_theme_font_size_override("font_size", 17)
 		proxy.toggle_mode = original.toggle_mode
 		proxy.focus_mode = Control.FOCUS_NONE
+		GameThemes.style_button(proxy, game_theme)
 		if original.toggle_mode:
 			proxy.toggled.connect(func(on: bool) -> void: original.button_pressed = on)
 		else:
@@ -331,7 +358,7 @@ func _sync() -> void:
 	_banner_title.visible = not title.is_empty()
 	var status := status_label.text if status_label != null else ""
 	_banner_status.text = status
-	_banner_status.get_parent().get_parent().visible = not (status.is_empty() and title.is_empty())
+	_banner_status.get_parent().get_parent().get_parent().visible = not (status.is_empty() and title.is_empty())
 	var hint := hint_label.text.strip_edges() if hint_label != null else ""
 	if hint != _last_hint:
 		_last_hint = hint

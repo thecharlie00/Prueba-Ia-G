@@ -192,7 +192,7 @@ text = "UN ESPACIO PARA JUGAR"
 [node name="Title" type="Label" parent="UI/Margin/Panel/Content" unique_id=242564411]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
-text = "Dice on!!"
+text = "Tablerama"
 
 [node name="Subtitle" type="Label" parent="UI/Margin/Panel/Content" unique_id=1475901551]
 layout_mode = 2

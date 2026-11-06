@@ -9,7 +9,7 @@ script = ExtResource("2")
 lock_shortcut_enabled = false
 
 [node name="Eyebrow" parent="UI/Panel/Margin/Content" index="0"]
-text = "DICE ON!! · DOS JUGADORES"
+text = "TABLERAMA · DOS JUGADORES"
 [node name="Title" parent="UI/Panel/Margin/Content" index="1"]
 text = "Dominó físico · reglas"
 [node name="Status" parent="UI/Panel/Margin/Content" index="2"]
