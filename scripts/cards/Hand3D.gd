@@ -203,7 +203,7 @@ func _make_card(item: Dictionary) -> Node3D:
 	face.material_override = face_material
 	card.add_child(face)
 	if bool(item.get("dim", false)) and not faces_hidden:
-		card.add_child(_text("nueva", 60, Palette.CORAL, Vector3(0, 0.002, -0.34)))
+		card.add_child(_text("nueva", 60, Palette.CORAL, Vector3(0.1, 0.002, -0.36)))
 	return card
 
 

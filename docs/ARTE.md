@@ -94,7 +94,9 @@ Simple y legible a cualquier tamaño ([`scripts/cards/CardArt.gd`](../scripts/ca
 - **Figuras:** un arco del color del palo con su emblema y una cinta con la letra: corona (K, rey), tiara (Q), gorro con pluma (J, sota) y cabeza de caballo (caballo).
 - **Palos dibujados**, sin depender de la fuente: picas y tréboles en tinta, corazones y diamantes en coral; oros (moneda dorada), copas (cáliz coral), espadas (azul) y bastos (garrote de madera).
 - **Reverso:** coral, con rombos geométricos en dos tonos, doble marco crema y un medallón con el dado de Dice on!! en el centro. Es también la cara de arriba de los mazos.
-- **Isla:** las cartas de recurso llevan una ventana a dos tonos (cielo claro y suelo del terreno) con su icono y el nombre en una cinta. Las de desarrollo, un emblema sobre un círculo crema: escudo (caballero), estrella (punto), caminos cruzados, destellos (abundancia) y monedas (monopolio).
+- **Isla:** las cartas de recurso llevan una escena vectorial en una ventana a dos tonos: bosque con pinos y troncos, muro de ladrillos sobre colinas, oveja en el pasto, gavilla de trigo en el campo y montañas nevadas con gemas. Debajo, el nombre en una cinta y el terreno de origen. Las cartas de desarrollo llevan su emblema sobre rayos suaves y una frase con lo que hacen («Mueve el ladrón y roba una carta»…). Todas tienen una **insignia en la esquina superior izquierda** para reconocerlas en el abanico de la mano aunque solo asome el borde. Las de desarrollo, un emblema sobre un círculo crema: escudo (caballero), estrella (punto), caminos cruzados, destellos (abundancia) y monedas (monopolio).
+
+![Cartas de la isla](img/cartas-isla.png)
 
 `tools/card_sheet.gd` genera una hoja de muestras para revisar el arte.
 

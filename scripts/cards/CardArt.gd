@@ -16,6 +16,15 @@ const SUIT_COLORS := {
 	"O": Color("d99a00"), "C": Color("e2504a"), "E": Color("3f6fd9"), "B": Color("8a4f2a"),
 }
 const FONT := preload("res://assets/fonts/LilitaOne-Regular.ttf")
+const BODY_FONT := preload("res://assets/fonts/Nunito.ttf")
+## Qué hace cada carta de desarrollo (mismo orden que IslandRules.DEV_NAMES).
+const DEV_TEXT := [
+	"Mueve el ladrón y roba una carta",
+	"Un punto de victoria",
+	"Construye dos caminos gratis",
+	"Toma dos recursos del banco",
+	"Todos te dan un recurso",
+]
 const DEV_COLORS := [Color("8a7fd6"), Color("e3a92a"), Color("c9643a"), Color("2f8f4e"), Color("d99a00")]
 
 static var _cache := {}
@@ -23,6 +32,8 @@ static var _holder: Node
 
 ## Durante la pasada de sombra, _poly no dibuja contorno.
 var _flat := false
+## Transformación base del emblema (identidad, o la escala de la insignia).
+var _base := Transform2D.IDENTITY
 
 var kind := "playing"
 var label := ""
@@ -66,10 +77,12 @@ static func texture(kind_name: String, value: Variant = "") -> Texture2D:
 
 func _ready() -> void:
 	if kind == "resource":
+		# Insignia de esquina con el icono plano del recurso: se reconoce en el abanico de la
+		# mano aunque solo asome el borde izquierdo de la carta.
 		var icon := ResourceIcon.new()
 		icon.resource = resource
-		icon.position = Vector2(48, 70)
-		icon.size = Vector2(160, 160)
+		icon.position = Vector2(19, 19)
+		icon.size = Vector2(34, 34)
 		add_child(icon)
 
 
@@ -289,64 +302,268 @@ func _draw_resource() -> void:
 	var deep: Color = IslandTerrain.GROUND[resource]
 	_card_base(Palette.PAPER)
 	_window(tint, deep)
+	match resource:
+		0:
+			_scene_wood(deep)
+		1:
+			_scene_brick(deep)
+		2:
+			_scene_wool(deep)
+		3:
+			_scene_grain(deep)
+		_:
+			_scene_ore(deep)
+	_badge(deep)
 	_ribbon(IslandBoard.RESOURCE_NAMES[resource], deep)
+	_caption(["Del bosque", "De las colinas", "Del pasto", "Del campo", "De la montaña"][resource], Palette.INK.lerp(deep, 0.35))
 
 
 func _draw_development() -> void:
 	var color: Color = DEV_COLORS[dev]
 	_card_base(Palette.PAPER)
-	_window(Color(color, 0.22).blend(Color(Palette.PAPER, 0.0)), color)
-	var center := Vector2(SIZE.x * 0.5, 128)
-	_shadowed_ellipse(center, Vector2(70, 70), Palette.PAPER)
-	match dev:
-		0:  # Caballero: escudo.
+	_window(color.lerp(Palette.PAPER, 0.72), color)
+	var center := Vector2(SIZE.x * 0.5, 132)
+	# Rayos suaves detrás del emblema.
+	for i in 12:
+		var a := TAU * i / 12.0
+		var ray := PackedVector2Array(
+			[center, center + Vector2(cos(a - 0.12), sin(a - 0.12)) * 120, center + Vector2(cos(a + 0.12), sin(a + 0.12)) * 120]
+		)
+		var clipped := Geometry2D.intersect_polygons(ray, _rect_poly(Rect2(22, 22, SIZE.x - 44, 204)))
+		for piece in clipped:
+			_fill(piece, Color(Palette.PAPER, 0.35))
+	_emblem(dev, center, 1.0, color)
+	_badge(color)
+	# Miniatura del emblema dentro de la insignia.
+	_base = Transform2D(0.0, Vector2.ONE * 0.26, 0.0, Vector2(36, 36))
+	_pop()
+	_emblem(dev, Vector2.ZERO, 1.0, color)
+	_base = Transform2D.IDENTITY
+	_pop()
+	_ribbon(IslandRules.DEV_NAMES[dev], color)
+	_caption(DEV_TEXT[dev], Palette.INK.lerp(color, 0.35))
+
+
+## Emblema de cada carta de desarrollo, centrado en c.
+func _emblem(kind_index: int, c: Vector2, k: float, color: Color) -> void:
+	match kind_index:
+		0:  # Caballero: espada detrás de un escudo.
+			_shadowed_poly(PackedVector2Array([c + Vector2(-6, -76), c + Vector2(6, -76), c + Vector2(6, 40), c + Vector2(-6, 40)]), Color("d9dded"))
+			_poly(PackedVector2Array([c + Vector2(-34, 30), c + Vector2(34, 30), c + Vector2(34, 42), c + Vector2(-34, 42)]), Palette.INK)
 			var shield := PackedVector2Array(
-				[center + Vector2(-44, -50), center + Vector2(44, -50), center + Vector2(44, 0),
-				center + Vector2(0, 52), center + Vector2(-44, 0)]
+				[c + Vector2(-46, -46), c + Vector2(0, -56), c + Vector2(46, -46), c + Vector2(46, 2),
+				c + Vector2(0, 58), c + Vector2(-46, 2)]
 			)
 			_shadowed_poly(shield, color)
-			_poly(PackedVector2Array([center + Vector2(-7, -36), center + Vector2(7, -36), center + Vector2(7, 32), center + Vector2(-7, 32)]), Palette.PAPER)
-			_poly(PackedVector2Array([center + Vector2(-28, -12), center + Vector2(28, -12), center + Vector2(28, 0), center + Vector2(-28, 0)]), Palette.PAPER)
-		1:  # Punto: estrella.
-			_shadowed_poly(_star(center, 56, 24, 5), color)
-		2:  # Caminos: dos tablones cruzados.
-			for angle in [-0.5, 0.5]:
-				draw_set_transform(center, angle, Vector2.ONE)
-				_round_rect(Rect2(-60, -13, 120, 26), 9, color, Palette.INK, 3.0)
+			_fill(PackedVector2Array([c + Vector2(0, -56), c + Vector2(46, -46), c + Vector2(46, 2), c + Vector2(0, 58)]), Color(Palette.INK, 0.12))
+			_poly(PackedVector2Array([c + Vector2(-6, -38), c + Vector2(6, -38), c + Vector2(6, 38), c + Vector2(-6, 38)]), Palette.PAPER)
+			_poly(PackedVector2Array([c + Vector2(-28, -10), c + Vector2(28, -10), c + Vector2(28, 2), c + Vector2(-28, 2)]), Palette.PAPER)
+		1:  # Punto de victoria: estrella con laurel.
+			# Ramas de laurel: hojas a lo largo de un arco a cada lado, de abajo hacia arriba.
+			for mirror in [1.0, -1.0]:
+				for i in 6:
+					var a := deg_to_rad(100.0 + i * 20.0)
+					var leaf := c + Vector2(cos(a) * 60.0 * mirror, sin(a) * 60.0 - 4.0)
+					var tangent := (a + PI / 2.0) if mirror > 0.0 else (PI - a - PI / 2.0)
+					_push(leaf, tangent, Vector2(1.0, 0.45))
+					draw_circle(Vector2.ZERO, 13, Palette.INK)
+					draw_circle(Vector2.ZERO, 10.5, Color("2f8f4e"))
+					_pop()
+			_shadowed_poly(_star(c + Vector2(0, -6), 50, 22, 5), color)
+			_fill(_star(c + Vector2(-10, -18), 12, 5, 4), Color(1, 1, 1, 0.5))
+		2:  # Caminos: camino que serpentea con dos tablones.
+			var road := PackedVector2Array()
+			var edge := PackedVector2Array()
+			for i in 11:
+				var t := i / 10.0
+				var p := c + Vector2(-70 + 140 * t, 40 - 80 * t + sin(t * PI * 2.0) * 22)
+				road.append(p + Vector2(0, -14))
+				edge.append(p + Vector2(0, 14))
+			edge.reverse()
+			_shadowed_poly(road + edge, Color("e8cf94"))
+			for t in [0.25, 0.7]:
+				var p := c + Vector2(-70 + 140 * t, 40 - 80 * t + sin(t * PI * 2.0) * 22)
+				_push(p, -0.6, Vector2.ONE)
+				_round_rect(Rect2(-30, -9, 60, 18), 6, color, Palette.INK, 3.0)
+				_pop()
+		3:  # Abundancia: cuerno con recursos.
+			var horn := PackedVector2Array()
+			for i in 13:
+				var t := i / 12.0
+				horn.append(c + Vector2(-60 + 100 * t, 30 - sin(t * PI * 0.9) * 50 - 30 * t * t) + Vector2(0, -26 * t))
+			for i in range(12, -1, -1):
+				var t := i / 12.0
+				horn.append(c + Vector2(-60 + 100 * t, 30 - sin(t * PI * 0.9) * 50 - 30 * t * t) + Vector2(0, 26 * t + 2))
+			_shadowed_poly(horn, Color("e3a92a"))
+			# Recursos que se derraman por la boca del cuerno.
+			var spill := [Vector2(44, -52), Vector2(62, -34), Vector2(36, -30), Vector2(56, -12), Vector2(72, -54)]
+			for i in spill.size():
+				var p: Vector2 = c + spill[i]
+				draw_circle(p + Vector2(3, 4), 14, SHADOW)
+				draw_circle(p, 14, Palette.INK)
+				draw_circle(p, 11, IslandTerrain.GROUND[i % 5].lightened(0.1))
+				draw_circle(p + Vector2(-4, -4), 3, Color(1, 1, 1, 0.5))
+		_:  # Monopolio: dos pilas de monedas.
+			for pile: Vector2 in [Vector2(-28, 0), Vector2(30, 14)]:
+				var count := 4 if pile.x < 0 else 3
+				for i in count:
+					_shadowed_ellipse(c + pile + Vector2(0, 38 - i * 18), Vector2(32, 13), color)
+				var top: Vector2 = c + pile + Vector2(0, 38 - (count - 1) * 18)
+				draw_arc(top, 18, 0, TAU, 24, Color(Palette.PAPER, 0.7), 3.0, true)
+
+
+# --- Escenas de recurso (dentro de la ventana) ---------------------------------
+
+func _scene_wood(deep: Color) -> void:
+	draw_circle(Vector2(196, 62), 22, Color(Palette.PAPER, 0.8))
+	_pine(Vector2(98, 196), 118, deep)
+	_pine(Vector2(170, 202), 140, deep)
+	_pine(Vector2(204, 208), 84, deep)
+	# Pila de troncos delante.
+	for p in [Vector2(58, 212), Vector2(92, 212), Vector2(75, 186)]:
+		draw_circle(p, 17, Palette.INK)
+		draw_circle(p, 14, Color("c58a52"))
+		draw_arc(p, 8, 0, TAU, 20, Color("8a4f2a"), 2.5, true)
+		draw_circle(p, 2.5, Color("8a4f2a"))
+
+
+func _pine(base: Vector2, height: float, deep: Color) -> void:
+	var w := height * 0.42
+	_poly(PackedVector2Array([base + Vector2(-6, 0), base + Vector2(6, 0), base + Vector2(6, -18), base + Vector2(-6, -18)]), Color("8a4f2a"))
+	for i in 3:
+		var y0 := base.y - 14 - i * height * 0.26
+		var tip := Vector2(base.x, y0 - height * 0.42)
+		var half := w * (1.0 - i * 0.22)
+		var tri := PackedVector2Array([tip, Vector2(base.x + half, y0), Vector2(base.x - half, y0)])
+		_shadowed_poly(tri, IslandTerrain.TREE.lightened(0.08))
+		_fill(PackedVector2Array([tip, Vector2(base.x + half, y0), Vector2(base.x, y0)]), Color(Palette.INK, 0.18))
+
+
+func _scene_brick(deep: Color) -> void:
+	_fill(PackedVector2Array([Vector2(22, 150), Vector2(90, 96), Vector2(160, 140), Vector2(234, 104), Vector2(234, 200), Vector2(22, 200)]), Color(deep, 0.35))
+	var brick := Vector2(58, 28)
+	for row in 3:
+		var count := 3 if row % 2 == 0 else 2
+		var offset := 0.0 if row % 2 == 0 else brick.x * 0.5 + 2
+		for col in count:
+			var pos := Vector2(42 + offset + col * (brick.x + 4), 196 - row * (brick.y + 4))
+			_round_rect(Rect2(pos + Vector2(3, 4), brick), 6, SHADOW, Color(0, 0, 0, 0), 0.0)
+			_round_rect(Rect2(pos, brick), 6, IslandTerrain.BRICK, Palette.INK, 3.0)
+			draw_rect(Rect2(pos + Vector2(6, 5), Vector2(brick.x - 12, 4)), Color(1, 1, 1, 0.28))
+
+
+func _scene_wool(deep: Color) -> void:
+	draw_circle(Vector2(56, 60), 20, Color(Palette.PAPER, 0.8))
+	for x in [40, 70, 196, 222]:
+		_fill(PackedVector2Array([Vector2(x - 8, 214), Vector2(x - 2, 196), Vector2(x + 2, 210), Vector2(x + 7, 194), Vector2(x + 9, 214)]), deep.darkened(0.15))
+	var c := Vector2(132, 150)
+	for leg in [-30, -12, 14, 32]:
+		_round_rect(Rect2(c + Vector2(leg - 5, 22), Vector2(10, 40)), 4, Palette.INK, Palette.INK, 0.0)
+	var puffs := [Vector2(-36, 0), Vector2(-16, -22), Vector2(10, -24), Vector2(34, -8), Vector2(26, 18), Vector2(-4, 22), Vector2(-30, 18), Vector2(0, 0)]
+	for p in puffs:
+		draw_circle(c + p + Vector2(4, 5), 25, SHADOW)
+	for p in puffs:
+		draw_circle(c + p, 26, Palette.INK)
+	for p in puffs:
+		draw_circle(c + p, 22.5, IslandTerrain.SHEEP)
+	# Cabeza.
+	var head := c + Vector2(-58, -8)
+	draw_set_transform(head + Vector2(-14, -10), -0.6, Vector2(1.0, 0.5))
+	draw_circle(Vector2.ZERO, 12, Palette.INK)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_set_transform(head, 0.0, Vector2(0.85, 1.0))
+	draw_circle(Vector2.ZERO, 22, Palette.INK)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_circle(head + Vector2(-6, -4), 4, Palette.PAPER)
+	draw_circle(head + Vector2(-6, -4), 1.8, Palette.INK)
+
+
+func _scene_grain(deep: Color) -> void:
+	for i in 5:
+		var y := 150 + i * 16
+		draw_line(Vector2(24, y), Vector2(232, y - 10), Color(deep, 0.45), 3.0, true)
+	var tie := Vector2(128, 176)
+	for i in 9:
+		var a := deg_to_rad(-120 + i * 7.5)
+		var tip := tie + Vector2(cos(a), sin(a)) * 118
+		var bottom := tie + Vector2(-cos(a), -sin(a)) * 40
+		draw_line(bottom, tip, Color("b5781c"), 4.0, true)
+		for j in 4:
+			var p := tip.lerp(tie, 0.06 + j * 0.1)
+			draw_set_transform(p, a + PI / 2.0, Vector2(0.55, 1.0))
+			draw_circle(Vector2.ZERO, 11, Palette.INK)
+			draw_circle(Vector2.ZERO, 8.5, IslandTerrain.WHEAT)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-		3:  # Abundancia: destellos.
-			_shadowed_poly(_star(center + Vector2(-16, 8), 44, 13, 4), color)
-			_shadowed_poly(_star(center + Vector2(30, -28), 24, 8, 4), color)
-		_:  # Monopolio: pila de monedas.
-			for i in 4:
-				_shadowed_ellipse(center + Vector2(0, 34 - i * 20), Vector2(46, 17), color)
-	_ribbon(IslandRules.DEV_NAMES[dev], color)
+	_round_rect(Rect2(tie + Vector2(-26, -8), Vector2(52, 16)), 6, Color("c9643a"), Palette.INK, 3.0)
 
 
-# Ventana de ilustración a dos tonos (cielo claro y suelo del color).
+func _scene_ore(deep: Color) -> void:
+	for m in [[Vector2(92, 60), 140.0], [Vector2(174, 88), 100.0]]:
+		var peak: Vector2 = m[0]
+		var base_w: float = m[1]
+		var mountain := PackedVector2Array([peak, peak + Vector2(base_w * 0.55, 150 - (peak.y - 60)), peak + Vector2(-base_w * 0.55, 150 - (peak.y - 60))])
+		_shadowed_poly(mountain, IslandTerrain.ROCK.lightened(0.15))
+		_fill(PackedVector2Array([peak, mountain[1], peak + Vector2(0, mountain[1].y - peak.y)]), Color(Palette.INK, 0.18))
+		_poly(PackedVector2Array([peak, peak + Vector2(18, 26), peak + Vector2(6, 20), peak + Vector2(-4, 28), peak + Vector2(-18, 26)]), IslandTerrain.SNOW)
+	# Rocas con gemas delante.
+	for g in [[Vector2(70, 204), Color("4d7cfe")], [Vector2(128, 214), Color("2fbfa0")], [Vector2(190, 206), Color("8a7fd6")]]:
+		var p: Vector2 = g[0]
+		_shadowed_poly(PackedVector2Array([p + Vector2(-26, 14), p + Vector2(-20, -10), p + Vector2(4, -18), p + Vector2(26, -4), p + Vector2(22, 14)]), Color("6b7391"))
+		var gem := PackedVector2Array([p + Vector2(-8, -6), p + Vector2(0, -22), p + Vector2(8, -6), p + Vector2(0, 4)])
+		_poly(gem, g[1])
+		_fill(PackedVector2Array([p + Vector2(0, -22), p + Vector2(8, -6), p + Vector2(0, -6)]), Color(1, 1, 1, 0.45))
+
+
+# Ventana de ilustración: cielo claro arriba y suelo del color del terreno abajo.
 func _window(light: Color, deep: Color) -> void:
-	var rect := Rect2(16, 16, SIZE.x - 32, 232)
+	var rect := Rect2(16, 16, SIZE.x - 32, 216)
 	_round_rect(rect, 18, light, deep, 4.0)
 	var ground := PackedVector2Array(
-		[Vector2(20, 186), Vector2(80, 172), Vector2(150, 182), Vector2(236, 168), Vector2(236, 228),
-		Vector2(222, 244), Vector2(34, 244), Vector2(20, 228)]
+		[Vector2(20, 170), Vector2(80, 158), Vector2(150, 166), Vector2(236, 154), Vector2(236, 214),
+		Vector2(220, 228), Vector2(36, 228), Vector2(20, 214)]
 	)
-	_fill(ground, Color(deep, 0.25))
+	_fill(ground, Color(deep, 0.3))
+	_round_rect(rect, 18, Color(0, 0, 0, 0), deep, 4.0)
+
+
+# Insignia redonda en la esquina superior izquierda, sobre el borde de la ventana.
+func _badge(color: Color) -> void:
+	draw_circle(Vector2(39, 40), 25, SHADOW)
+	draw_circle(Vector2(36, 36), 25, Palette.INK)
+	draw_circle(Vector2(36, 36), 21.5, Palette.PAPER)
+	draw_arc(Vector2(36, 36), 21.5, 0, TAU, 32, color, 3.0, true)
 
 
 # Cinta con el nombre bajo la ventana.
 func _ribbon(text: String, color: Color) -> void:
-	var rect := Rect2(28, 268, SIZE.x - 56, 54)
+	var rect := Rect2(28, 246, SIZE.x - 56, 50)
 	for side in [-1, 1]:
 		var x := rect.position.x if side < 0 else rect.end.x
 		var tail := PackedVector2Array(
-			[Vector2(x, rect.position.y + 10), Vector2(x - side * 0.0 + side * 18, rect.position.y + 18),
+			[Vector2(x, rect.position.y + 10), Vector2(x + side * 18, rect.position.y + 18),
 			Vector2(x + side * 6, rect.get_center().y + 4), Vector2(x + side * 18, rect.end.y + 6), Vector2(x, rect.end.y - 4)]
 		)
 		_poly(tail, color.darkened(0.25))
 	_round_rect(Rect2(rect.position + Vector2(3, 4), rect.size), 10, SHADOW, Color(0, 0, 0, 0), 0.0)
 	_round_rect(rect, 10, color, Palette.INK, 3.0)
-	_text(text, rect.get_center() + Vector2(0, 12), 32 if text.length() < 9 else 26, Palette.PAPER)
+	_text(text, rect.get_center() + Vector2(0, 11), 30 if text.length() < 9 else 25, Palette.PAPER)
+
+
+# Texto pequeño bajo la cinta, en una o dos líneas centradas.
+func _caption(text: String, color: Color) -> void:
+	var words := text.split(" ")
+	var lines: Array[String] = [""]
+	for word in words:
+		var candidate: String = (str(lines.back()) + " " + word).strip_edges()
+		if BODY_FONT.get_string_size(candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x > SIZE.x - 56 and lines.back() != "":
+			lines.append(word)
+		else:
+			lines[lines.size() - 1] = candidate
+	var y := 322.0 if lines.size() == 1 else 314.0
+	for line in lines:
+		var width := BODY_FONT.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+		draw_string(BODY_FONT, Vector2(SIZE.x * 0.5 - width * 0.5, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, color)
+		y += 20.0
 
 
 # --- Formas ----------------------------------------------------------------
@@ -492,3 +709,12 @@ func _fill(points: PackedVector2Array, color: Color) -> void:
 		if points.size() < 4:
 			return
 	draw_colored_polygon(points, color)
+
+
+## Transformación local combinada con la base (para dibujar el emblema a cualquier escala).
+func _push(origin: Vector2, rotation_angle: float, scale_factor: Vector2) -> void:
+	draw_set_transform_matrix(_base * Transform2D(rotation_angle, scale_factor, 0.0, origin))
+
+
+func _pop() -> void:
+	draw_set_transform_matrix(_base)
