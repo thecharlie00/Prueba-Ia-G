@@ -1,7 +1,7 @@
-# Roadmap · Dice on!!
+# Roadmap · Tablerama
 
 **Objetivo:** convertir el prototipo local en una alternativa a Tabletop Simulator (TTS) **más barata, más fácil de usar y más completa en lo que importa**, con una identidad visual **cartoon** propia.<br>
-**Fecha:** 6 de noviembre de 2026 · **Estado:** plan de trabajo, no una lista de funciones ya terminadas. Lo implementado está en [ESTADO.md](ESTADO.md); el diseño de detalle, en el [GDD](GDD-Dice-on.md).
+**Fecha:** 6 de noviembre de 2026 · **Estado:** plan de trabajo, no una lista de funciones ya terminadas. Lo implementado está en [ESTADO.md](ESTADO.md); el diseño de detalle, en el [GDD](GDD-Tablerama.md).
 
 Las fases se ordenan por dependencias, no por fechas. Cada fase tiene un criterio de salida comprobable; no se pasa a la siguiente sin cumplirlo.
 
@@ -9,7 +9,7 @@ Las fases se ordenan por dependencias, no por fechas. Cada fase tiene un criteri
 
 ## 1. Posicionamiento
 
-| | Tabletop Simulator | Tabletop Playground | **Dice on!! (objetivo)** |
+| | Tabletop Simulator | Tabletop Playground | **Tablerama (objetivo)** |
 |---|---|---|---|
 | Precio | 19,99 $; rebajas a ~10 $; cada jugador compra su copia | 14,99 $; cada jugador compra su copia | **9,99–12,99 €** de lanzamiento, pack de 4 con descuento y **demo gratuita que puede unirse a salas** |
 | Estética | Realista, depende de cada mod | Realista / neutra | **Cartoon coherente**: sombreado plano, contornos, piezas redondeadas, animación con "juice" |
@@ -28,7 +28,7 @@ Las fases se ordenan por dependencias, no por fechas. Cada fase tiene un criteri
 
 Resumen de reseñas de Steam agregadas, hilos de Reddit, el tablero de sugerencias de TTS y comparativas de prensa (fuentes al final). Son observaciones cualitativas, no una encuesta.
 
-| # | Queja o petición de usuarios de TTS | Respuesta de Dice on!! | Estado en el repo | Fase |
+| # | Queja o petición de usuarios de TTS | Respuesta de Tablerama | Estado en el repo | Fase |
 |---|---|---|---|---|
 | 1 | Controles poco intuitivos, atajos escondidos, tutorial que solo cubre lo básico | Ayuda contextual, menú radial con clic derecho, atajos visibles sobre la pieza, tutorial jugable | **Parcial**: ayuda contextual y guía F1 | 2 |
 | 2 | Física "jank": piezas que se pegan, cartas que no caen bien, colocar cuesta varios intentos | Física asistida: snap por defecto en zonas, cartas que se alinean, recuperación | **Parcial**: agarre por fuerza, imán 4×4, H recupera | 2 |
@@ -189,6 +189,15 @@ Sin suscripción ni microtransacciones. El pack de 4 son cuatro copias completas
 2. Si la demo tiene algún límite en salas (por ejemplo, número de jugadores con demo por sala).
 3. Número máximo de jugadores en Early Access.
 4. Si el volteo de mesa y otros gestos cómicos se pueden desactivar por sala.
+
+## 6. Nombre: Tablerama (elegido el 6 de noviembre de 2026)
+
+**Tablerama** = *tablero* + *-rama* (panorama, cinerama): una mesa donde caben todos los juegos, con un tono alegre que encaja con el estilo cartoon. Sustituye al nombre provisional «Dice-on».
+
+- Descartado **Tabletoons**: ya existe como juego de mesa.
+- En una búsqueda web (noviembre de 2026) no apareció ningún videojuego ni juego de mesa llamado Tablerama; solo comercios sin relación (una maderera mexicana y algunos importadores).
+- **Pendiente antes de publicar:** búsqueda formal de marca en EUIPO/OEPM (clases 9, 28 y 41) y comprobar que el nombre está libre en Steam, el dominio y las redes.
+- Los archivos de guardado internos (`user://diceon_*.cfg`) conservan su nombre para no perder ajustes ni partidas.
 
 ---
 

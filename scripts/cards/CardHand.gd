@@ -92,3 +92,10 @@ func _rebuild() -> void:
 	_hide_button.text = "Mostrar" if faces_hidden else "Ocultar"
 	_hide_button.visible = not cards.is_empty()
 	(_title.get_parent().get_parent() as Control).visible = not cards.is_empty()
+
+
+func _process(_delta: float) -> void:
+	# El rótulo no tapa la carta ampliada mientras se mira.
+	var header := get_node_or_null("HandHeader") as Control
+	if header != null and hand3d != null:
+		header.visible = not cards.is_empty() and hand3d._hovered < 0

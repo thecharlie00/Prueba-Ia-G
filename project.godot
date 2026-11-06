@@ -14,7 +14,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="Dice on!!"
+config/name="Tablerama"
 run/main_scene="res://scenes/Menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
@@ -29,15 +29,23 @@ SessionNavigation="*res://scripts/ui/SessionNavigation.gd"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/window_width_override=1280
-window/size/window_height_override=720
+window/size/mode=2
+window/size/resizable=true
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [layer_names]
 
 3d_physics/layer_1="Mesa"
 3d_physics/layer_2="Piezas"
 3d_physics/layer_3="Bandeja de dados"
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+3d/sleep_threshold_linear=0.04
+3d/sleep_threshold_angular=0.12
+common/physics_ticks_per_second=90
 
 [rendering]
 

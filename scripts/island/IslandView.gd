@@ -502,12 +502,22 @@ func _build_ui() -> void:
 	panel.offset_right = 350
 	panel.anchor_bottom = 1.0
 	panel.offset_bottom = -18
-	panel.add_theme_stylebox_override("panel", _panel_style(Palette.PANEL))
+	var theme := GameThemes.theme_for(self)
+	var panel_style := _panel_style(Palette.PANEL)
+	panel_style.border_color = theme["accent"]
+	panel_style.set_border_width_all(4)
+	panel.add_theme_stylebox_override("panel", panel_style)
 	layer.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
 	panel.add_child(column)
-	game_title = _label(column, "ISLA DE RECURSOS")
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 10)
+	column.add_child(header)
+	header.add_child(GameThemes.emblem(theme, 34.0))
+	game_title = _label(header, "ISLA DE RECURSOS")
+	game_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	game_title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	game_title.add_theme_font_size_override("font_size", 16)
 	game_title.add_theme_color_override("font_color", Palette.PAPER)
 	status = _label(column, "")

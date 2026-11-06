@@ -1,4 +1,4 @@
-# Documento de Diseño de Juego (GDD): Dice on!!
+# Documento de Diseño de Juego (GDD): Tablerama
 
 **Estado:** propuesta de diseño y arquitectura; no es una descripción de funcionalidades ya implementadas.<br>
 **Versión:** 1.0 · 2 de noviembre de 2026<br>
@@ -13,7 +13,7 @@
 
 | Campo | Definición |
 |---|---|
-| **Título** | **Dice on!!** |
+| **Título** | **Tablerama** |
 | **Género** | Simulador sandbox de juegos de mesa 3D, creador no-code y multijugador. |
 | **Plataformas** | PC mediante Steam: Windows, macOS y Linux. Futuras aplicaciones para tablets iOS y Android, sujetas a validación de rendimiento, entrada táctil y condiciones de publicación. |
 | **Público objetivo** | Jugadores casuales de mesa, grupos de amigos, creadores de contenido y diseñadores indie que quieren prototipar sin programar. |
@@ -44,7 +44,7 @@
 
 ### Concepto principal y bucles
 
-Dice on!! combina una mesa 3D sandbox con automatizaciones inteligentes e importación rápida de componentes. La mesa es el espacio social compartido; el estado de juego, las reglas y la información privada se representan por separado de la apariencia física.
+Tablerama combina una mesa 3D sandbox con automatizaciones inteligentes e importación rápida de componentes. La mesa es el espacio social compartido; el estado de juego, las reglas y la información privada se representan por separado de la apariencia física.
 
 **Bucle de jugador:** elegir juego o mesa → crear o unirse a una sala → revisar las ayudas y reglas → interactuar y conversar → resolver turnos → guardar, reiniciar o compartir la partida.
 

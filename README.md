@@ -1,4 +1,4 @@
-# Dice on!! · prototipo tabletop en Godot 4
+# Tablerama · prototipo tabletop en Godot 4
 
 Base local, modular y ampliable para manipular piezas físicas sobre una mesa 3D. Incluye cámara orbital, selección, agarre por fuerza, cuadrícula magnética opcional, dados, fichas físicas, cartas, barajas y modos locales de ajedrez, damas, dominó, ludo e isla de recursos. **No incluye multijugador implementado**: al final se describe una arquitectura para incorporarlo sin confundir este prototipo con una solución de red lista para producción.
 
@@ -274,7 +274,7 @@ Usa un servidor autoritativo con IDs estables por pieza y un único simulador f�
 
 ## Modelo de negocio y siguientes pasos
 
-El diseño de producto contempla un **juego completo de pago único** (también en pack de 4), que crea salas y descarga del Workshop, y una **demo gratuita** que solo puede unirse a salas; sin suscripción. El modelo comercial aún no está implementado ni conectado a Steam. Consulta el [GDD](docs/GDD-Dice-on.md) para el diseño y el [roadmap](docs/ROADMAP.md) para las fases hacia una alternativa más barata y con estética cartoon a Tabletop Simulator, incluidas las peticiones de sus usuarios. El prototipo actual es local: incluye primeros modos asistidos de ajedrez y damas, pero todavía no incluye editor no-code ni multijugador. Consulta el [estado de implementación](docs/ESTADO.md) para sus límites.
+El diseño de producto contempla un **juego completo de pago único** (también en pack de 4), que crea salas y descarga del Workshop, y una **demo gratuita** que solo puede unirse a salas; sin suscripción. El modelo comercial aún no está implementado ni conectado a Steam. Consulta el [GDD](docs/GDD-Tablerama.md) para el diseño y el [roadmap](docs/ROADMAP.md) para las fases hacia una alternativa más barata y con estética cartoon a Tabletop Simulator, incluidas las peticiones de sus usuarios. El prototipo actual es local: incluye primeros modos asistidos de ajedrez y damas, pero todavía no incluye editor no-code ni multijugador. Consulta el [estado de implementación](docs/ESTADO.md) para sus límites.
 
 ## Ajedrez local
 

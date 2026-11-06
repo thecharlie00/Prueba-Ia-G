@@ -285,7 +285,7 @@ func _draw_back() -> void:
 				_fill(piece, light)
 	_round_rect(inner, 18, Color(0, 0, 0, 0), Palette.PAPER, 4.0)
 	_round_rect(inner.grow(-10), 12, Color(0, 0, 0, 0), Color(Palette.PAPER, 0.5), 2.0)
-	# Medallón central con el dado de Dice on!!.
+	# Medallón central con el dado de Tablerama.
 	var center := Vector2(SIZE) * 0.5
 	_shadowed_ellipse(center, Vector2(70, 84), Palette.PAPER)
 	var die := Rect2(center - Vector2(40, 40), Vector2(80, 80))

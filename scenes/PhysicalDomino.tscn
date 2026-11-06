@@ -17,7 +17,7 @@ mesh = SubResource("board_mesh")
 material_override = SubResource("felt")
 
 [node name="Eyebrow" parent="UI/Panel/Margin/Content" index="0"]
-text = "DICE ON!! · MESA LIBRE"
+text = "TABLERAMA · MESA LIBRE"
 [node name="Title" parent="UI/Panel/Margin/Content" index="1"]
 text = "Dominó físico"
 [node name="Status" parent="UI/Panel/Margin/Content" index="2"]

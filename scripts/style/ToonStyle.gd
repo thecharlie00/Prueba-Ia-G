@@ -98,10 +98,31 @@ func set_reduce_motion(enabled: bool) -> void:
 	config.save(settings_path)
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	# F11: pantalla completa / ventana; se recuerda en este equipo.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
+		set_fullscreen(DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_FULLSCREEN)
+		get_viewport().set_input_as_handled()
+
+
+func set_fullscreen(enabled: bool) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_mode(
+		DisplayServer.WINDOW_MODE_FULLSCREEN if enabled else DisplayServer.WINDOW_MODE_MAXIMIZED
+	)
+	var config := ConfigFile.new()
+	config.load(settings_path)
+	config.set_value("visual", "fullscreen", enabled)
+	config.save(settings_path)
+
+
 func _load_settings() -> void:
 	var config := ConfigFile.new()
 	if config.load(settings_path) != OK:
 		return
+	if config.get_value("visual", "fullscreen", false) == true and DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	var saved: Variant = config.get_value("visual", "reduce_motion", false)
 	if saved is bool:
 		reduce_motion = saved

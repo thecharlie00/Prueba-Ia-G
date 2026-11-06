@@ -1,4 +1,4 @@
-# Preparación de una beta local · Dice on!!
+# Preparación de una beta local · Tablerama
 
 Este documento es una lista de trabajo, no una declaración de que exista ya una beta validada. El objetivo inicial es probar partidas locales básicas en un mismo equipo antes de abordar el multijugador del GDD.
 

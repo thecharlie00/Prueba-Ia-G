@@ -27,7 +27,7 @@ func _build() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	margin.add_child(column)
-	var eyebrow := _label("DICE ON!!  /  MESA DE JUEGO LOCAL", 13, ACCENT)
+	var eyebrow := _label("TABLERAMA  /  MESA DE JUEGO LOCAL", 13, ACCENT)
 	column.add_child(eyebrow)
 	var title := _label("Elige tu mesa", 36, Color("f3ead9"))
 	column.add_child(title)
