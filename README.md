@@ -204,7 +204,15 @@ La consulta incluye la mesa para que una pieza oculta debajo no pueda selecciona
 
 ## Pruebas
 
-Con Godot instalado, desde la raíz:
+Con Godot instalado, desde la raíz, el script `tests/run_all.sh` importa el proyecto y ejecuta todos los tests de `tests/*.gd` con un resumen final (sale con código 1 si alguno falla):
+
+```sh
+tests/run_all.sh            # usa "godot" del PATH; o tests/run_all.sh /ruta/a/godot
+```
+
+La integración continua (`.github/workflows/ci.yml`) ejecuta ese mismo script con Godot 4.7.1 en cada PR y en cada push a `main`. Si los tests pasan, genera las exportaciones de Windows, Linux y macOS (`export_presets.cfg`) y las adjunta como artefactos descargables de la ejecución durante 14 días. Los builds no están firmados: Windows mostrará SmartScreen y en macOS hay que abrir la app con clic derecho → Abrir la primera vez.
+
+También se pueden lanzar uno a uno:
 
 ```sh
 godot --headless --editor --path . --quit  # importar recursos y registrar class_name
