@@ -115,6 +115,8 @@ assets/fonts/           # Lilita One y Nunito (licencia OFL)
 tools/screenshot.gd, tools/shots.sh # Capturas con renderizador real para revisar el arte
 tests/run_all.sh        # Ejecuta todos los tests con resumen
 tests/toon_style.gd     # Estilo cartoon, tema y rebote
+tests/sound_and_room.gd # Sonido generado, número del dado y habitación
+scripts/audio/Sfx.gd    # Efectos de sonido generados por código
 tests/smoke.gd          # Comprobaciones mínimas sin interfaz
 tests/menu_navigation.gd # Menú, pausa y rutas
 tests/camera_controls.gd # Recentrado de cámara en modos de mesa

@@ -120,11 +120,31 @@ El panel lateral se sustituye por información en la propia mesa ([`scripts/ui/T
 - **Barra de acciones** abajo y **cajón «Partida»** con guardar, cargar, cambiar de modo y ajustes.
 - La isla y el ludo conservan su panel de acciones, ya con la paleta, y tienen a los jugadores sentados a la mesa.
 
+## Habitación
+
+La mesa está en una habitación acogedora ([`scripts/style/RoomDecor.gd`](../scripts/style/RoomDecor.gd)), que se añade sola a cada escena con suelo. Tiene suelo de tablones de madera, una alfombra lavanda bajo la mesa, dos paredes con zócalo, una ventana con una nube, una estantería con libros de colores y una planta. Las paredes son de una sola cara: si la cámara gira por detrás, desaparecen en vez de tapar la mesa.
+
+## Sonido
+
+Efectos cortos generados por código ([`scripts/audio/Sfx.gd`](../scripts/audio/Sfx.gd)), sin archivos de audio:
+
+- **Agarrar:** pop ascendente.
+- **Soltar:** golpe de madera.
+- **Lanzar dados:** tres choques de plástico.
+- **Resultado del dado:** pop.
+- **Cartas:** soplido de papel.
+- **Botones:** clic.
+- **Cambio de turno:** dos notas.
+
+Cada reproducción varía un poco el tono para que no suene repetida. «Efectos de sonido» en el menú los apaga y se guarda en el equipo.
+
+## Dados
+
+Al quedarse quieto un dado, su número salta encima con un rebote y salen chispas de colores de la paleta. Con «Reducir animaciones» se muestra el número, pero sin salto ni chispas.
+
 ## Pendiente en la fase 1
 
 - Pasar las acciones de la isla y el ludo a la barra inferior y al cajón, como en las demás mesas.
-- Mesa y entorno ilustrados (habitación, objetos de fondo).
-- Partículas al caer un dado y número que "salta" al resolverse.
-- Sonidos con carácter y música ambiental.
 - Variante de paleta para daltonismo.
+- Música ambiental tranquila y volúmenes separados.
 - Test de lectura con 5 personas y medición de FPS en un portátil con gráficos integrados.
