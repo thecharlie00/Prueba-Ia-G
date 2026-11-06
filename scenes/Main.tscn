@@ -215,7 +215,10 @@ H   ·   Recuperar    L   ·   Bloquear
 ALT   ·   Inspeccionar pieza
 R   ·   Lanzar / mezclar    T   ·   Dado
 E / Q   ·   Girar    F   ·   Voltear
-N   ·   Robar    S   ·   Imán sí/no"
+N   ·   Robar    S   ·   Imán sí/no
+V   ·   Vistas: cenital y asientos
+D   ·   Pincel    Ctrl+F   ·   Volcar mesa
++ / −   ·   Contadores y reloj"
 
 [node name="Selection" type="Label" parent="UI/Margin/Panel/Content" unique_id=1977570697]
 layout_mode = 2

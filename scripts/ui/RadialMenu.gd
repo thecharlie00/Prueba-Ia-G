@@ -37,6 +37,8 @@ func is_open() -> bool:
 ## Acciones disponibles para una pieza: {"label", "key", "keycode", "ctrl"}.
 func actions_for(object: InteractiveTableObject) -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
+	if object is TableUtility:
+		list.append_array((object as TableUtility).radial_actions())
 	if object is Dice3D and grabber.dice_shortcuts_enabled:
 		list.append({"label": "Tirar", "key": "R", "keycode": KEY_R})
 	if object is Deck3D:
@@ -164,7 +166,7 @@ func _action_button(action: Dictionary, index: int) -> Button:
 	button.custom_minimum_size = BUTTON
 	button.size = BUTTON
 	button.focus_mode = Control.FOCUS_NONE
-	button.text = "%s  %s" % [action["label"], action["key"]]
+	button.text = "%s  %s" % [tr(action["label"]), action["key"]]
 	button.tooltip_text = "%s (tecla %s)" % [action["label"], action["key"]]
 	button.add_theme_font_size_override("font_size", 14)
 	button.pressed.connect(choose.bind(index))

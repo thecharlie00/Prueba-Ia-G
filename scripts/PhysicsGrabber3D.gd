@@ -225,25 +225,32 @@ func _create_context_hint() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 14
 	add_child(layer)
+	# Atajos visibles sobre la pieza (queja 1 de TTS): bocadillo que flota encima de lo
+	# que hay bajo el ratón.
 	_context_hint = PanelContainer.new()
 	_context_hint.name = "ContextHint"
-	_context_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_context_hint.offset_left = -240
-	_context_hint.offset_right = 240
-	_context_hint.offset_top = -72
-	_context_hint.offset_bottom = -20
+	_context_hint.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_context_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.045, 0.09, 0.08, 0.94)
-	style.set_content_margin_all(10)
-	style.set_corner_radius_all(7)
+	style.bg_color = Palette.PAPER
+	style.border_color = Palette.INK
+	style.set_border_width_all(3)
+	style.set_content_margin_all(8)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.set_corner_radius_all(12)
+	style.shadow_color = Palette.INK
+	style.shadow_size = 1
+	style.shadow_offset = Vector2(3, 3)
 	_context_hint.add_theme_stylebox_override("panel", style)
 	layer.add_child(_context_hint)
 	_context_hint_text = Label.new()
 	_context_hint_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_context_hint_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Una sola línea: el bocadillo se ajusta al texto y flota sobre la pieza.
+	_context_hint_text.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_context_hint_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_context_hint_text.add_theme_font_size_override("font_size", 13)
+	_context_hint_text.add_theme_font_size_override("font_size", 14)
+	_context_hint_text.add_theme_color_override("font_color", Palette.INK)
 	_context_hint.add_child(_context_hint_text)
 	_context_hint.hide()
 
@@ -261,7 +268,7 @@ func _refresh_context_hint() -> void:
 			if click_to_grab
 			else "Suelta para colocar · X cancelar · Rueda ajustar altura"
 		)
-		_context_hint.show()
+		_show_context_hint(held)
 		return
 	if (
 		not is_instance_valid(hovered)
@@ -279,9 +286,28 @@ func _refresh_context_hint() -> void:
 		_context_hint_text.text = "Baraja · N robar · R mezclar · L bloquear · Alt inspeccionar"
 	elif hovered is Dice3D and dice_shortcuts_enabled:
 		_context_hint_text.text = "Dado · R/T lanzar · Q/E girar · H recuperar · L bloquear"
+	elif hovered is TableUtility:
+		_context_hint_text.text = (hovered as TableUtility).shortcut_hint()
 	else:
 		_context_hint_text.text = "Pieza · Q/E girar · H recuperar · L bloquear · Alt inspeccionar"
+	_show_context_hint(hovered)
+
+
+## Coloca el bocadillo de atajos justo encima de la pieza, sin salirse de la pantalla.
+func _show_context_hint(object: InteractiveTableObject) -> void:
 	_context_hint.show()
+	_context_hint.reset_size()
+	var screen := get_viewport().get_visible_rect().size
+	var point := screen * Vector2(0.5, 0.85)
+	if is_instance_valid(camera) and is_instance_valid(object):
+		var anchor := object.global_position + Vector3.UP * 0.45
+		if not camera.is_position_behind(anchor):
+			point = camera.unproject_position(anchor)
+	var box := _context_hint.size
+	_context_hint.position = Vector2(
+		clampf(point.x - box.x * 0.5, 8.0, maxf(8.0, screen.x - box.x - 8.0)),
+		clampf(point.y - box.y - 18.0, 8.0, maxf(8.0, screen.y - box.y - 8.0))
+	)
 
 
 func _create_inspection_panel() -> void:
@@ -382,6 +408,9 @@ func _update_hover(mouse: Vector2) -> void:
 	var next: InteractiveTableObject = null
 	if not result.is_empty() and result.collider is InteractiveTableObject:
 		next = result.collider
+	# Las piezas de la zona privada de otro jugador no se pueden tocar (HiddenZone3D).
+	if next != null and bool(next.get_meta(&"private_hidden", false)):
+		next = null
 	if next == hovered:
 		return
 	if is_instance_valid(hovered):
@@ -643,6 +672,10 @@ func ping(at: Vector3) -> Node3D:
 func apply_shortcut(keycode: int, selected: InteractiveTableObject) -> void:
 	if not is_instance_valid(selected) or not selected.is_inside_tree():
 		return
+	if selected is TableUtility and not is_instance_valid(held):
+		if (selected as TableUtility).handle_shortcut(keycode):
+			selection_changed.emit(selected)
+			return
 	match keycode:
 		KEY_L:
 			if (

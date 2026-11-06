@@ -11,6 +11,16 @@ var confirm_action: ConfirmAction
 
 
 var timeline: TableTimeline
+var zones: Array[HiddenZone3D] = []
+
+## Componentes utilitarios que se pueden añadir desde el cajón (queja 18 de TTS).
+const UTILITY_SCENES := {
+	"counter": "res://scenes/Counter3D.tscn",
+	"bag": "res://scenes/Bag3D.tscn",
+	"note": "res://scenes/Note3D.tscn",
+	"timer": "res://scenes/Timer3D.tscn",
+}
+const UTILITY_LABELS := {"counter": "Contador", "bag": "Bolsa", "note": "Nota", "timer": "Reloj"}
 
 
 func _ready() -> void:
@@ -81,7 +91,183 @@ func _ready() -> void:
 		_on_physical_domino_pressed,
 		_can_store
 	)
+	grabber.grab_finished.connect(_on_grab_finished)
+	_build_zones()
+	_build_tools_row()
 	_connect_objects()
+	# Tutorial jugable: desde el menú o la primera vez que se abre la mesa libre.
+	if Tutorial.requested or (not Tutorial.was_seen() and DisplayServer.get_name() != "headless"):
+		Tutorial.requested = false
+		Tutorial.start.call_deferred(self)
+
+
+## Zonas privadas de J1 (abajo) y J2 (enfrente). V cambia de asiento y, con él, quién mira.
+func _build_zones() -> void:
+	var specs := [
+		{"seat": 1, "at": Vector3(1.6, 0.822, 1.75), "turn": 0.0, "color": Palette.CORAL},
+		{"seat": 2, "at": Vector3(-1.6, 0.822, -1.75), "turn": PI, "color": Palette.PLAYER_BLUE},
+	]
+	for spec in specs:
+		var zone := HiddenZone3D.new()
+		zone.name = "HiddenZone%d" % spec["seat"]
+		zone.owner_seat = spec["seat"]
+		zone.zone_color = spec["color"]
+		zone.objects = $Objects
+		add_child(zone)
+		zone.position = spec["at"]
+		zone.rotation.y = spec["turn"]
+		zones.append(zone)
+	$TabletopCamera3D.view_changed.connect(_on_view_changed)
+
+
+func _on_view_changed(view_name: String) -> void:
+	if not view_name.begins_with("seat"):
+		return
+	var seat := int(view_name.substr(4))
+	for zone in zones:
+		zone.set_viewer(seat)
+	result_label.text = tr("Ahora miras desde el asiento %d: ves tu mano y las de los demás quedan tapadas.") % seat
+
+
+func _build_tools_row() -> void:
+	var content := $UI/Margin/Panel/Content
+	var title := Label.new()
+	title.name = "AddTitle"
+	title.text = "Añadir a la mesa"
+	title.add_theme_font_size_override("font_size", 12)
+	content.add_child(title)
+	content.move_child(title, $UI/Margin/Panel/Content/Reset.get_index())
+	var row := HBoxContainer.new()
+	row.name = "AddRow"
+	content.add_child(row)
+	content.move_child(row, $UI/Margin/Panel/Content/Reset.get_index())
+	for kind in UTILITY_LABELS:
+		var button := Button.new()
+		button.name = "Add" + kind.capitalize()
+		button.text = UTILITY_LABELS[kind]
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.pressed.connect(spawn_utility.bind(kind))
+		row.add_child(button)
+	var extras := HBoxContainer.new()
+	extras.name = "ExtrasRow"
+	content.add_child(extras)
+	content.move_child(extras, $UI/Margin/Panel/Content/Reset.get_index())
+	var tutorial := Button.new()
+	tutorial.name = "TutorialButton"
+	tutorial.text = "Tutorial jugable"
+	tutorial.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tutorial.pressed.connect(
+		func() -> void:
+			if get_node_or_null("Tutorial") == null:
+				Tutorial.start(self)
+	)
+	extras.add_child(tutorial)
+	var flip := Button.new()
+	flip.name = "FlipTable"
+	flip.text = "¡Volcar la mesa!  Ctrl+F"
+	flip.tooltip_text = "Todo sale volando. Rebobinar lo deja como estaba."
+	flip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	flip.pressed.connect(flip_table)
+	extras.add_child(flip)
+	# La chuleta de atajos se pliega: los atajos ya flotan sobre cada pieza y F1 los lista.
+	var controls := $UI/Margin/Panel/Content/Controls as Label
+	controls.visible = false
+	var toggle := Button.new()
+	toggle.name = "ShortcutsToggle"
+	toggle.text = "Atajos de teclado"
+	toggle.toggle_mode = true
+	toggle.toggled.connect(func(on: bool) -> void: controls.visible = on)
+	content.add_child(toggle)
+	content.move_child(toggle, controls.get_index())
+
+
+func spawn_utility(kind: String) -> InteractiveTableObject:
+	if not UTILITY_SCENES.has(kind) or $Objects.get_child_count() >= SandboxPersistence.MAX_OBJECTS:
+		result_label.text = "La mesa está llena: guarda piezas en una bolsa o retira alguna."
+		return null
+	var object := (load(UTILITY_SCENES[kind]) as PackedScene).instantiate() as InteractiveTableObject
+	object.name = UTILITY_LABELS[kind]
+	$Objects.add_child(object, true)
+	var spread := $Objects.get_child_count() % 5
+	object.global_position = Vector3(-0.8 + spread * 0.4, 1.3, 0.2)
+	result_label.text = tr("%s añadido a la mesa.") % tr(UTILITY_LABELS[kind])
+	return object
+
+
+## Al soltar una pieza sobre una bolsa, entra en ella.
+func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: String) -> void:
+	if reason != "released" or not is_instance_valid(object):
+		return
+	for child in $Objects.get_children():
+		var bag := child as Bag3D
+		if bag == null or not bag.can_hold(object):
+			continue
+		var flat := Vector2(target.x - bag.global_position.x, target.z - bag.global_position.z)
+		if flat.length() <= Bag3D.DROP_RADIUS:
+			_bag_later.call_deferred(bag, object)
+			return
+
+
+func _bag_later(bag: Bag3D, object: InteractiveTableObject) -> void:
+	if is_instance_valid(bag) and is_instance_valid(object) and not object.is_grabbed:
+		if bag.put(object):
+			result_label.text = "Pieza guardada en la bolsa · N saca una al azar."
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.keycode == KEY_F
+		and event.ctrl_pressed
+		and not event.alt_pressed
+	):
+		flip_table()
+		get_viewport().set_input_as_handled()
+
+
+## Volcar la mesa en clave cartoon (queja 16): las piezas sueltas saltan, la mesa da un
+## respingo y la cámara tiembla. Se deshace con Rebobinar.
+func flip_table() -> bool:
+	if not _can_store():
+		return false
+	var moved := 0
+	for child in $Objects.get_children():
+		var object := child as InteractiveTableObject
+		if object == null or object.is_table_locked or object.freeze:
+			continue
+		object.sleeping = false
+		var velocity := Vector3(randf_range(-1.4, 1.4), randf_range(3.2, 4.2), randf_range(-2.8, -1.6))
+		object.apply_central_impulse(velocity * object.mass)
+		object.apply_torque_impulse(
+			Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * object.mass * 0.6
+		)
+		moved += 1
+	var style := get_node_or_null("/root/ToonStyle")
+	if style == null or not style.reduce_motion:
+		var lift := create_tween()
+		for part in $Table.get_children():
+			if part is MeshInstance3D:
+				var rest: Vector3 = part.position
+				lift.parallel().tween_property(part, "position:y", rest.y + 0.22, 0.12).set_ease(Tween.EASE_OUT)
+		lift.chain()
+		for part in $Table.get_children():
+			if part is MeshInstance3D:
+				lift.parallel().tween_property(part, "position:y", part.position.y, 0.35).set_trans(
+					Tween.TRANS_BOUNCE
+				).set_ease(Tween.EASE_OUT)
+		var rig: Node3D = $TabletopCamera3D/Camera3D
+		var shake := create_tween()
+		for i in 6:
+			shake.tween_property(rig, "h_offset", randf_range(-0.12, 0.12), 0.04)
+		shake.tween_property(rig, "h_offset", 0.0, 0.05)
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx != null:
+		sfx.play("dice")
+		sfx.play("drop")
+	result_label.text = tr("¡Mesa volcada! (%d piezas por los aires) · Rebobinar la deja como estaba.") % moved
+	return true
 
 
 func _connect_objects() -> void:

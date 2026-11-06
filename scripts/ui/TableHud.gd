@@ -46,6 +46,7 @@ var _seat_signature := ""
 var _seat_check := 0.0
 ## Identidad del juego (GameThemes): acento, nombre y emblema.
 var game_theme: Dictionary = {}
+var brush: TableBrush
 
 
 static func attach(target: Node) -> TableHud:
@@ -63,6 +64,10 @@ func _ready() -> void:
 	_build_seats()
 	_tint_drawer()
 	set_drawer_open(false)
+	# Pincel en todas las mesas con piezas físicas (queja 16 de TTS).
+	var grabber := view.find_child("PhysicsGrabber3D", true, false) as PhysicsGrabber3D
+	if grabber != null and grabber.camera != null and view.get_node_or_null("TableBrush") == null:
+		brush = TableBrush.attach(view, grabber.camera)
 
 
 ## El cajón «Partida» lleva el borde del acento del juego.
@@ -82,6 +87,9 @@ func set_drawer_open(open: bool) -> void:
 		panel.visible = open
 	if _drawer_button != null:
 		_drawer_button.text = "✕  Cerrar" if open else "☰  Partida"
+	# Con el cajón abierto, las fichas de información (que repiten lo del cajón) se apartan.
+	if _info_box != null:
+		_info_box.visible = not open
 
 
 func is_drawer_open() -> bool:

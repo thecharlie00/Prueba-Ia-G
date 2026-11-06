@@ -30,26 +30,28 @@ Resumen de reseñas de Steam agregadas, hilos de Reddit, el tablero de sugerenci
 
 | # | Queja o petición de usuarios de TTS | Respuesta de Tablerama | Estado en el repo | Fase |
 |---|---|---|---|---|
-| 1 | Controles poco intuitivos, atajos escondidos, tutorial que solo cubre lo básico | Ayuda contextual, menú radial con clic derecho, atajos visibles sobre la pieza, tutorial jugable | **Parcial**: ayuda contextual y guía F1 | 2 |
-| 2 | Física "jank": piezas que se pegan, cartas que no caen bien, colocar cuesta varios intentos | Física asistida: snap por defecto en zonas, cartas que se alinean, recuperación | **Parcial**: agarre por fuerza, imán 4×4, H recupera | 2 |
+| 1 | Controles poco intuitivos, atajos escondidos, tutorial que solo cubre lo básico | Ayuda contextual, menú radial con clic derecho, atajos visibles sobre la pieza, tutorial jugable | **Hecho local**: tutorial jugable de 9 pasos, atajos flotando sobre cada pieza, menú radial y guía F1 | 2 |
+| 2 | Física "jank": piezas que se pegan, cartas que no caen bien, colocar cuesta varios intentos | Física asistida: snap por defecto en zonas, cartas que se alinean, recuperación | **Parcial**: Jolt Physics con reposo ajustado, agarre por fuerza, imán 4×4, H recupera | 2 |
 | 3 | No impide jugadas ilegales | Juegos incluidos con reglas opcionales; reglas no-code en el editor | **Hecho local** en ajedrez, damas, dominó, ludo, isla | 4 |
-| 4 | Deshacer pobre: pulsar "atrás" muchas veces con cargas lentas; piden elegir un punto de restauración | **Rebobinado con línea de tiempo** de la mesa | **Parcial**: deshacer de una sola pieza | 2 |
-| 5 | Manos privadas y zonas ocultas imprescindibles | Manos 2D/3D privadas, zonas ocultas por jugador | **Pendiente** (solo pantalla de traspaso en la isla) | 2–3 |
+| 4 | Deshacer pobre: pulsar "atrás" muchas veces con cargas lentas; piden elegir un punto de restauración | **Rebobinado con línea de tiempo** de la mesa | **Hecho local**: rebobinar con línea de tiempo de la mesa + Ctrl+Z de la última pieza | 2 |
+| 5 | Manos privadas y zonas ocultas imprescindibles | Manos 2D/3D privadas, zonas ocultas por jugador | **Hecho local**: zonas privadas por asiento en la mesa libre (V cambia de asiento), manos 3D en cartas e isla; falta la privacidad real en red (fase 3) | 2–3 |
 | 6 | Errores de conexión P2P/NAT, servidores | Steam Lobbies + relé de Steam Networking, sin abrir puertos | **Pendiente** | 3 |
 | 7 | Lag, cuelgues, cargas lentas, actualizaciones que rompen el juego | Presupuestos de rendimiento, caché de assets, rama beta pública antes de cada actualización | **Pendiente** | 1, 3, 5 |
-| 8 | Mal soporte de mando y Steam Deck | Steam Deck Verified como objetivo, controles con mando | **Pendiente** | 2 |
+| 8 | Mal soporte de mando y Steam Deck | Steam Deck Verified como objetivo, controles con mando | **Parcial**: mando completo (cursor con stick, A/B clic, gatillos zoom, botones a atajos); falta probar en una Steam Deck y glifos de mando | 2 |
 | 9 | Polémica por los mods de pago del marketplace de la 2.0 | Workshop gratuito como compromiso público | **Pendiente** | 4 |
 | 10 | Mods de calidad irregular, que se rompen | Paquetes con assets incluidos y validados (no enlaces externos que caducan) | **Pendiente** | 4 |
 | 11 | Cada amigo tiene que comprar el juego | Precio bajo, pack de 4 y demo gratuita que se une a salas de quien tiene el juego completo (ver §5) | **Decidido**, pendiente de implementar | 3, 5 |
-| 12 | Traducciones automáticas y fuentes sin soporte | Localización revisada por personas, fuentes con cobertura completa | **Pendiente** (hoy solo español) | 5 |
+| 12 | Traducciones automáticas y fuentes sin soporte | Localización revisada por personas, fuentes con cobertura completa | **Parcial**: español, inglés y catalán en menús, interfaz común y herramientas; los mensajes de reglas de cada juego siguen en español | 5 |
 | 13 | VR rota | Fuera de alcance | — | — |
 | 14 | Moderación y toxicidad en chat (polémicas de moderación) | Silenciar, bloquear, denunciar, permisos del anfitrión y política clara | **Pendiente** | 3 |
-| 15 | Difícil ver toda la mesa | Vistas por asiento, vista cenital, vistas guardadas | **Parcial**: 3 vistas guardables | 2 |
-| 16 | Muy valorado: dibujar en la mesa, señalar, voltear la mesa, guardar partidas largas | Pincel, "ping", volteo de mesa animado en clave cartoon, guardado | **Parcial**: guardado | 2 |
+| 15 | Difícil ver toda la mesa | Vistas por asiento, vista cenital, vistas guardadas | **Hecho local**: V recorre vista cenital y los 4 asientos; 3 vistas guardables | 2 |
+| 16 | Muy valorado: dibujar en la mesa, señalar, voltear la mesa, guardar partidas largas | Pincel, "ping", volteo de mesa animado en clave cartoon, guardado | **Hecho local**: pincel (D), señalar (P), volcar la mesa (Ctrl+F) y guardado; los dibujos aún no se guardan con la partida | 2 |
 | 17 | Muy valorado: preparación automática de partidas | Juegos incluidos y plantillas del editor que se preparan solos | **Hecho** en los modos con reglas | 4 |
-| 18 | Contadores, bolsas con número de piezas, notas, temporizadores | Componentes utilitarios de mesa | **Pendiente** | 2 |
+| 18 | Contadores, bolsas con número de piezas, notas, temporizadores | Componentes utilitarios de mesa | **Hecho local**: contador, bolsa con recuento, nota editable y reloj/cuenta atrás; se guardan y se rebobinan | 2 |
 | 19 | Pocos jugadores por sala (TTS 10, TTP 16) | Objetivo 8 en EA, 16 tras perfilado | **Pendiente** | 3, 6 |
 | 20 | Chat de voz flojo en TTS; mejor en TTP | Voz por Steam en fase 6; mientras tanto, convivir con Discord | **Pendiente** | 6 |
+
+Resumen (7 de noviembre de 2026): de las 20, **10 están hechas o casi hechas en local** (1, 3, 4, 5, 15, 16, 17, 18 y parcialmente 2, 8, 12). Las que quedan (6, 7, 9, 10, 11, 14, 19, 20) dependen del juego en red, del Workshop o del lanzamiento, y se atacan en las fases 3–6.
 
 ---
 
