@@ -8,7 +8,8 @@ const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
 
 const TOKEN := preload("res://scenes/Token3D.tscn")
 const DICE := preload("res://scenes/Dice3D.tscn")
-const COLORS := [Color("d95a4f"), Color("67a3cd"), Color("e6c66a"), Color("78bc83")]
+# Rojo, azul, amarillo y verde de la paleta (docs/ARTE.md); los textos usan estos nombres.
+const COLORS := [Palette.PLAYER_RED, Palette.PLAYER_BLUE, Palette.PLAYER_YELLOW, Palette.PLAYER_GREEN]
 const NAMES := ["rojo", "azul", "amarillo", "verde"]
 const CENTER := Vector3(-0.62, 0.83, 0)
 const TRACK_RADIUS := 1.37
@@ -46,9 +47,54 @@ func _ready() -> void:
 	_make_tokens()
 	_make_tray()
 	_make_ui()
+	_make_seats()
 	grabber.dice_shortcuts_enabled = false
 	grabber.grab_finished.connect(_on_release)
 	_refresh()
+
+
+## Jugadores sentados junto a su casa, con lo que llevan a la meta encima.
+var seats: TableSeats
+
+
+func _make_seats() -> void:
+	var list := []
+	for player in range(rules.players):
+		var home := Vector3.ZERO
+		for token in range(4):
+			home += _yard_position(player, token) * 0.25
+		var outward := Vector3(home.x - CENTER.x, 0, home.z - CENTER.z).normalized()
+		var spot := Vector3(CENTER.x, -0.15, CENTER.z) + outward * 3.3
+		list.append(
+			{
+				"name": "Jugador %d" % (player + 1),
+				"color": COLORS[player],
+				"bot": false,
+				"position": spot,
+				"look_at": Vector3(CENTER.x, -0.15, CENTER.z),
+			}
+		)
+	seats = TableSeats.new()
+	seats.name = "TableSeats"
+	add_child(seats)
+	seats.setup(list)
+	seats.center = CENTER
+	_update_seats()
+
+
+func _update_seats() -> void:
+	if seats == null:
+		return
+	seats.set_active(rules.turn if rules.phase != LudoRules.FINISHED else rules.winner)
+	for player in range(rules.players):
+		var done := 0
+		var waiting := 0
+		for progress in rules.positions[player]:
+			if progress == LudoRules.FINISH:
+				done += 1
+			elif progress == LudoRules.YARD:
+				waiting += 1
+		seats.set_status(player, "Meta %d/4 · casa %d" % [done, waiting])
 
 
 func _make_board() -> void:
@@ -275,6 +321,7 @@ func _button(parent: Node, text: String, callback: Callable) -> Button:
 
 
 func _refresh() -> void:
+	_update_seats()
 	status.text = (
 		"Ludo · %d jugadores\nTurno J%d (%s)" % [rules.players, rules.turn + 1, NAMES[rules.turn]]
 	)

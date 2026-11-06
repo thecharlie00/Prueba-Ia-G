@@ -14,6 +14,7 @@ var confirm_action: ConfirmAction
 
 
 func _ready() -> void:
+	TableHud.attach.call_deferred(self)
 	confirm_action = CONFIRM_ACTION.new()
 	add_child(confirm_action)
 	_make_board()
@@ -54,8 +55,8 @@ func _make_board() -> void:
 	var squares: Array[MeshInstance3D] = BoardGeometry3D.make_tiles(
 		$Board/Tiles, CELL, BOARD_HEIGHT
 	)
-	var light := BoardGeometry3D.make_material(Color("dfd1ad"))
-	var dark := BoardGeometry3D.make_material(Color("405f50"))
+	var light := BoardGeometry3D.make_material(Palette.BOARD_LIGHT)
+	var dark := BoardGeometry3D.make_material(Palette.BOARD_DARK)
 	var destinations: Array[int] = []
 	BoardGeometry3D.update_tiles(squares, -1, destinations, light, dark, light, dark)
 

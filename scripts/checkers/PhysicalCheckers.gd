@@ -16,6 +16,7 @@ var confirm_action: ConfirmAction
 
 
 func _ready() -> void:
+	TableHud.attach.call_deferred(self)
 	confirm_action = CONFIRM_ACTION.new()
 	add_child(confirm_action)
 	_make_board()
@@ -54,9 +55,9 @@ func _ready() -> void:
 
 func _make_board() -> void:
 	var squares: Array[MeshInstance3D] = BoardGeometry.make_tiles(tiles_root, CELL, BOARD_HEIGHT)
-	var light: Material = BoardGeometry.make_material(Color("dfd1ad"))
-	var dark: Material = BoardGeometry.make_material(Color("405f50"))
-	var highlight: Material = BoardGeometry.make_material(Color("d8af5d"))
+	var light: Material = BoardGeometry.make_material(Palette.BOARD_LIGHT)
+	var dark: Material = BoardGeometry.make_material(Palette.BOARD_DARK)
+	var highlight: Material = BoardGeometry.make_material(Palette.SELECTED)
 	var destinations: Array[int] = []
 	BoardGeometry.update_tiles(squares, -1, destinations, light, dark, highlight, highlight)
 
@@ -70,7 +71,7 @@ func _spawn_tokens() -> void:
 				continue
 			var token := TOKEN_SCENE.instantiate() as Token3D
 			var white: bool = row >= 5
-			token.piece_color = Color("f5ead5") if white else Color("273833")
+			token.piece_color = Palette.PIECE_LIGHT if white else Palette.PIECE_DARK
 			token.display_name = "Ficha blanca" if white else "Ficha oscura"
 			token.position = BoardGeometry.square_position(
 				row * 8 + column, CELL, BOARD_HEIGHT + 0.08

@@ -11,6 +11,7 @@ var confirm_action: ConfirmAction
 
 
 func _ready() -> void:
+	TableHud.attach.call_deferred(self)
 	confirm_action = CONFIRM_ACTION.new()
 	add_child(confirm_action)
 	grabber.selection_changed.connect(_on_selection_changed)

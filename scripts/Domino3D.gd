@@ -39,12 +39,11 @@ func _make_face() -> void:
 			Vector2(1, 1)
 		]
 	}
-	var pip_mesh := SphereMesh.new()
-	pip_mesh.radius = 0.013
-	pip_mesh.height = 0.026
+	# Loseta de marfil redondeada con gotas de tinta (docs/ARTE.md).
+	$Visual.mesh = PieceKit.rounded_box(Vector3(0.44, 0.08, 0.22), 0.03)
+	var pip_mesh := PieceKit.dot(0.017, 0.009)
 	var pip_material := StandardMaterial3D.new()
-	pip_material.albedo_color = Color("24332f")
-	pip_mesh.material = pip_material
+	pip_material.albedo_color = Color("2a2552")
 	var face := Node3D.new()
 	face.name = "Pips"
 	$Visual.add_child(face)
@@ -53,7 +52,8 @@ func _make_face() -> void:
 		for offset: Vector2 in dots[clampi(value, 0, 6)]:
 			var pip := MeshInstance3D.new()
 			pip.mesh = pip_mesh
+			pip.material_override = pip_material
 			pip.position = Vector3(
-				(-0.11 if side == 0 else 0.11) + offset.x * 0.047, 0.046, offset.y * 0.062
+				(-0.11 if side == 0 else 0.11) + offset.x * 0.047, 0.037, offset.y * 0.058
 			)
 			face.add_child(pip)

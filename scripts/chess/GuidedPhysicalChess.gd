@@ -35,11 +35,12 @@ var _legal: Material
 
 
 func _ready() -> void:
+	TableHud.attach.call_deferred(self)
 	super._ready()
-	_light = BoardGeometry3D.make_material(Color("dfd1ad"))
-	_dark = BoardGeometry3D.make_material(Color("405f50"))
-	_selected = BoardGeometry3D.make_material(Color("d8af5d"))
-	_legal = BoardGeometry3D.make_material(Color("80bc8e"))
+	_light = BoardGeometry3D.make_material(Palette.BOARD_LIGHT)
+	_dark = BoardGeometry3D.make_material(Palette.BOARD_DARK)
+	_selected = BoardGeometry3D.make_material(Palette.SELECTED)
+	_legal = BoardGeometry3D.make_material(Palette.LEGAL)
 	for node in $Board/Tiles.get_children():
 		if node is MeshInstance3D and _squares.size() < 64:
 			_squares.append(node)
@@ -522,3 +523,29 @@ func _square_center(square: int) -> Vector3:
 
 func _open_free() -> void:
 	get_tree().change_scene_to_file("res://scenes/PhysicalChess.tscn")
+
+
+# --- Interfaz integrada en la mesa (TableHud) ---
+
+
+func hud_seats() -> Array:
+	var bot: bool = rules.opponent_mode != ChessRules.OPPONENT_LOCAL
+	var rival := "Negras"
+	if rules.opponent_mode == ChessRules.OPPONENT_AI_CASUAL:
+		rival = "IA casual"
+	elif rules.opponent_mode == ChessRules.OPPONENT_AI_TACTICAL:
+		rival = "IA táctica"
+	return [
+		{"name": "Blancas", "color": Palette.PIECE_LIGHT, "bot": false, "side": "east"},
+		{"name": rival, "color": Palette.PIECE_DARK, "bot": bot, "side": "north"},
+	]
+
+
+func hud_active_seat() -> int:
+	return 0 if rules.turn == ChessRules.WHITE else 1
+
+
+func hud_seat_status(index: int) -> String:
+	if index == 1 and bool(get("_ai_thinking")):
+		return "Pensando…"
+	return ""

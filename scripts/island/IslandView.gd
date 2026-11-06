@@ -9,17 +9,11 @@ const SAVE_CODECS := preload("res://scripts/persistence/SaveCodecs.gd")
 
 const PIECE := preload("res://scenes/IslandPiece3D.tscn")
 const DICE := preload("res://scenes/Dice3D.tscn")
-const RESOURCE_ART := [
-	preload("res://assets/island/wood.jpg"),
-	preload("res://assets/island/brick.jpg"),
-	preload("res://assets/island/wool.jpg"),
-	preload("res://assets/island/grain.jpg"),
-	preload("res://assets/island/ore.jpg"),
-]
 const RADIUS := 0.4
 const HEIGHT := 0.83
 const MAX_SAVE_BYTES := 2000000
-const PLAYER_COLORS := [Color("d99552"), Color("5a94bf"), Color("d05b55"), Color("deddd2")]
+# Naranja, azul, rojo y blanco (docs/ARTE.md); los textos de turno usan estos nombres.
+const PLAYER_COLORS := [Palette.PLAYER_ORANGE, Palette.PLAYER_BLUE, Palette.PLAYER_RED, Palette.PLAYER_WHITE]
 const PORT_NAMES := ["Mad", "Lad", "Lan", "Tri", "Min"]
 
 @export_range(3, 4) var player_count := 3
@@ -61,8 +55,9 @@ var dev_status: Label
 var buttons: Dictionary = {}
 var tabs: TabContainer
 var hand_heading: Label
-var resource_buttons: Array[Button] = []
-var resource_counts: Array[Label] = []
+## Mano 3D del jugador activo y qué es cada carta ({"resource": r} o {"dev": tipo}).
+var hand3d: Hand3D
+var hand_keys: Array[Dictionary] = []
 var turn_controls: Dictionary = {}
 var previous_phase := ""
 var bank_status: Label
@@ -88,9 +83,10 @@ func _ready() -> void:
 	_make_markers()
 	_make_dice()
 	var desert := _tile_position(rules.robber_tile)
-	robber_node = _spawn_piece("robber", Color("262b2a"), desert + Vector3.UP * 0.12)
+	robber_node = _spawn_piece("robber", Palette.PANEL, desert + Vector3.UP * 0.12)
 	homes[robber_node] = desert
 	_build_ui()
+	_make_seats()
 	grabber.dice_shortcuts_enabled = false
 	grabber.grab_finished.connect(_on_physical_release)
 	grabber.placement_message.connect(_placement_message)
@@ -189,41 +185,50 @@ func _steer_road(piece: IslandPiece3D, target: Quaternion) -> void:
 	piece.apply_torque(torque.limit_length(piece.mass * 3.0))
 
 
+## Jugadores sentados alrededor de la isla con sus puntos y cartas (información pública).
+var seats: TableSeats
+
+
+func _make_seats() -> void:
+	var angles := [90, 180, 270, 0]
+	var spots := TableSeats.ring(Vector3.ZERO, 2.9, -0.15, angles.slice(0, rules.players))
+	var names := ["Naranja", "Azul", "Rojo", "Blanco"]
+	for player in range(rules.players):
+		spots[player]["name"] = "J%d %s" % [player + 1, names[player]]
+		spots[player]["color"] = PLAYER_COLORS[player]
+		spots[player]["bot"] = false
+	seats = TableSeats.new()
+	seats.name = "TableSeats"
+	add_child(seats)
+	seats.setup(spots)
+	seats.center = Vector3.ZERO
+
+
+func _update_seats() -> void:
+	if seats == null:
+		return
+	seats.set_active(rules.turn)
+	for player in range(rules.players):
+		var points: int = (
+			rules.score(player) if rules.phase == IslandRules.FINISHED else rules.public_score(player)
+		)
+		var cards := 0
+		for amount in rules.resources[player]:
+			cards += int(amount)
+		seats.set_status(player, "%d puntos · %d cartas" % [points, cards])
+
+
 func _make_board() -> void:
-	var mesh := _hex_mesh()
+	var sea := IslandTerrain.build_sea(RADIUS * 5.1)
+	sea.position = Vector3(0, HEIGHT - 0.045, 0)  # Asoma entre y alrededor de las casillas.
+	$Board/Tiles.add_child(sea)
+	# Casillas 3D con paisaje y ficha de número (IslandTerrain, docs/ARTE.md).
 	for i in range(rules.board.tiles.size()):
 		var tile: Dictionary = rules.board.tiles[i]
-		var hex := MeshInstance3D.new()
-		hex.mesh = mesh
+		var hex := IslandTerrain.build_tile(int(tile["terrain"]), int(tile.get("number", 0)), RADIUS)
+		hex.name = "Tile%d" % i
 		hex.position = _tile_position(i)
-		var material := StandardMaterial3D.new()
-		var terrain: int = tile["terrain"]
-		material.albedo_color = Color("c3ab78") if terrain == IslandBoard.DESERT else Color.WHITE
-		if terrain != IslandBoard.DESERT:
-			material.albedo_texture = RESOURCE_ART[terrain]
-		material.roughness = 0.9
-		material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		hex.material_override = material
 		$Board/Tiles.add_child(hex)
-		if terrain == IslandBoard.DESERT:
-			continue
-		var badge := MeshInstance3D.new()
-		var disc := CylinderMesh.new()
-		disc.top_radius = 0.095
-		disc.bottom_radius = 0.095
-		disc.height = 0.015
-		badge.mesh = disc
-		badge.position = hex.position + Vector3.UP * 0.016
-		badge.material_override = BoardGeometry3D.make_material(Color("f3e5bc"))
-		$Board/Tiles.add_child(badge)
-		var label := Label3D.new()
-		label.text = str(tile["number"])
-		label.font_size = 50
-		label.pixel_size = 0.0018
-		label.position = hex.position + Vector3.UP * 0.027
-		label.rotation_degrees.x = -90
-		label.modulate = Color("9d352b") if tile["number"] in [6, 8] else Color("293b30")
-		$Board/Tiles.add_child(label)
 
 
 func _make_ports() -> void:
@@ -238,7 +243,9 @@ func _make_ports() -> void:
 		label.pixel_size = 0.0021
 		label.position = position + outward * 0.16 + Vector3.UP * 0.035
 		label.rotation_degrees.x = -90
-		label.modulate = Color("fff3bc")
+		label.modulate = Palette.PAPER
+		label.outline_size = 14
+		label.outline_modulate = Palette.INK
 		$Board/Tiles.add_child(label)
 
 
@@ -279,7 +286,7 @@ func _edge_position(id: int) -> Vector3:
 
 
 func _make_markers() -> void:
-	marker_legal = BoardGeometry3D.make_material(Color("9ee9aa"))
+	marker_legal = BoardGeometry3D.make_material(Palette.MINT)
 	var mesh := SphereMesh.new()
 	mesh.radius = 0.035
 	mesh.height = 0.07
@@ -495,23 +502,23 @@ func _build_ui() -> void:
 	panel.offset_right = 350
 	panel.anchor_bottom = 1.0
 	panel.offset_bottom = -18
-	panel.add_theme_stylebox_override("panel", _panel_style(Color("142b25")))
+	panel.add_theme_stylebox_override("panel", _panel_style(Palette.PANEL))
 	layer.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
 	panel.add_child(column)
 	game_title = _label(column, "ISLA DE RECURSOS")
 	game_title.add_theme_font_size_override("font_size", 16)
-	game_title.add_theme_color_override("font_color", Color("f5e9ca"))
+	game_title.add_theme_color_override("font_color", Palette.PAPER)
 	status = _label(column, "")
 	status.add_theme_font_size_override("font_size", 16)
-	status.add_theme_color_override("font_color", Color("a9dfbd"))
+	status.add_theme_color_override("font_color", Palette.SUN)
 	hands = _label(column, "")
 	hands.add_theme_font_size_override("font_size", 12)
-	hands.add_theme_color_override("font_color", Color("cbd6c6"))
+	hands.add_theme_color_override("font_color", Palette.LAVENDER)
 	help = _label(column, "Prepara tu primer pueblo en una marca verde.")
 	help.add_theme_font_size_override("font_size", 13)
-	help.add_theme_color_override("font_color", Color("e6d8b7"))
+	help.add_theme_color_override("font_color", Palette.PAPER)
 	tabs = TabContainer.new()
 	tabs.name = "Actions"
 	tabs.add_theme_font_size_override("font_size", 12)
@@ -672,59 +679,83 @@ func _build_options_tab(column: VBoxContainer) -> void:
 
 
 func _build_hand(layer: CanvasLayer) -> void:
+	# Las cartas se ven en 3D sujetas en la mano (Hand3D). Debajo de los paneles 2D.
+	hand3d = Hand3D.new()
+	hand3d.lift = 0.45
+	hand3d.shift = 1.1
+	layer.add_child(hand3d)
+	layer.move_child(hand3d, 0)
+	hand3d.item_pressed.connect(_hand_pressed)
+	# Rótulo de la mano: de quién es y qué hacer con ella.
 	var panel := PanelContainer.new()
 	panel.name = "ResourceHand"
-	panel.anchor_left = 0.0
-	panel.anchor_right = 1.0
-	panel.anchor_top = 1.0
-	panel.anchor_bottom = 1.0
-	panel.offset_left = 366
-	panel.offset_right = -18
-	panel.offset_top = -164
-	panel.offset_bottom = -18
-	panel.add_theme_stylebox_override("panel", _panel_style(Color("142b25")))
+	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.offset_left = 0
+	panel.offset_right = 330
+	panel.offset_top = -252
+	panel.offset_bottom = -218
+	panel.add_theme_stylebox_override("panel", _panel_style(Palette.PANEL))
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(panel)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 4)
-	panel.add_child(column)
-	hand_heading = _label(column, "RECURSOS")
-	hand_heading.add_theme_font_size_override("font_size", 12)
-	hand_heading.add_theme_color_override("font_color", Color("cbd6c6"))
-	var row := _row(column)
-	row.add_theme_constant_override("separation", 6)
-	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hand_heading = _label(panel, "RECURSOS")
+	hand_heading.add_theme_font_size_override("font_size", 13)
+	hand_heading.add_theme_color_override("font_color", Palette.PAPER)
+
+
+## Cartas de la mano del jugador activo: recursos agrupados y cartas de desarrollo.
+func _update_hand(player: int) -> void:
+	var items := []
+	hand_keys.clear()
+	if rules.phase in [IslandRules.PLENTY, IslandRules.MONOPOLY]:
+		# Elegir recurso: una carta de cada tipo, tenga o no el jugador.
+		for resource in range(5):
+			var empty_bank: bool = rules.phase == IslandRules.PLENTY and rules.bank[resource] == 0
+			items.append({"face": "resource", "resource": resource, "disabled": empty_bank})
+			hand_keys.append({"resource": resource})
+		hand3d.set_items(items)
+		return
 	for resource in range(5):
-		var card := Button.new()
-		card.name = "Resource%d" % resource
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		card.tooltip_text = IslandBoard.RESOURCE_NAMES[resource]
-		card.pressed.connect(_resource_pressed.bind(resource))
-		card.add_theme_stylebox_override("normal", _card_style(Color("eadcb9")))
-		card.add_theme_stylebox_override("hover", _card_style(Color("ffffff")))
-		card.add_theme_stylebox_override("pressed", _card_style(Color("b5d4b4")))
-		card.add_theme_stylebox_override("disabled", _card_style(Color("eadcb9")))
-		row.add_child(card)
-		var content := VBoxContainer.new()
-		content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_theme_constant_override("separation", 2)
-		card.add_child(content)
-		var art := TextureRect.new()
-		art.texture = RESOURCE_ART[resource]
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(art)
-		var count := Label.new()
-		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		count.add_theme_font_size_override("font_size", 14)
-		count.add_theme_color_override("font_color", Color("263a2d"))
-		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(count)
-		resource_buttons.append(card)
-		resource_counts.append(count)
+		var disabled: bool = (
+			rules.phase not in [IslandRules.DISCARD, IslandRules.PLENTY, IslandRules.MONOPOLY]
+		)
+		if rules.phase == IslandRules.PLENTY and rules.bank[resource] == 0:
+			disabled = true
+		for i in int(rules.resources[player][resource]):
+			items.append({"face": "resource", "resource": resource, "disabled": disabled})
+			hand_keys.append({"resource": resource})
+	for kind in range(IslandRules.DEV_NAMES.size()):
+		for i in int(rules.dev_ready[player][kind]):
+			items.append({"face": "development", "text": IslandRules.DEV_NAMES[kind]})
+			hand_keys.append({"dev": kind})
+		for i in int(rules.dev_new[player][kind]):
+			items.append(
+				{"face": "development", "text": IslandRules.DEV_NAMES[kind], "dim": true, "disabled": true}
+			)
+			hand_keys.append({"dev": kind})
+	hand3d.set_items(items)
+
+
+## Índice de la primera carta de un recurso en la mano, o -1.
+func hand_index_of(resource: int) -> int:
+	for i in hand_keys.size():
+		if hand_keys[i].get("resource", -1) == resource:
+			return i
+	return -1
+
+
+func _hand_pressed(index: int) -> void:
+	if index < 0 or index >= hand_keys.size():
+		return
+	var key: Dictionary = hand_keys[index]
+	if key.has("resource"):
+		_resource_pressed(int(key["resource"]))
+	elif key.has("dev"):
+		# Elige esa carta en la pestaña de cartas, lista para jugarla.
+		for item in range(dev_choice.item_count):
+			if dev_choice.get_item_id(item) == int(key["dev"]):
+				dev_choice.select(item)
+		tabs.current_tab = 2
 
 
 func _build_privacy_overlay(layer: CanvasLayer) -> void:
@@ -735,7 +766,7 @@ func _build_privacy_overlay(layer: CanvasLayer) -> void:
 	privacy_overlay.visible = false
 	layer.add_child(privacy_overlay)
 	var background := ColorRect.new()
-	background.color = Color("10241e")
+	background.color = Palette.PANEL.darkened(0.3)
 	background.mouse_filter = Control.MOUSE_FILTER_STOP
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	privacy_overlay.add_child(background)
@@ -744,7 +775,7 @@ func _build_privacy_overlay(layer: CanvasLayer) -> void:
 	privacy_overlay.add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(380, 0)
-	panel.add_theme_stylebox_override("panel", _panel_style(Color("203d31")))
+	panel.add_theme_stylebox_override("panel", _panel_style(Palette.PANEL))
 	center.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
@@ -792,6 +823,7 @@ func _update_privacy(player: int) -> void:
 		just_locked = true
 	$IslandUI/Panel.visible = not privacy_locked
 	$IslandUI/ResourceHand.visible = not privacy_locked
+	hand3d.visible = not privacy_locked
 	privacy_overlay.visible = privacy_locked
 	if just_locked:
 		privacy_ready.grab_focus()
@@ -806,9 +838,12 @@ func _update_privacy(player: int) -> void:
 func _panel_style(color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
-	style.border_color = Color("456455")
-	style.set_border_width_all(1)
-	style.set_corner_radius_all(10)
+	style.border_color = Palette.INK
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(18)
+	style.shadow_color = Palette.INK
+	style.shadow_size = 1
+	style.shadow_offset = Vector2(5, 5)
 	style.content_margin_left = 14
 	style.content_margin_right = 14
 	style.content_margin_top = 12
@@ -816,10 +851,17 @@ func _panel_style(color: Color) -> StyleBoxFlat:
 	return style
 
 
-func _card_style(color: Color) -> StyleBoxFlat:
+func _card_style(color: Color, lifted := false) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = color
-	style.set_corner_radius_all(5)
+	style.border_color = Palette.INK
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(12)
+	style.shadow_color = Palette.INK
+	style.shadow_size = 1
+	style.shadow_offset = Vector2(3, 4)
+	if lifted:
+		style.expand_margin_top = 8
 	style.content_margin_left = 4
 	style.content_margin_right = 4
 	style.content_margin_top = 4
@@ -847,13 +889,7 @@ func _button(parent: Node, id: String, text: String, callback: Callable) -> void
 	button.text = text
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.custom_minimum_size.y = 34
-	button.add_theme_font_size_override("font_size", 14)
-	button.add_theme_color_override("font_color", Color("eff5e8"))
-	button.add_theme_color_override("font_hover_color", Color.WHITE)
-	button.add_theme_stylebox_override("normal", _card_style(Color("315245")))
-	button.add_theme_stylebox_override("hover", _card_style(Color("426d58")))
-	button.add_theme_stylebox_override("pressed", _card_style(Color("66876d")))
-	button.add_theme_stylebox_override("disabled", _card_style(Color("233a31")))
+	button.add_theme_font_size_override("font_size", 14)  # Colores y forma: tema cartoon.
 	button.pressed.connect(callback)
 	parent.add_child(button)
 	buttons[id] = button
@@ -913,6 +949,7 @@ func _refresh() -> void:
 		)
 		scores.append("J%d %s · %d puntos" % [player + 1, names[player], points])
 	hands.text = "  |  ".join(scores)
+	_update_seats()
 	var active_hand := _active_hand_player()
 	_update_privacy(active_hand)
 	hand_heading.text = "RECURSOS · J%d" % (active_hand + 1)
@@ -920,18 +957,7 @@ func _refresh() -> void:
 		hand_heading.text += " · toca una carta para descartar"
 	elif rules.phase in [IslandRules.PLENTY, IslandRules.MONOPOLY]:
 		hand_heading.text += " · toca el recurso que eliges"
-	for resource in range(5):
-		resource_counts[resource].text = (
-			"%s  × %d"
-			% [IslandBoard.RESOURCE_NAMES[resource], rules.resources[active_hand][resource]]
-		)
-		resource_buttons[resource].disabled = (
-			rules.phase not in [IslandRules.DISCARD, IslandRules.PLENTY, IslandRules.MONOPOLY]
-		)
-		if rules.phase == IslandRules.DISCARD and rules.resources[active_hand][resource] == 0:
-			resource_buttons[resource].disabled = true
-		if rules.phase == IslandRules.PLENTY and rules.bank[resource] == 0:
-			resource_buttons[resource].disabled = true
+	_update_hand(active_hand)
 	bank_status.text = "Banco: " + _resource_summary(rules.bank)
 	var cards: Array = rules.dev_ready[active_hand]
 	var fresh: Array = rules.dev_new[active_hand]
@@ -1397,7 +1423,7 @@ func _rebuild_loaded_board() -> void:
 		road_nodes[id] = piece
 		homes[piece] = _edge_position(id)
 	var destination := _tile_position(rules.robber_tile)
-	robber_node = _spawn_piece("robber", Color("262b2a"), destination + Vector3.UP * 0.12)
+	robber_node = _spawn_piece("robber", Palette.PANEL, destination + Vector3.UP * 0.12)
 	homes[robber_node] = destination
 
 

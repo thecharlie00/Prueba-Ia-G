@@ -8,6 +8,7 @@ var _flipping := false
 
 func _ready() -> void:
 	super._ready()
+	_shape_card()
 	var label := Label3D.new()
 	label.name = "FaceLabel"
 	label.text = card_label
@@ -65,3 +66,22 @@ func _finish_flip() -> void:
 	freeze = false
 	sleeping = false
 	_flipping = false
+
+
+# Carta de canto grueso y esquinas muy redondeadas; anverso crema y reverso de la paleta.
+# La caja de colisión de la escena no cambia.
+func _shape_card() -> void:
+	$Visual.mesh = PieceKit.rounded_slab(Vector3(0.68, 0.05, 0.96), 0.08, 0.022)
+	var face := PieceKit.rounded_slab(Vector3(0.58, 0.006, 0.86), 0.06, 0.003)
+	for side in ["Front", "Back"]:
+		var node := get_node_or_null("Visual/" + side) as MeshInstance3D
+		if node != null:
+			node.mesh = face
+	var front := get_node_or_null("Visual/Front") as MeshInstance3D
+	if front != null and front.material_override is StandardMaterial3D:
+		(front.material_override as StandardMaterial3D).albedo_color = Color("fff8ec")
+	var back := get_node_or_null("Visual/Back") as MeshInstance3D
+	if back != null and back.material_override is StandardMaterial3D:
+		(back.material_override as StandardMaterial3D).albedo_color = Color("ff6b5e")
+	if $Visual.material_override is StandardMaterial3D:
+		($Visual.material_override as StandardMaterial3D).albedo_color = Color("fff1d9")

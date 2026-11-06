@@ -31,6 +31,7 @@ var _zone_materials: Dictionary = {}
 
 
 func _ready() -> void:
+	TableHud.attach.call_deferred(self)
 	super._ready()
 	for child in objects.get_children():
 		var tile := child as Domino3D
@@ -350,3 +351,23 @@ func _help(message: String) -> void:
 
 func _open_free() -> void:
 	get_tree().change_scene_to_file("res://scenes/PhysicalDomino.tscn")
+
+
+# --- Interfaz integrada en la mesa (TableHud) ---
+
+
+func hud_seats() -> Array:
+	return [
+		{"name": "Jugador 1", "color": Palette.PLAYER_RED, "bot": false, "side": "west"},
+		{"name": "Jugador 2", "color": Palette.PLAYER_BLUE, "bot": false, "side": "east"},
+	]
+
+
+func hud_active_seat() -> int:
+	return rules.turn
+
+
+func hud_seat_status(index: int) -> String:
+	if index < rules.hands.size():
+		return "%d fichas" % rules.hands[index].size()
+	return ""

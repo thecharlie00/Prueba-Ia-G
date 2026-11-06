@@ -16,19 +16,19 @@ const DISPLAY_FONT := preload("res://assets/fonts/LilitaOne-Regular.ttf")
 const DONE_META := &"toon_style_applied"
 
 ## Paleta de escena (ver docs/ARTE.md).
-const INK := Color("1d1a3a")
-const SKY := Color("a9c9f2")
-const AMBIENT := Color("c7c9ff")
-const SUNLIGHT := Color("fff1d9")
-const FLOOR := Color("7c98cf")
-const WOOD := Color("8a4f2a")
-const FELT := Color("1e7a5f")
-const PANEL := Color("2a2552")
-const PAPER := Color("fff8ec")
-const SUN := Color("ffc83d")
-const SUN_LIGHT := Color("ffd96e")
-const MUTED := Color("8b87b3")
-const LAVENDER := Color("c9c5ef")
+const INK := Palette.INK
+const SKY := Palette.SKY
+const AMBIENT := Palette.AMBIENT
+const SUNLIGHT := Palette.SUNLIGHT
+const FLOOR := Palette.FLOOR
+const WOOD := Palette.WOOD
+const FELT := Palette.FELT
+const PANEL := Palette.PANEL
+const PAPER := Palette.PAPER
+const SUN := Palette.SUN
+const SUN_LIGHT := Palette.SUN_LIGHT
+const MUTED := Palette.MUTED
+const LAVENDER := Palette.LAVENDER
 ## Etiquetas con este tamaño de letra o más usan la fuente de titulares.
 const DISPLAY_SIZE := 22
 

@@ -73,9 +73,39 @@ Ambas con licencia SIL Open Font License, incluida en `assets/fonts/`.
 
 Para revisar el aspecto sin abrir el editor: `tools/shots.sh <carpeta> [godot]` captura las mesas principales con un renderizador real (en Linux sin pantalla usa `xvfb-run`).
 
+## Piezas
+
+Todas las piezas comparten un kit de formas ([`scripts/style/PieceKit.gd`](../scripts/style/PieceKit.gd)): cajas y losas redondeadas, discos con bisel, perfiles torneados y gotas de tinta. Los colores salen de [`scripts/style/Palette.gd`](../scripts/style/Palette.gd).
+
+- **Dados y dominó:** cuerpo crema redondeado y puntos de tinta.
+- **Cartas de mesa:** losa de canto grueso y esquinas muy redondeadas, anverso crema y reverso coral.
+- **Ajedrez y damas:** dos bandos, crema y violeta; tablero crema y añil.
+- **Isla:** el pueblo es una casita con tejado a dos aguas y puerta. La ciudad es una casa ancha con una torre de tejado en punta, para que se distinga del pueblo por la silueta. El camino es un tablón y el ladrón, una figura oscura con ojos. Los jugadores son naranja, azul, rojo y blanco.
+- **Casillas de la isla:** prismas hexagonales en 3D sobre un mar azul, con paisaje en miniatura (árboles, colinas con ladrillos, ovejas, trigo, montañas nevadas y cactus en el desierto) y una ficha de número con puntos de probabilidad (6 y 8 en rojo). El paisaje se coloca lejos de esquinas y lados para no tapar pueblos ni caminos. Ya no se usan fotografías.
+
+## Cartas en la mano
+
+![Manos 3D, isla, mesa de cartas, ajedrez y ludo](img/fase1-mesa-y-manos.png)
+
+Las cartas que tiene un jugador se ven **en 3D, en abanico y sujetas delante de la cámara** ([`scripts/cards/Hand3D.gd`](../scripts/cards/Hand3D.gd)). Se dibujan en una capa propia, así que nunca atraviesan la mesa. Al pasar el ratón, la carta se levanta; con un clic se usa.
+
+- **Mesa de cartas:** «Mano inglesa» y «Mano española» roban directamente a la mano, **M** sobre una carta de la mesa la recoge y un clic en la mano la juega boca arriba. «Ocultar» pone la mano de espaldas para pasar el equipo. La mano se guarda con la partida.
+- **Isla:** cada recurso es una carta suelta (3 maderas = 3 cartas), agrupadas por tipo, seguidas de las cartas de desarrollo. Las recién compradas salen más oscuras y con la marca «nueva». En abundancia y monopolio la mano muestra una carta de cada recurso para elegir.
+- Iconos de recurso dibujados con formas planas y contorno de tinta ([`ResourceIcon.gd`](../scripts/island/ResourceIcon.gd)).
+
+## Información en la mesa
+
+El panel lateral se sustituye por información en la propia mesa ([`scripts/ui/TableHud.gd`](../scripts/ui/TableHud.gd)):
+
+- **Jugadores sentados** alrededor de la mesa como personajes de su color ([`TableSeats.gd`](../scripts/table/TableSeats.gd)), con nombre y estado encima: puntos y cartas en la isla, fichas en la meta en el ludo y fichas restantes en el dominó. El jugador con el turno salta y tiene un aro amarillo. Los bots llevan antena y ojos de pantalla.
+- Los jugadores **del lado de la cámara** no se dibujan en 3D, porque taparían la mesa. Aparecen como ficha abajo a la izquierda, con «Tu turno» cuando les toca.
+- **Cartel de turno** arriba al centro y **pista del momento** justo debajo.
+- **Barra de acciones** abajo y **cajón «Partida»** con guardar, cargar, cambiar de modo y ajustes.
+- La isla y el ludo conservan su panel de acciones, ya con la paleta, y tienen a los jugadores sentados a la mesa.
+
 ## Pendiente en la fase 1
 
-- Rediseñar las mallas de piezas con formas más redondeadas y dados con puntos redondos.
+- Pasar las acciones de la isla y el ludo a la barra inferior y al cajón, como en las demás mesas.
 - Mesa y entorno ilustrados (habitación, objetos de fondo).
 - Partículas al caer un dado y número que "salta" al resolverse.
 - Sonidos con carácter y música ambiental.

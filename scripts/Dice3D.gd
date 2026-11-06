@@ -59,12 +59,18 @@ func _on_sleeping_changed() -> void:
 
 
 func _make_pips() -> void:
+	# Cubo redondeado de papel con puntos de tinta (docs/ARTE.md). El colisionador sigue
+	# siendo la caja de 0,5 m de la escena.
+	var visual := get_node_or_null("Visual") as MeshInstance3D
+	if visual != null:
+		visual.mesh = PieceKit.rounded_box(Vector3.ONE * 0.5, 0.1)
+		var body := visual.material_override as StandardMaterial3D
+		if body != null:
+			body.albedo_color = Color("fff8ec")
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color("25352f")
-	var pip_mesh := SphereMesh.new()
-	pip_mesh.radius = 0.035
-	pip_mesh.height = 0.07
-	pip_mesh.material = material
+	material.albedo_color = Color("2a2552")
+	var pip_mesh := PieceKit.dot(0.048, 0.022)
+	var pip_parent: Node3D = visual if visual != null else self
 	var layouts := {
 		1: [Vector2(0, 0)],
 		2: [Vector2(-1, -1), Vector2(1, 1)],
@@ -87,5 +93,8 @@ func _make_pips() -> void:
 		for p in layouts[FACES[normal]]:
 			var pip := MeshInstance3D.new()
 			pip.mesh = pip_mesh
-			pip.position = normal * 0.251 + (u * p.x + v * p.y) * 0.13
-			add_child(pip)
+			pip.material_override = material
+			# Gota de tinta orientada hacia fuera de la cara, un poco hundida.
+			pip.basis = Basis(Quaternion(Vector3.UP, normal))
+			pip.position = normal * 0.243 + (u * p.x + v * p.y) * 0.125
+			pip_parent.add_child(pip)

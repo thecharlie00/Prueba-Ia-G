@@ -30,11 +30,12 @@ var _legal: Material
 
 
 func _ready() -> void:
+	TableHud.attach.call_deferred(self)
 	super._ready()
-	_light = BoardGeometry.make_material(Color("dfd1ad"))
-	_dark = BoardGeometry.make_material(Color("405f50"))
-	_selected = BoardGeometry.make_material(Color("d8af5d"))
-	_legal = BoardGeometry.make_material(Color("80bc8e"))
+	_light = BoardGeometry.make_material(Palette.BOARD_LIGHT)
+	_dark = BoardGeometry.make_material(Palette.BOARD_DARK)
+	_selected = BoardGeometry.make_material(Palette.SELECTED)
+	_legal = BoardGeometry.make_material(Palette.LEGAL)
 	for node in tiles_root.get_children():
 		if node is MeshInstance3D and _squares.size() < 64:
 			_squares.append(node)
@@ -355,3 +356,17 @@ func _square_center(square: int) -> Vector3:
 
 func _open_free() -> void:
 	get_tree().change_scene_to_file("res://scenes/PhysicalCheckers.tscn")
+
+
+# --- Interfaz integrada en la mesa (TableHud) ---
+
+
+func hud_seats() -> Array:
+	return [
+		{"name": "Blancas", "color": Palette.PIECE_LIGHT, "bot": false, "side": "east"},
+		{"name": "Negras", "color": Palette.PIECE_DARK, "bot": false, "side": "north"},
+	]
+
+
+func hud_active_seat() -> int:
+	return 0 if rules.turn == CheckersRules.WHITE else 1

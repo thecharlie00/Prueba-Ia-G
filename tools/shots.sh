@@ -8,6 +8,6 @@ cd "$(dirname "$0")/.." && mkdir -p "$OUT"
 "$GODOT" --headless --editor --path . --quit >/dev/null 2>&1
 for sc in "${SCENES[@]}"; do
   xvfb-run -a -s "-screen 0 1280x720x24" timeout 120 "$GODOT" --path . --resolution 1280x720 \
-    --rendering-driver opengl3 --script res://tools/screenshot.gd -- "res://scenes/$sc.tscn" "$OUT/$sc.png" 120 >"$OUT/$sc.log" 2>&1
+    --rendering-driver opengl3 --script res://tools/screenshot.gd -- "$( [ -f scenes/$sc.tscn ] && echo res://scenes/$sc.tscn || echo res://tools/$sc.tscn )" "$OUT/$sc.png" 120 >"$OUT/$sc.log" 2>&1
   echo "$sc $?"
 done
