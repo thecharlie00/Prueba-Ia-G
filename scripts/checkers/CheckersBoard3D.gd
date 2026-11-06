@@ -36,6 +36,7 @@ var crown_material: StandardMaterial3D
 
 
 func _ready() -> void:
+	TableHud.attach.call_deferred(self)
 	confirm_action = CONFIRM_ACTION.new()
 	add_child(confirm_action)
 	_make_materials()
@@ -114,13 +115,13 @@ func _update_destinations() -> void:
 
 
 func _make_materials() -> void:
-	light_material = BoardGeometry.make_material(Color("dfd1ad"))
-	dark_material = BoardGeometry.make_material(Color("405f50"))
-	selected_material = BoardGeometry.make_material(Color("d8af5d"))
-	legal_material = BoardGeometry.make_material(Color("80bc8e"))
-	white_piece = BoardGeometry.make_material(Color("f5ead5"))
-	black_piece = BoardGeometry.make_material(Color("202d29"))
-	crown_material = BoardGeometry.make_material(Color("d8af5d"))
+	light_material = BoardGeometry.make_material(Palette.BOARD_LIGHT)
+	dark_material = BoardGeometry.make_material(Palette.BOARD_DARK)
+	selected_material = BoardGeometry.make_material(Palette.SELECTED)
+	legal_material = BoardGeometry.make_material(Palette.LEGAL)
+	white_piece = BoardGeometry.make_material(Palette.PIECE_LIGHT)
+	black_piece = BoardGeometry.make_material(Palette.PIECE_DARK)
+	crown_material = BoardGeometry.make_material(Palette.SELECTED)
 
 
 func _make_board() -> void:
@@ -175,7 +176,7 @@ func _make_piece(square: int, piece: int) -> void:
 		label.pixel_size = 0.003
 		label.rotation_degrees.x = -90.0
 		label.position.y = 0.128
-		label.modulate = Color("202d29")
+		label.modulate = Palette.PIECE_DARK
 		holder.add_child(label)
 
 
@@ -246,3 +247,17 @@ func _open_sandbox() -> void:
 
 func _open_physical() -> void:
 	get_tree().change_scene_to_file("res://scenes/PhysicalCheckers.tscn")
+
+
+# --- Interfaz integrada en la mesa (TableHud) ---
+
+
+func hud_seats() -> Array:
+	return [
+		{"name": "Blancas", "color": Palette.PIECE_LIGHT, "bot": false, "side": "east"},
+		{"name": "Negras", "color": Palette.PIECE_DARK, "bot": false, "side": "north"},
+	]
+
+
+func hud_active_seat() -> int:
+	return 0 if rules.turn == CheckersRules.WHITE else 1

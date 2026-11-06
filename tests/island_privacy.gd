@@ -51,7 +51,7 @@ func _run() -> void:
 	view._refresh()
 	_check(view.privacy_locked and view.privacy_owner == 1, "pasar al destinatario")
 	_check(
-		"J2" in view.hand_heading.text and "× 3" in view.resource_counts[2].text,
+		"J2" in view.hand_heading.text and view.hand3d.items.filter(func(item: Dictionary) -> bool: return item.get("resource", -1) == 2).size() == 3,
 		"mano del destinatario"
 	)
 	_check("Monopolio 1" in view.dev_status.text, "cartas nuevas del destinatario")

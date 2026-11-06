@@ -44,6 +44,7 @@ var _random := RandomNumberGenerator.new()
 
 
 func _ready() -> void:
+	TableHud.attach.call_deferred(self)
 	confirm_action = CONFIRM_ACTION.new()
 	add_child(confirm_action)
 	_make_materials()
@@ -150,12 +151,12 @@ func _select_square(square: int) -> void:
 
 
 func _make_materials() -> void:
-	light_material = BoardGeometry.make_material(Color("dfd1ad"))
-	dark_material = BoardGeometry.make_material(Color("405f50"))
-	selected_material = BoardGeometry.make_material(Color("d8af5d"))
-	legal_material = BoardGeometry.make_material(Color("80bc8e"))
-	white_piece = BoardGeometry.make_material(Color("f5ead5"))
-	black_piece = BoardGeometry.make_material(Color("202d29"))
+	light_material = BoardGeometry.make_material(Palette.BOARD_LIGHT)
+	dark_material = BoardGeometry.make_material(Palette.BOARD_DARK)
+	selected_material = BoardGeometry.make_material(Palette.SELECTED)
+	legal_material = BoardGeometry.make_material(Palette.LEGAL)
+	white_piece = BoardGeometry.make_material(Palette.PIECE_LIGHT)
+	black_piece = BoardGeometry.make_material(Palette.PIECE_DARK)
 
 
 func _make_board() -> void:
@@ -373,3 +374,29 @@ func _play_ai_turn(request_id: int) -> void:
 
 func _open_sandbox() -> void:
 	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+
+
+# --- Interfaz integrada en la mesa (TableHud) ---
+
+
+func hud_seats() -> Array:
+	var bot: bool = rules.opponent_mode != ChessRules.OPPONENT_LOCAL
+	var rival := "Negras"
+	if rules.opponent_mode == ChessRules.OPPONENT_AI_CASUAL:
+		rival = "IA casual"
+	elif rules.opponent_mode == ChessRules.OPPONENT_AI_TACTICAL:
+		rival = "IA táctica"
+	return [
+		{"name": "Blancas", "color": Palette.PIECE_LIGHT, "bot": false, "side": "east"},
+		{"name": rival, "color": Palette.PIECE_DARK, "bot": bot, "side": "north"},
+	]
+
+
+func hud_active_seat() -> int:
+	return 0 if rules.turn == ChessRules.WHITE else 1
+
+
+func hud_seat_status(index: int) -> String:
+	if index == 1 and bool(get("_ai_thinking")):
+		return "Pensando…"
+	return ""

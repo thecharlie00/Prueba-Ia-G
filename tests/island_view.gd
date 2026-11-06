@@ -12,13 +12,8 @@ func _run() -> void:
 	root.add_child(view)
 	await _ticks(3)
 	_check(view.dice.size() == 2 and view.homes.size() == 1, "dos dados y ladrón físicos")
-	_check(
-		view.resource_buttons.size() == 5 and view.resource_counts.size() == 5,
-		"cinco cartas ilustradas"
-	)
+	_check(view.hand3d != null and view.hand3d.items.is_empty(), "mano 3D vacía al empezar")
 	_check(view.tabs.get_tab_count() == 4 and view.tabs.current_tab == 0, "interfaz por pestañas")
-	for resource in range(5):
-		_check(view.RESOURCE_ART[resource].get_width() > 0, "ilustración cargada")
 	var panel := view.get_node("IslandUI/Panel") as Control
 	var hand := view.get_node("IslandUI/ResourceHand") as Control
 	var panel_rect := panel.get_global_rect()
@@ -250,12 +245,13 @@ func _run() -> void:
 	_check(
 		(
 			view.turn_controls["resource"].visible
-			and not view.resource_buttons[0].disabled
+			and view.hand_index_of(0) >= 0
+			and not view.hand3d.items[view.hand_index_of(0)].get("disabled", false)
 			and view.hand_heading.text.contains("J2")
 		),
 		"descarte contextual"
 	)
-	view.resource_buttons[0].pressed.emit()
+	view.hand3d.item_pressed.emit(view.hand_index_of(0))
 	_check(
 		view.rules.resources[1][0] == 1 and view.rules.phase == IslandRules.ROBBER,
 		"descarte desde carta"

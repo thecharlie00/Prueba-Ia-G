@@ -90,7 +90,15 @@ func _build() -> void:
 		motion.button_pressed = bool(style.get("reduce_motion"))
 		motion.toggled.connect(style.set_reduce_motion)
 	column.add_child(motion)
-	controls_feedback = _label("Los ajustes de agarre y animación se guardan en este equipo.", 12, MUTED)
+	var sound := CheckButton.new()
+	sound.name = "SoundEffects"
+	sound.text = "Efectos de sonido"
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx != null:
+		sound.button_pressed = bool(sfx.get("enabled"))
+		sound.toggled.connect(sfx.set_enabled)
+	column.add_child(sound)
+	controls_feedback = _label("Los ajustes de agarre, animación y sonido se guardan en este equipo.", 12, MUTED)
 	column.add_child(controls_feedback)
 	if navigation != null:
 		navigation.controls_changed.connect(_on_controls_changed)

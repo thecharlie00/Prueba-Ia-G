@@ -25,7 +25,7 @@ func _rebuild_model() -> void:
 		$Visual.remove_child(child)
 		child.queue_free()
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color("f5ead5") if white else Color("202d29")
+	material.albedo_color = Palette.PIECE_LIGHT if white else Palette.PIECE_DARK
 	material.roughness = 0.58
 	var model := ChessPieceModel.create(piece_type, white, material)
 	var piece_height := ChessPieceModel.height(piece_type) + 0.01

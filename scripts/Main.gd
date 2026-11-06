@@ -10,7 +10,22 @@ var confirm_action: ConfirmAction
 @onready var grabber: PhysicsGrabber3D = $PhysicsGrabber3D
 
 
+var timeline: TableTimeline
+
+
 func _ready() -> void:
+	TableHud.attach.call_deferred(self)
+	# Rebobinar: línea de tiempo con los momentos de la mesa (fase 2).
+	timeline = TableTimeline.new()
+	timeline.table = self
+	add_child(timeline)
+	var rewind := Button.new()
+	rewind.name = "Rewind"
+	rewind.text = "Rebobinar"
+	rewind.tooltip_text = "Vuelve la mesa a cualquier momento anterior"
+	rewind.pressed.connect(timeline.toggle)
+	$UI/Margin/Panel/Content.add_child(rewind)
+	$UI/Margin/Panel/Content.move_child(rewind, $UI/Margin/Panel/Content/Reset.get_index())
 	confirm_action = CONFIRM_ACTION.new()
 	add_child(confirm_action)
 	grabber.selection_changed.connect(_on_selection_changed)
@@ -173,10 +188,24 @@ func _on_load_pressed() -> void:
 		result_label.text = "No se pudo cargar: archivo ausente o inválido."
 		return
 	var record: Dictionary = loaded["value"]
-	var pieces: Array[InteractiveTableObject] = SandboxPersistence.instantiate_pieces(record)
-	if pieces.size() != record["objects"].size():
+	if not apply_record(record):
 		result_label.text = "No se pudieron crear las piezas guardadas."
 		return
+	result_label.text = (
+		"Archivo principal inválido o ausente: cargada la copia anterior."
+		if loaded["backup"]
+		else "Mesa cargada; la simulación física continúa."
+	)
+
+
+## Sustituye la mesa por una instantánea ya validada (cargar partida y rebobinar).
+## Devuelve false sin tocar la mesa si las piezas no se pueden crear.
+func apply_record(record: Dictionary) -> bool:
+	var pieces: Array[InteractiveTableObject] = SandboxPersistence.instantiate_pieces(record)
+	if pieces.size() != record["objects"].size():
+		for piece in pieces:
+			piece.free()
+		return false
 	# No tocar la mesa hasta que archivo e instancias hayan pasado la validación.
 	if is_instance_valid(grabber.hovered):
 		grabber.hovered.set_hovered(false)
@@ -196,8 +225,4 @@ func _on_load_pressed() -> void:
 	$SnapGrid3D.enabled = record["snap"]
 	_connect_objects()
 	selection_label.text = "NINGUNA PIEZA SELECCIONADA"
-	result_label.text = (
-		"Archivo principal inválido o ausente: cargada la copia anterior."
-		if loaded["backup"]
-		else "Mesa cargada; la simulación física continúa."
-	)
+	return true

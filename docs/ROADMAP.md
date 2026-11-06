@@ -70,30 +70,33 @@ Cumplir los bloqueos de [BETA.md](BETA.md) antes de abrir frentes nuevos.
 
 Es la diferencia que se ve en una captura de Steam, así que va antes que el online. Se hace sobre el renderizador Compatibility que ya usa el proyecto para que siga funcionando en equipos modestos.
 
-- [ ] **Biblia de arte** (`docs/ARTE.md`): paleta saturada con variantes para daltonismo, proporciones de piezas (formas redondeadas, "chunky"), grosor de contorno, tipografía redondeada, referencias de mood.
-- [ ] **Shader toon** propio (`shaders/toon.gdshader`): iluminación en 2–3 bandas mediante rampa, brillo especular duro, sombra ambiental de color, no gris.
-- [ ] **Contornos**: casco invertido (`next_pass` con `cull_front`) en piezas y tablero; validar que funciona en Compatibility antes de considerar un post-proceso.
-- [ ] **Rediseño de piezas** con el nuevo estilo: dados con puntos redondos, fichas, cartas con esquinas grandes, piezas de ajedrez y damas, isla y ludo. Mantener colisionadores sencillos y separados de la malla visual.
-- [ ] **Mesa y entorno**: mesa de madera estilizada, fondo de habitación acogedora, iluminación cálida.
-- [ ] **"Juice"**: estirar y aplastar al agarrar y soltar, rebote de la pieza al encajar, partículas al caer un dado, número del dado que "salta" al resolverse, temblor ligero de cámara al voltear la mesa. Todo con opción de **reducir movimiento**.
-- [ ] **Audio**: sonidos con carácter (madera, cartas, dados), música ambiental tranquila, volúmenes separados.
-- [ ] **UI cartoon**: tema de Godot (`Theme`) común para menú, pausa y paneles: botones gruesos, iconos, esquinas redondeadas.
-- [ ] Mantener la **legibilidad**: los números y símbolos deben leerse a distancia; no depender solo del color.
+- [x] **Biblia de arte** ([`docs/ARTE.md`](ARTE.md)): paleta, proporciones de piezas, contornos, tipografía, cartas, manos e interfaz. *Falta la variante para daltonismo.*
+- [x] **Iluminación toon** con los materiales toon de Godot y una luz y un ambiente de la paleta (en lugar de un shader de rampa propio).
+- [x] **Contornos**: casco invertido (`shaders/toon_outline.gdshader`) validado en Compatibility.
+- [x] **Rediseño de piezas**: kit de formas común para dados, dominó, cartas, fichas, ajedrez, damas, ludo e isla (casillas 3D con paisaje; pueblo, ciudad y camino con silueta propia).
+- [x] **Cartas**: arte vectorial para la baraja inglesa y la española, el reverso y las cartas de la isla; manos de cartas en 3D sujetas delante de la cámara.
+- [x] **Mesa y entorno**: suelo de tablones, alfombra y habitación con paredes de una cara, ventana, estantería y planta.
+- [x] **"Juice"**: estirar y aplastar al agarrar y soltar, chispas y número que salta al resolverse un dado, con opción de **reducir animaciones**. *Falta el temblor de cámara al voltear la mesa (llegará con el volteo, fase 2).*
+- [x] **Audio**: efectos generados por código (agarrar, soltar, dados, cartas, botones, turno), con opción para apagarlos. *Falta música ambiental y volúmenes separados.*
+- [x] **UI cartoon**: tema común, fuentes Lilita One y Nunito, información en la mesa (jugadores sentados, cartel de turno, barra de acciones, cajón «Partida»). *La isla y el ludo conservan su panel de acciones.*
+- [x] Mantener la **legibilidad**: jugadores con número y nombre además del color; números de la isla con puntos de probabilidad; cartas con índice en dos esquinas.
 
 **Salida:** captura comparativa antes/después de cada modo; 60 FPS en un portátil con gráficos integrados de referencia; test de lectura con 5 personas.
+
+**Estado (6 de noviembre de 2026):** todo lo automatizable está hecho y comparado con capturas en [ARTE.md](ARTE.md). Para cerrar la fase faltan la medición de FPS y el test de lectura con personas, más la paleta para daltonismo, la música y pasar las acciones de la isla y el ludo a la barra inferior.
 
 ### Fase 2 · Herramientas de mesa que piden los usuarios
 
 Todo en local primero, con el diseño preparado para red.
 
-- [ ] **Menú radial contextual** (clic derecho corto sobre una pieza) con las acciones disponibles y su atajo. El clic derecho mantenido sigue orbitando.
+- [x] **Menú radial contextual** (clic derecho corto sobre una pieza) con las acciones disponibles y su atajo. El clic derecho mantenido sigue orbitando. Llega a todas las mesas desde el agarre y comparte la lógica de las teclas.
 - [ ] **Atajos visibles** al pasar sobre una pieza (ampliar la ayuda contextual actual).
 - [ ] **Tutorial jugable** de 3 minutos: cámara, agarrar, voltear, tirar, mezclar, robar.
-- [ ] **Rebobinado**: historial de instantáneas de la mesa libre (las de `SandboxPersistence` ya sirven de base) con una línea de tiempo para volver a un punto concreto.
+- [x] **Rebobinado** de la mesa libre: guarda un momento cada vez que la mesa queda quieta tras una acción (hasta 40) y una tira «hace 12 s · hace 1 min…» permite volver a cualquiera. Usa el mismo formato validado que guardar y cargar. *Pendiente en los modos con reglas.*
 - [ ] **Manos privadas** 2D con orden y selección múltiple, y **zonas ocultas** por jugador en local (pantalla de traspaso como en la isla).
 - [ ] **Snap points y zonas editables** en lugar de la cuadrícula 4×4 fija; cartas que caen alineadas en zonas de descarte.
 - [ ] **Componentes utilitarios**: contador, bolsa con número de piezas, nota de texto, temporizador, tablero de puntuación.
-- [ ] **Pincel y "ping"** para dibujar y señalar sobre la mesa.
+- [x] **Señalar ("ping")**: tecla P o «Señalar» en el menú; aro amarillo que se expande y flecha que bota. *Falta el pincel para dibujar.*
 - [ ] **Voltear la mesa** como gesto cómico (con confirmación y rebobinado).
 - [ ] **Inspección 3D ampliada** de cartas y piezas (hoy es textual).
 - [ ] **Vistas por asiento** y vista cenital.

@@ -11,9 +11,9 @@ text = "Mesa de cartas"
 [node name="Status" parent="UI/Panel/Margin/Content" index="2"]
 text = "Inglesa: 52 · Española: 40"
 [node name="Help" parent="UI/Panel/Margin/Content" index="3"]
-text = "Barajas libres y visibles, sin reglas automáticas ni manos privadas. Roba, mezcla y mueve las cartas físicamente."
+text = "Roba a tu mano o a la mesa. Clic en una carta de la mano para jugarla; M sobre una carta de la mesa la recoge."
 [node name="Legend" parent="UI/Panel/Margin/Content" index="4"]
-text = "Inglesa: 52 cartas sin comodines\nEspañola: 40 · O oros / C copas\nE espadas / B bastos\nN: robar · R: mezclar · F: voltear\nB: devolver carta al fondo\nIzquierdo: agarrar · H: recuperar
+text = "Inglesa: 52 cartas sin comodines\nEspañola: 40 · O oros / C copas\nE espadas / B bastos\nN: robar · R: mezclar · F: voltear\nM: carta a la mano · B: al fondo\nIzquierdo: agarrar · H: recuperar
 L: bloquear · Alt: inspeccionar\nDerecho: orbitar · Rueda: zoom / altura"
 [node name="Reset" parent="UI/Panel/Margin/Content" index="5"]
 text = "Reiniciar barajas"

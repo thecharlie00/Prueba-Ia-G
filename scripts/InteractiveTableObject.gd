@@ -72,6 +72,7 @@ func on_grab() -> void:
 	_update_highlight()
 	# Al levantarla se estira hacia arriba; al soltarla se aplasta y rebota.
 	_juice(Vector3(0.9, 1.14, 0.9))
+	_sound("grab")
 	grabbed.emit(self)
 
 
@@ -79,7 +80,14 @@ func on_release() -> void:
 	is_grabbed = false
 	_update_highlight()
 	_juice(Vector3(1.14, 0.84, 1.14))
+	_sound("drop")
 	released.emit(self)
+
+
+func _sound(effect: String) -> void:
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx != null:
+		sfx.play(effect)
 
 
 ## Estirar y aplastar ("squash and stretch") solo la malla visual: el colisionador y la física
