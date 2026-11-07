@@ -11,11 +11,11 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	var main: Node = (load("res://scenes/Main.tscn") as PackedScene).instantiate()
-	root.add_child(main)
+	change_scene_to_file("res://scenes/Main.tscn")
 	for i in 60:
 		await process_frame
-	for round in 2:
+	var main: Node = current_scene
+	for round in 3:
 		var dice: Dice3D = main.get_node("Objects/Dice")
 		dice.roll()
 		_worst = 0.0
@@ -28,6 +28,8 @@ func _run() -> void:
 			var now := Time.get_ticks_usec()
 			var dt := (now - _last) / 1000.0
 			_last = now
+			if dt > 250.0:
+				print("  tirón %.0f ms a los %d ms" % [dt, Time.get_ticks_msec() - start])
 			if dt > _worst:
 				_worst = dt
 				_worst_at = Time.get_ticks_msec() - start

@@ -13,8 +13,15 @@ func _run() -> void:
 	for i in 40:
 		await process_frame
 	var dice: Dice3D = current_scene.get_node("Objects/Dice")
-	dice._awaiting_result = true
-	dice._celebrate(dice.top_face())
+	var meter := root.get_node_or_null("PerfMeter")
+	if meter != null and OS.get_cmdline_user_args().size() > 1:
+		meter.get_node("PerfPanel").visible = true
+		RenderingServer.viewport_set_measure_render_time(root.get_viewport_rid(), true)
+	dice.roll()
+	while dice._awaiting_result:
+		await process_frame
+	if meter != null:
+		meter._refresh()
 	for i in 8:
 		await process_frame
 	await RenderingServer.frame_post_draw

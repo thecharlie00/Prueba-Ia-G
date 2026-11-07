@@ -26,6 +26,7 @@ ToonStyle="*res://scripts/style/ToonStyle.gd"
 Sfx="*res://scripts/audio/Sfx.gd"
 SessionNavigation="*res://scripts/ui/SessionNavigation.gd"
 Gamepad="*res://scripts/ui/Gamepad.gd"
+PerfMeter="*res://scripts/ui/PerfMeter.gd"
 
 [display]
 

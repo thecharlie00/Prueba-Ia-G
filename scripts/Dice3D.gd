@@ -12,6 +12,8 @@ const FACES := {
 	Vector3.BACK: 4
 }
 var _awaiting_result := false
+var _pop: Label3D
+var _pop_tween: Tween
 
 
 ## Una vez por partida basta: los shaders y los glifos quedan preparados.
@@ -32,6 +34,7 @@ func roll(impulse_scale: float = 1.0) -> void:
 		return
 	_awaiting_result = true
 	sleeping = false
+	_note("dado: lanzado")
 	_sound("dice")
 	apply_central_impulse(
 		(
@@ -63,6 +66,7 @@ func top_face() -> int:
 func _on_sleeping_changed() -> void:
 	if sleeping and _awaiting_result and not is_grabbed:
 		_awaiting_result = false
+		_note("dado: resultado")
 		_celebrate(top_face())
 		result_ready.emit(top_face())
 
@@ -118,10 +122,23 @@ func _celebrate(value: int) -> void:
 	var style := get_node_or_null("/root/ToonStyle")
 	var calm: bool = style != null and style.reduce_motion
 	var host := _effects_host()
-	var label := _make_pop(str(value))
-	host.add_child(label)
+	# Un solo rótulo por dado, que se reutiliza en cada tirada (nada de crear nodos nuevos).
+	if not is_instance_valid(_pop) or _pop.get_parent() != host:
+		if is_instance_valid(_pop):
+			_pop.queue_free()
+		_pop = _make_pop("")
+		host.add_child(_pop)
+	if _pop_tween != null and _pop_tween.is_valid():
+		_pop_tween.kill()
+	var label := _pop
+	label.text = str(value)
+	label.visible = true
+	label.modulate.a = 1.0
+	label.outline_modulate.a = 1.0
+	label.scale = Vector3.ONE
 	label.global_position = global_position + Vector3.UP * 0.65
 	var tween := label.create_tween()
+	_pop_tween = tween
 	if calm:
 		tween.tween_interval(1.0)
 	else:
@@ -132,7 +149,7 @@ func _celebrate(value: int) -> void:
 		tween.tween_interval(0.6)
 	tween.tween_property(label, "modulate:a", 0.0, 0.3)
 	tween.parallel().tween_property(label, "outline_modulate:a", 0.0, 0.3)
-	tween.tween_callback(label.queue_free)
+	tween.tween_callback(label.hide)
 	if calm:
 		return
 	var sparks := _make_sparks()
@@ -226,6 +243,17 @@ func _warm_up_effects() -> void:
 		await get_tree().process_frame
 	label.queue_free()
 	sparks.queue_free()
+
+
+func _exit_tree() -> void:
+	if is_instance_valid(_pop) and _pop.get_parent() != self:
+		_pop.queue_free()
+
+
+func _note(event: String) -> void:
+	var meter := get_node_or_null("/root/PerfMeter")
+	if meter != null:
+		meter.note(event)
 
 
 func _sound(effect: String) -> void:
