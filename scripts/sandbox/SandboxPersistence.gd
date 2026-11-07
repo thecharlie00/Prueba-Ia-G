@@ -13,6 +13,7 @@ const SCENES := {
 	"bag": "res://scenes/Bag3D.tscn",
 	"note": "res://scenes/Note3D.tscn",
 	"timer": "res://scenes/Timer3D.tscn",
+	"scoreboard": "res://scenes/Scoreboard3D.tscn",
 }
 const MAX_BYTES := 262144
 const MAX_OBJECTS := 100
@@ -61,6 +62,8 @@ static func kind_of(object: InteractiveTableObject) -> String:
 		return "note"
 	if object is Timer3D:
 		return "timer"
+	if object is Scoreboard3D:
+		return "scoreboard"
 	return ""
 
 
@@ -190,6 +193,14 @@ static func _validate_piece(piece: Variant, nested := false) -> bool:
 				and _number(piece.get("seconds"), 0.0, Timer3D.MAX_SECONDS)
 				and _number(piece.get("countdown"), 0.0, Timer3D.MAX_SECONDS)
 			)
+		"scoreboard":
+			var scores: Variant = piece.get("scores")
+			if not _utility_color(piece) or not scores is Array or scores.size() != Scoreboard3D.PLAYERS:
+				return false
+			for score in scores:
+				if not _number(score, Scoreboard3D.MIN_SCORE, Scoreboard3D.MAX_SCORE):
+					return false
+			return _number(piece.get("selected"), 0, Scoreboard3D.PLAYERS - 1)
 		"bag":
 			# Una bolsa no puede contener otra bolsa.
 			var contents: Variant = piece.get("contents")

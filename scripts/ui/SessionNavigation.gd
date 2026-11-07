@@ -21,6 +21,9 @@ var _ui_scene: Node
 var _ui_grabber: PhysicsGrabber3D
 var _exit_confirmation := false
 var _visible := false
+## Hueco que se deja a la derecha para el botón «Partida» del HUD de la mesa.
+const HUD_RESERVE := 172.0
+var _top_reserve := -1.0
 
 
 func _ready() -> void:
@@ -167,6 +170,24 @@ func _ready() -> void:
 	content.add_child(cancel_exit)
 
 
+func _layout_top_row(reserve: float) -> void:
+	if is_equal_approx(reserve, _top_reserve):
+		return
+	_top_reserve = reserve
+	var right := -20.0 - reserve
+	for entry in [[menu_button, 132.0], [help_button, 126.0]]:
+		var button: Button = entry[0]
+		button.offset_right = right
+		button.offset_left = right - entry[1]
+		right -= entry[1] + 12.0
+	# Con HUD, «Deshacer pieza» baja a una segunda fila para no chocar con el cartel central.
+	var below := reserve > 0.0
+	undo_button.offset_right = -20.0 - reserve if below else right
+	undo_button.offset_left = undo_button.offset_right - 154.0
+	undo_button.offset_top = 64.0 if below else 20.0
+	undo_button.offset_bottom = undo_button.offset_top + 36.0
+
+
 func _load_controls() -> void:
 	var config := ConfigFile.new()
 	if config.load(settings_path) != OK:
@@ -202,6 +223,10 @@ func _process(_delta: float) -> void:
 	var in_game := scene != null and scene.scene_file_path != MENU_PATH
 	menu_button.visible = in_game and not _visible
 	help_button.visible = in_game and not _visible
+	# Las mesas con HUD tienen su botón «Partida» en la esquina: los botones de sesión se
+	# colocan a su izquierda para no taparlo (sobre todo en pantalla completa).
+	var hud := scene.get_node_or_null("TableHud") if in_game else null
+	_layout_top_row(HUD_RESERVE if hud != null else 0.0)
 	if scene != _ui_scene or (is_instance_valid(_ui_grabber) and not _ui_grabber.is_inside_tree()):
 		_ui_scene = scene
 		_ui_grabber = _find_grabber() if in_game else null

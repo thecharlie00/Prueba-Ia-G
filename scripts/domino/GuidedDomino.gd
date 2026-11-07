@@ -28,6 +28,10 @@ var home_rotations: Dictionary = {}
 var _dragged: Domino3D
 var _legal_ends: Array[String] = []
 var _zone_materials: Dictionary = {}
+## El jugador 2 lo juega un bot (TableBots).
+var bot_enabled := false
+var _bot_wait := 0.0
+var _bot_toggle: CheckBox
 
 
 func _ready() -> void:
@@ -60,8 +64,59 @@ func _ready() -> void:
 		_load_game,
 		_can_leave_table
 	)
+	_bot_toggle = CheckBox.new()
+	_bot_toggle.name = "BotToggle"
+	_bot_toggle.text = "El jugador 2 lo juega un bot"
+	_bot_toggle.toggled.connect(set_bot_enabled)
+	var content := $UI/Panel/Margin/Content
+	content.add_child(_bot_toggle)
+	content.move_child(_bot_toggle, $UI/Panel/Margin/Content/Actions.get_index())
 	_sync_homes(true)
 	_refresh()
+
+
+func set_bot_enabled(enabled: bool) -> void:
+	bot_enabled = enabled
+	_bot_wait = 0.0
+	if _bot_toggle != null and _bot_toggle.button_pressed != enabled:
+		_bot_toggle.set_pressed_no_signal(enabled)
+	_refresh()
+
+
+func is_bot_turn() -> bool:
+	return bot_enabled and rules.turn == 1 and rules.result == DominoRules.PLAYING
+
+
+func _process(delta: float) -> void:
+	if not is_bot_turn() or is_instance_valid(grabber.held):
+		_bot_wait = 0.0
+		return
+	_bot_wait += delta
+	if _bot_wait >= TableBots.THINK_TIME:
+		_bot_wait = 0.0
+		bot_step()
+
+
+## Una acción del bot: jugar una ficha, robar o pasar.
+func bot_step() -> bool:
+	var choice := TableBots.domino_choice(rules)
+	if choice.has("id"):
+		if not rules.play(int(choice["id"]), String(choice["end"])):
+			return false
+		_sync_homes(false)
+		_refresh()
+		var tile: Vector2i = rules.values[int(choice["id"])]
+		_help(tr("El bot juega [%d|%d] a la %s.") % [tile.x, tile.y, tr("izquierda" if choice["end"] == "left" else "derecha")])
+		return true
+	if choice.get("action") == "draw":
+		_draw()
+		_help("El bot roba del pozo.")
+		return true
+	if choice.get("action") == "pass":
+		_pass()
+		_help("El bot pasa.")
+		return true
+	return false
 
 
 func _physics_process(_delta: float) -> void:
@@ -69,16 +124,7 @@ func _physics_process(_delta: float) -> void:
 		var tile := key as Domino3D
 		if not is_instance_valid(tile) or tile == grabber.held or tile.freeze:
 			continue
-		var home: Vector3 = homes[tile]
-		var displacement := Vector3(
-			home.x - tile.global_position.x, 0, home.z - tile.global_position.z
-		)
-		var velocity := Vector3(tile.linear_velocity.x, 0, tile.linear_velocity.z)
-		if displacement.length() >= 0.015 or velocity.length() >= 0.03:
-			var acceleration: Vector3 = displacement * HOME_SPRING - velocity * HOME_DAMPING
-			if tile.sleeping:
-				tile.sleeping = false
-			tile.apply_central_force(acceleration.limit_length(MAX_ACCELERATION) * tile.mass)
+		HomeSteering.steer(tile, homes[tile], HOME_SPRING, HOME_DAMPING, MAX_ACCELERATION)
 		if home_rotations.has(tile):
 			_steer_rotation(tile, home_rotations[tile])
 
@@ -306,7 +352,9 @@ func _refresh() -> void:
 	_refresh_zones()
 	var status := ""
 	if rules.result == DominoRules.PLAYING:
-		status = "Turno: jugador %d · Pozo: %d" % [rules.turn + 1, rules.stock.size()]
+		status = "Turno: jugador %d%s · Pozo: %d" % [
+			rules.turn + 1, " (bot)" if is_bot_turn() else "", rules.stock.size()
+		]
 	else:
 		match rules.result:
 			DominoRules.PLAYER_1_WINS:
@@ -358,8 +406,9 @@ func _open_free() -> void:
 
 func hud_seats() -> Array:
 	return [
-		{"name": "Jugador 1", "color": Palette.PLAYER_RED, "bot": false, "side": "west"},
-		{"name": "Jugador 2", "color": Palette.PLAYER_BLUE, "bot": false, "side": "east"},
+		# J1 al fondo: sentado a la izquierda quedaba cortado en el borde de la pantalla.
+		{"name": "Jugador 1", "color": Palette.PLAYER_RED, "bot": false, "side": "north"},
+		{"name": "Jugador 2", "color": Palette.PLAYER_BLUE, "bot": bot_enabled, "side": "east"},
 	]
 
 

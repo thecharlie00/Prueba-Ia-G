@@ -33,6 +33,10 @@ var roll_button: Button
 var reset_button: Button
 var token_buttons: Array[Button] = []
 var new_game_confirmation: ConfirmationDialog
+## Jugadores que lleva un bot (TableBots); el resto juega en el mismo equipo.
+var bots: Array[bool] = [false, false, false, false]
+var bot_toggles: Array[CheckBox] = []
+var _bot_wait := 0.0
 
 @onready var objects: Node3D = $Objects
 @onready var grabber: PhysicsGrabber3D = $PhysicsGrabber3D
@@ -94,7 +98,9 @@ func _update_seats() -> void:
 				done += 1
 			elif progress == LudoRules.YARD:
 				waiting += 1
-		seats.set_status(player, "Meta %d/4 · casa %d" % [done, waiting])
+		seats.set_status(
+			player, "%sMeta %d/4 · casa %d" % ["Bot · " if bots[player] else "", done, waiting]
+		)
 
 
 func _make_board() -> void:
@@ -287,6 +293,18 @@ func _make_ui() -> void:
 		var button := _button(row, "%d" % (index + 1), _choose_token.bind(index))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		token_buttons.append(button)
+	_label(column, "Jugadores que lleva un bot:")
+	var bot_row := HBoxContainer.new()
+	bot_row.name = "BotRow"
+	column.add_child(bot_row)
+	for player in range(rules.players):
+		var toggle := CheckBox.new()
+		toggle.name = "Bot%d" % (player + 1)
+		toggle.text = "J%d" % (player + 1)
+		toggle.add_theme_color_override("font_color", COLORS[player].lightened(0.3))
+		toggle.toggled.connect(set_bot.bind(player))
+		bot_row.add_child(toggle)
+		bot_toggles.append(toggle)
 	var explanation := _label(
 		column,
 		(
@@ -326,10 +344,48 @@ func _button(parent: Node, text: String, callback: Callable) -> Button:
 	return button
 
 
+func set_bot(enabled: bool, player: int) -> void:
+	if player < 0 or player >= bots.size():
+		return
+	bots[player] = enabled
+	_bot_wait = 0.0
+	if player < bot_toggles.size() and bot_toggles[player].button_pressed != enabled:
+		bot_toggles[player].set_pressed_no_signal(enabled)
+	_refresh()
+
+
+func is_bot_turn() -> bool:
+	return rules.phase != LudoRules.FINISHED and rules.turn < bots.size() and bots[rules.turn]
+
+
+func _process(delta: float) -> void:
+	if not is_bot_turn() or waiting_roll or grabber.held != null or not in_transit.is_empty():
+		_bot_wait = 0.0
+		return
+	_bot_wait += delta
+	if _bot_wait >= TableBots.THINK_TIME:
+		_bot_wait = 0.0
+		bot_step()
+
+
+## Una acción del bot: tirar el dado o mover la ficha que elige TableBots.
+func bot_step() -> bool:
+	if rules.phase == LudoRules.ROLL:
+		_roll()
+		return true
+	if rules.phase == LudoRules.MOVE:
+		var token := TableBots.ludo_choice(rules)
+		if token >= 0:
+			_choose_token(token)
+			help.text = tr("El bot mueve su ficha %d.") % (token + 1)
+			return true
+	return false
+
+
 func _refresh() -> void:
 	_update_seats()
 	status.text = (
-		"Ludo · %d jugadores\nTurno J%d (%s)" % [rules.players, rules.turn + 1, NAMES[rules.turn]]
+		"Ludo · %d jugadores\nTurno J%d (%s)%s" % [rules.players, rules.turn + 1, NAMES[rules.turn], " · bot" if is_bot_turn() else ""]
 	)
 	if rules.phase == LudoRules.FINISHED:
 		status.text = "¡Gana J%d (%s)!" % [rules.winner + 1, NAMES[rules.winner]]

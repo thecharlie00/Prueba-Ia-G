@@ -29,7 +29,9 @@ func _rebuild() -> void:
 	var shape := BoxShape3D.new()
 	match kind:
 		"road":
-			shape.size = Vector3(0.31, 0.075, 0.075)
+			# El cuerpo físico es más corto que el dibujo: con los 0,31 enteros chocaba con
+			# los pueblos y ciudades de las esquinas y los empujaba (partidas de la fase 0).
+			shape.size = Vector3(0.14, 0.075, 0.075)
 			_box(Vector3(0.31, 0.075, 0.075), Vector3.ZERO, material)
 		"settlement":
 			# Casita: un cuerpo y un tejado a dos aguas, con puerta.

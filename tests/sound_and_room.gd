@@ -44,7 +44,8 @@ func _run() -> void:
 		_fail("Al salir un resultado, el número debe saltar encima del dado.")
 		return
 	await create_timer(1.6).timeout
-	if is_instance_valid(pop):
+	# El rótulo se reutiliza en cada tirada: tras mostrarse queda oculto, no se borra.
+	if is_instance_valid(pop) and pop.visible:
 		_fail("El número del dado debe desaparecer tras mostrarse.")
 		return
 
