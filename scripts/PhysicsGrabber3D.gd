@@ -41,6 +41,7 @@ var _inspecting := false
 var _inspection_panel: PanelContainer
 var _inspection_title: Label
 var _inspection_body: Label
+var _inspection_view: InspectView
 var _context_hint: PanelContainer
 var _context_hint_text: Label
 # Solo el último agarre en mesas libres; no es un historial de reglas ni de azar.
@@ -318,7 +319,7 @@ func _create_inspection_panel() -> void:
 	_inspection_panel.name = "InspectionPanel"
 	_inspection_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_inspection_panel.offset_left = -350
-	_inspection_panel.offset_top = -150
+	_inspection_panel.offset_top = -430
 	_inspection_panel.offset_right = -20
 	_inspection_panel.offset_bottom = -20
 	_inspection_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -336,8 +337,12 @@ func _create_inspection_panel() -> void:
 	_inspection_title.text = "INSPECCIÓN · suelta Alt para cerrar"
 	_inspection_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_inspection_title)
+	# Vista 3D ampliada de la pieza (fase 2: inspección 3D).
+	_inspection_view = InspectView.new()
+	_inspection_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(_inspection_view)
 	_inspection_body = Label.new()
-	_inspection_body.add_theme_font_size_override("font_size", 28)
+	_inspection_body.add_theme_font_size_override("font_size", 22)
 	_inspection_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_inspection_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(_inspection_body)
@@ -348,6 +353,8 @@ func _hide_inspection() -> void:
 	_inspecting = false
 	if is_instance_valid(_inspection_panel):
 		_inspection_panel.hide()
+	if is_instance_valid(_inspection_view):
+		_inspection_view.clear()
 
 
 func _refresh_inspection() -> void:
@@ -366,9 +373,14 @@ func _refresh_inspection() -> void:
 	):
 		_inspection_panel.hide()
 		return
+	var face_down: bool = hovered is Card3D and (
+		hovered._flipping or hovered.global_basis.y.normalized().dot(Vector3.UP) < 0.5
+	)
+	if is_instance_valid(_inspection_view):
+		_inspection_view.show_object(hovered, face_down)
 	if hovered is Card3D:
 		# Nunca mostrar el valor si el anverso no está orientado hacia arriba.
-		if hovered._flipping or hovered.global_basis.y.normalized().dot(Vector3.UP) < 0.5:
+		if face_down:
 			_inspection_body.text = "Carta boca abajo"
 		else:
 			_inspection_body.text = "Carta: " + hovered.card_label

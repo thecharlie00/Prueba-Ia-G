@@ -19,8 +19,11 @@ const UTILITY_SCENES := {
 	"bag": "res://scenes/Bag3D.tscn",
 	"note": "res://scenes/Note3D.tscn",
 	"timer": "res://scenes/Timer3D.tscn",
+	"scoreboard": "res://scenes/Scoreboard3D.tscn",
 }
-const UTILITY_LABELS := {"counter": "Contador", "bag": "Bolsa", "note": "Nota", "timer": "Reloj"}
+const UTILITY_LABELS := {
+	"counter": "Contador", "bag": "Bolsa", "note": "Nota", "timer": "Reloj", "scoreboard": "Marcador"
+}
 
 
 func _ready() -> void:
@@ -206,6 +209,11 @@ func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: 
 		if flat.length() <= Bag3D.DROP_RADIUS:
 			_bag_later.call_deferred(bag, object)
 			return
+	match TableStacking.on_release($Objects, object, target):
+		"deck":
+			result_label.text = "Carta añadida arriba del mazo."
+		"new_deck":
+			result_label.text = "Dos cartas juntas forman un mazo nuevo."
 
 
 func _bag_later(bag: Bag3D, object: InteractiveTableObject) -> void:
@@ -360,6 +368,9 @@ func _on_save_pressed() -> void:
 	if not _can_store():
 		return
 	var record: Dictionary = SandboxPersistence.snapshot($Objects, $SnapGrid3D.enabled)
+	var brush := get_node_or_null("TableBrush") as TableBrush
+	if not record.is_empty() and brush != null and not brush.stroke_data.is_empty():
+		record["drawings"] = brush.export_strokes()
 	if record.is_empty() or not SandboxPersistence.save(sandbox_save_path, record):
 		result_label.text = "No se pudo guardar la mesa."
 	else:
@@ -377,6 +388,11 @@ func _on_load_pressed() -> void:
 	if not apply_record(record):
 		result_label.text = "No se pudieron crear las piezas guardadas."
 		return
+	# Los dibujos van con la mesa guardada (si los hay y son válidos).
+	var brush := get_node_or_null("TableBrush") as TableBrush
+	if brush != null:
+		var drawings: Variant = record.get("drawings", [])
+		brush.import_strokes(drawings if TableBrush.valid_strokes(drawings) else [])
 	result_label.text = (
 		"Archivo principal inválido o ausente: cargada la copia anterior."
 		if loaded["backup"]
