@@ -9,9 +9,11 @@ extends SubViewportContainer
 ##   {"face": "resource", "resource": 0..4}           recurso de la isla
 ##   {"face": "development", "text": "Caballero"}     carta de desarrollo
 ## Claves opcionales: "disabled" (no se puede pulsar ni se levanta) y "dim" (más oscura).
-## Al pulsar una carta habilitada se emite item_pressed(índice).
+## Al pulsar una carta habilitada se emite item_pressed(índice). Con reorderable, una carta
+## arrastrada a otro hueco del abanico emite item_moved(origen, destino) en vez de pulsarse.
 
 signal item_pressed(index: int)
+signal item_moved(from: int, to: int)
 
 const CARD := Vector3(0.68, 0.03, 0.96)
 const DEPTH := 6.5
@@ -27,6 +29,10 @@ var items: Array = []
 var faces_hidden := false
 ## Altura del abanico en pantalla: 0 = centro de la carta en el borde inferior.
 var lift := 0.0
+## Se pueden reordenar arrastrando (la pulsación se emite al soltar, si no hubo arrastre).
+var reorderable := false
+## Píxeles que tiene que moverse el ratón para que la pulsación cuente como arrastre.
+const DRAG_THRESHOLD := 18.0
 ## Desplazamiento horizontal del abanico (unidades de la mano; positivo = a la derecha),
 ## para no quedar debajo de un panel lateral.
 var shift := 0.0
@@ -38,6 +44,9 @@ var _cards: Array[Node3D] = []
 var _hovered := -1
 var _signature := ""
 var _icon_textures := {}
+var _press_index := -1
+var _press_position := Vector2.ZERO
+var _dragging := false
 
 
 func _init() -> void:
@@ -112,7 +121,17 @@ func card_at(point: Vector2) -> int:
 
 func _input(event: InputEvent) -> void:
 	if not is_visible_in_tree() or _cards.is_empty():
+		_press_index = -1
 		return
+	if reorderable and _press_index >= 0:
+		if event is InputEventMouseMotion:
+			if not _dragging and event.position.distance_to(_press_position) > DRAG_THRESHOLD:
+				_dragging = true
+			return
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed:
+			get_viewport().set_input_as_handled()
+			finish_press(event.position)
+			return
 	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
 		return
 	if _blocked_by_gui():
@@ -121,8 +140,52 @@ func _input(event: InputEvent) -> void:
 	if index < 0:
 		return
 	get_viewport().set_input_as_handled()
-	if not bool(items[index].get("disabled", false)):
+	if reorderable:
+		begin_press(index, event.position)
+	elif not bool(items[index].get("disabled", false)):
 		item_pressed.emit(index)
+
+
+## Empieza una pulsación sobre una carta (público para los tests).
+func begin_press(index: int, point: Vector2) -> void:
+	_press_index = index
+	_press_position = point
+	_dragging = false
+
+
+## Termina la pulsación: si la carta se arrastró, va al hueco más cercano; si no, se pulsa.
+func finish_press(point: Vector2) -> void:
+	var index := _press_index
+	var dragged := _dragging or point.distance_to(_press_position) > DRAG_THRESHOLD
+	_press_index = -1
+	_dragging = false
+	if index < 0 or index >= _cards.size():
+		return
+	if dragged:
+		var target := slot_at(point, index)
+		if target != index:
+			item_moved.emit(index, target)
+	elif not bool(items[index].get("disabled", false)):
+		item_pressed.emit(index)
+
+
+## Hueco del abanico donde caería la carta arrastrada si se suelta en ese punto.
+func slot_at(point: Vector2, dragged: int) -> int:
+	var x := _pointer_x(point)
+	var slot := 0
+	for i in _cards.size():
+		if i == dragged:
+			continue
+		var rest: Transform3D = _cards[i].get_meta("rest")
+		if rest.origin.x < x:
+			slot += 1
+	return slot
+
+
+# Posición horizontal del ratón en el mundo de la mano, a la profundidad de las cartas.
+func _pointer_x(point: Vector2) -> float:
+	var local := point - get_global_rect().position
+	return _camera.project_position(local, DEPTH).x
 
 
 func _process(delta: float) -> void:
@@ -130,12 +193,19 @@ func _process(delta: float) -> void:
 	if is_visible_in_tree() and not _blocked_by_gui():
 		# También las cartas que no se pueden usar ahora se amplían para leerlas.
 		hovered = card_at(get_viewport().get_mouse_position())
+	if _dragging:
+		hovered = -1
 	_hovered = hovered
 	var weight := clampf(delta * 14.0, 0.0, 1.0)
 	for i in _cards.size():
 		var target: Transform3D = _cards[i].get_meta("rest")
 		if i == _hovered:
 			target = _zoomed(target)
+		elif _dragging and i == _press_index:
+			# La carta arrastrada sigue al ratón, levantada y delante de las demás.
+			target.origin.x = _pointer_x(get_viewport().get_mouse_position())
+			target.origin.y += 0.3
+			target.origin.z += 0.5
 		_cards[i].transform = _cards[i].transform.interpolate_with(target, weight)
 
 

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+[ext_resource type="PackedScene" path="res://scenes/Ludo.tscn" id="1"]
+[node name="Parchis2" instance=ExtResource("1")]
+player_count = 2
+variant = "parchis"
+save_path = "user://tablerama_parchis2.json"

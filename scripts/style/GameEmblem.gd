@@ -31,7 +31,12 @@ func _draw() -> void:
 			draw_line(c + Vector2(-0.2, 0) * s, c + Vector2(0.2, 0) * s, Palette.INK, LINE)
 			for p in [Vector2(0, -0.24), Vector2(-0.1, 0.16), Vector2(0.1, 0.32)]:
 				draw_circle(c + p * s, 0.06 * s, accent.darkened(0.2))
-		"ludo":
+		"brisca":
+			# Carta con una moneda de oros.
+			_box(Rect2(o + Vector2(0.2, 0.08) * s, Vector2(0.6, 0.84) * s), Palette.PAPER, 0.12 * s)
+			_circle(c, 0.2 * s, accent)
+			draw_circle(c, 0.08 * s, accent.darkened(0.3))
+		"ludo", "parchis":
 			var colors := [Palette.PLAYER_RED, Palette.PLAYER_BLUE, Palette.PLAYER_YELLOW, Palette.PLAYER_GREEN]
 			for i in 4:
 				var a := PI / 4.0 + i * PI / 2.0

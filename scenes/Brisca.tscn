@@ -1,0 +1,26 @@
+[gd_scene load_steps=3 format=3]
+[ext_resource type="PackedScene" path="res://scenes/PhysicalDomino.tscn" id="1"]
+[ext_resource type="Script" path="res://scripts/cards/BriscaView.gd" id="2"]
+
+[node name="Brisca" instance=ExtResource("1")]
+script = ExtResource("2")
+[node name="Eyebrow" parent="UI/Panel/Margin/Content" index="0"]
+text = "TABLERAMA · CARTAS"
+[node name="Title" parent="UI/Panel/Margin/Content" index="1"]
+text = "Brisca"
+[node name="Status" parent="UI/Panel/Margin/Content" index="2"]
+text = "Turno de Jugador 1"
+[node name="Help" parent="UI/Panel/Margin/Content" index="3"]
+text = "Clic en una carta de tu mano para jugarla."
+[node name="Legend" parent="UI/Panel/Margin/Content" index="4"]
+text = "Baraja española de 40 · 3 cartas en la mano\nGana la baza el triunfo más alto o la más alta del palo de salida\nAs 11 · tres 10 · rey 4 · caballo 3 · sota 2\nGana quien pase de 60 puntos\nArrastra una carta de la mano para reordenarla"
+[node name="Reset" parent="UI/Panel/Margin/Content" index="5"]
+text = "Nueva partida"
+tooltip_text = "Reparte otra vez; se pierde la partida actual."
+[node name="Rules" parent="UI/Panel/Margin/Content" index="6"]
+visible = false
+[node name="Guided" parent="UI/Panel/Margin/Content" index="7"]
+visible = false
+[node name="Sandbox" parent="UI/Panel/Margin/Content" index="8"]
+text = "Mesa de cartas libre"
+tooltip_text = "Abre la mesa de cartas libre; no conserva la partida."

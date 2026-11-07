@@ -22,6 +22,7 @@ func _run() -> void:
 	await _checkers()
 	await _domino()
 	await _ludo()
+	await _parchis()
 	await _island()
 	await _pause_and_exit()
 	for line in _report:
@@ -204,6 +205,42 @@ func _ludo() -> void:
 	await _close(view)
 
 
+# --- Parchís a 4: tiradas directas y el bot, con barreras y premios.
+func _parchis() -> void:
+	var view := await _open("res://scenes/Parchis.tscn")
+	var moves := 0
+	var barriers := 0
+	while view.rules.phase != LudoRules.FINISHED and moves < 2500:
+		if view.waiting_roll:
+			await physics_frame
+			continue
+		if view.rules.phase == LudoRules.ROLL:
+			view.rules.apply_roll(randi_range(1, 6))
+			view._refresh()
+		if view.rules.phase == LudoRules.MOVE:
+			view._choose_token(TableBots.ludo_choice(view.rules))
+			moves += 1
+			for player in view.rules.players:
+				for token in 4:
+					var progress: int = view.rules.positions[player][token]
+					if progress >= 0 and progress < 52 and view.rules.tokens_on(LudoRules.track_square(player, progress)).size() == 2:
+						barriers += 1
+			var guard := 0
+			while not view.in_transit.is_empty() and guard < 240:
+				await physics_frame
+				guard += 1
+	await _settle(150)
+	var homes := {}
+	for player in view.rules.players:
+		for index in 4:
+			homes[view.tokens[player][index]] = view._token_position(player, index, view.rules.positions[player][index])
+	var offset := _worst_offset(homes)
+	_report.append("parchís: %d movimientos, ganador J%d, %d veces con fichas compartiendo casilla, desvío máximo %.3f" % [moves, view.rules.winner + 1, barriers, offset])
+	_check(view.rules.phase == LudoRules.FINISHED, "parchís: la partida termina")
+	_check(offset < 0.15, "parchís: las fichas acaban en su casilla (desvío %.3f)" % offset)
+	await _close(view)
+
+
 # --- Isla de recursos: bot voraz con los tres jugadores, colocando por el tablero.
 func _island() -> void:
 	var view := await _open("res://scenes/Island.tscn")
@@ -257,7 +294,7 @@ func _island() -> void:
 # --- Pausa y salida al menú en cada mesa.
 func _pause_and_exit() -> void:
 	var navigation := root.get_node("SessionNavigation")
-	for scene in ["Main", "Chess", "GuidedPhysicalChess", "PhysicalChess", "Checkers", "GuidedPhysicalCheckers", "PhysicalCheckers", "GuidedDomino", "PhysicalDomino", "Ludo", "Island", "CardTable"]:
+	for scene in ["Main", "Chess", "GuidedPhysicalChess", "PhysicalChess", "Checkers", "GuidedPhysicalCheckers", "PhysicalCheckers", "GuidedDomino", "PhysicalDomino", "Ludo", "Parchis", "Island", "CardTable", "Brisca"]:
 		change_scene_to_file("res://scenes/%s.tscn" % scene)
 		for i in 12:
 			await process_frame
@@ -271,7 +308,7 @@ func _pause_and_exit() -> void:
 			await process_frame
 		_check(current_scene != null and current_scene.scene_file_path.ends_with("Menu.tscn"), "%s: la salida confirmada vuelve al menú" % scene)
 		_check(not paused, "%s: el menú no queda en pausa" % scene)
-	_report.append("pausa y salida al menú: 12 mesas")
+	_report.append("pausa y salida al menú: 14 mesas")
 
 
 func _check(condition: bool, message: String) -> void:
