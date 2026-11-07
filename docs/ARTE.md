@@ -140,7 +140,7 @@ Cada reproducción varía un poco el tono para que no suene repetida. «Efectos 
 
 ## Dados
 
-Al quedarse quieto un dado, su número salta encima con un rebote y salen chispas de colores de la paleta. Con «Reducir animaciones» se muestra el número, pero sin salto ni chispas.
+Al quedarse quieto un dado, su número sale grande en el centro de la pantalla con un rebote, sin partículas. Con «Reducir animaciones» se muestra el número sin salto.
 
 ## Pendiente en la fase 1
 
