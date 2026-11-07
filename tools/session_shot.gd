@@ -20,6 +20,8 @@ func _run() -> void:
 	dice.roll()
 	while dice._awaiting_result:
 		await process_frame
+	for i in 3:
+		await process_frame
 	if meter != null:
 		meter._refresh()
 	for i in 8:

@@ -12,8 +12,7 @@ const FACES := {
 	Vector3.BACK: 4
 }
 var _awaiting_result := false
-var _pop: Label3D
-var _pop_tween: Tween
+var _pop: DicePop
 
 
 ## Una vez por partida basta: los shaders y los glifos quedan preparados.
@@ -24,6 +23,8 @@ func _ready() -> void:
 	super._ready()
 	sleeping_state_changed.connect(_on_sleeping_changed)
 	_make_pips()
+	# Los números se dibujan al abrir la mesa, no al salir el primer resultado.
+	_prepare_digits.call_deferred()
 	if not _effects_warmed and DisplayServer.get_name() != "headless":
 		_effects_warmed = true
 		_warm_up_effects.call_deferred()
@@ -132,34 +133,11 @@ func _celebrate(value: int) -> void:
 	var style := get_node_or_null("/root/ToonStyle")
 	var calm: bool = style != null and style.reduce_motion
 	var host := _effects_host()
-	# Un solo rótulo por dado, que se reutiliza en cada tirada (nada de crear nodos nuevos).
-	if not is_instance_valid(_pop) or _pop.get_parent() != host:
-		if is_instance_valid(_pop):
-			_pop.queue_free()
-		_pop = _make_pop("")
+	# Número 3D ya dibujado (DiceDigits) en un sprite reutilizado: no rehace texto.
+	if not is_instance_valid(_pop):
+		_pop = DicePop.new()
 		host.add_child(_pop)
-	if _pop_tween != null and _pop_tween.is_valid():
-		_pop_tween.kill()
-	var label := _pop
-	label.text = str(value)
-	label.visible = true
-	label.modulate.a = 1.0
-	label.outline_modulate.a = 1.0
-	label.scale = Vector3.ONE
-	label.global_position = global_position + Vector3.UP * 0.65
-	var tween := label.create_tween()
-	_pop_tween = tween
-	if calm:
-		tween.tween_interval(1.0)
-	else:
-		label.scale = Vector3.ONE * 0.2
-		tween.tween_property(label, "scale", Vector3.ONE * 1.25, 0.16).set_ease(Tween.EASE_OUT)
-		tween.tween_property(label, "scale", Vector3.ONE, 0.18).set_trans(Tween.TRANS_BACK)
-		tween.parallel().tween_property(label, "position:y", label.position.y + 0.35, 0.5)
-		tween.tween_interval(0.6)
-	tween.tween_property(label, "modulate:a", 0.0, 0.3)
-	tween.parallel().tween_property(label, "outline_modulate:a", 0.0, 0.3)
-	tween.tween_callback(label.hide)
+	_pop.show_value(value, self, DiceDigits.for_scene(host), calm)
 	if calm:
 		return
 	var sparks := _make_sparks()
@@ -173,28 +151,13 @@ func _celebrate(value: int) -> void:
 ## rebobinado no se encuentran nodos que no son piezas mientras dura la celebración.
 func _effects_host() -> Node:
 	var scene := get_tree().current_scene
-	return scene if scene != null and scene.is_ancestor_of(self) else get_parent()
-
-
-static func _make_pop(text: String) -> Label3D:
-	var label := Label3D.new()
-	label.name = "ResultPop"
-	label.text = text
-	# Tamaño de letra moderado: rasterizar el contorno de cada número nuevo a tamaños muy
-	# grandes provocaba un tirón visible al salir el resultado.
-	label.font_size = 96
-	label.pixel_size = 0.00625
-	label.modulate = Palette.SUN
-	label.outline_size = 22
-	label.outline_modulate = Palette.INK
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.no_depth_test = true
-	label.render_priority = 3
-	var tree := Engine.get_main_loop() as SceneTree
-	var style := tree.root.get_node_or_null("ToonStyle") if tree != null else null
-	if style != null:
-		label.font = style.DISPLAY_FONT
-	return label
+	if scene != null and scene.is_ancestor_of(self):
+		return scene
+	# Sin escena actual (tests, herramientas): la raíz de la mesa, nunca $Objects.
+	var node: Node = self
+	while node.get_parent() != null and node.get_parent() != get_tree().root:
+		node = node.get_parent()
+	return node if node != self else get_parent()
 
 
 static func _make_sparks() -> CPUParticles3D:
@@ -237,11 +200,6 @@ static func _spark_mesh() -> SphereMesh:
 ## resultado. Se dibujan una vez, casi invisibles, al cargar la mesa.
 func _warm_up_effects() -> void:
 	var host := _effects_host()
-	var label := _make_pop("1234567890")
-	label.modulate.a = 0.01
-	label.outline_modulate.a = 0.01
-	host.add_child(label)
-	label.global_position = global_position
 	var sparks := _make_sparks()
 	sparks.amount = 1
 	sparks.scale_amount_min = 0.01
@@ -251,8 +209,12 @@ func _warm_up_effects() -> void:
 	sparks.emitting = true
 	for i in 3:
 		await get_tree().process_frame
-	label.queue_free()
 	sparks.queue_free()
+
+
+func _prepare_digits() -> void:
+	if is_inside_tree():
+		DiceDigits.for_scene(_effects_host())
 
 
 func _exit_tree() -> void:
