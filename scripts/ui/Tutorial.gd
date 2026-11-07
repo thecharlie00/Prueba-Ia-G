@@ -67,7 +67,7 @@ func _build() -> void:
 	_card.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	_card.offset_left = -400
 	_card.offset_right = -18
-	_card.offset_top = 70
+	_card.offset_top = 112
 	_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	var box := StyleBoxFlat.new()
 	box.bg_color = Palette.PAPER
