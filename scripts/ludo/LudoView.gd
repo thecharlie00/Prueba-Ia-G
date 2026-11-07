@@ -25,6 +25,13 @@ var die: Dice3D
 var tokens: Array = []
 var markers: Array[MeshInstance3D] = []
 var in_transit: Dictionary = {}
+## Tiempo que lleva cada ficha quieta lejos de su sitio (ver _physics_process).
+var _stalled: Dictionary = {}
+## Tiempo en tránsito sin haber podido subir (otra ficha encima): pasado un momento, se desliza.
+var _lift_wait: Dictionary = {}
+const LIFT_PATIENCE := 0.6
+const STALL_DISTANCE := 0.06
+const STALL_TIME := 0.5
 var waiting_roll := false
 var stable_time := 0.0
 var stuck_time := 0.0
@@ -481,6 +488,17 @@ func _physics_process(delta: float) -> void:
 				target.x - token.global_position.x, 0, target.z - token.global_position.z
 			)
 			var velocity := Vector3(token.linear_velocity.x, 0, token.linear_velocity.z)
+			# Una ficha parada a varios centímetros de su sitio (porque se formó o deshizo una
+			# barrera, o la empujó otra) no se mueve con esta fuerza: el rozamiento la frena.
+			# Se la vuelve a llevar por el aire, como en un movimiento.
+			if displacement.length() > STALL_DISTANCE and velocity.length() < 0.05:
+				_stalled[token] = float(_stalled.get(token, 0.0)) + delta
+				if _stalled[token] >= STALL_TIME:
+					_stalled.erase(token)
+					in_transit[token] = false
+					continue
+			else:
+				_stalled.erase(token)
 			if displacement.length() > 0.012 or velocity.length() > 0.03:
 				token.sleeping = false
 				token.apply_central_force(
@@ -491,14 +509,18 @@ func _physics_process(delta: float) -> void:
 func _steer_in_transit(token: Token3D, target: Vector3) -> void:
 	# Sube primero para no quedar atascada en las demás fichas de la casa.
 	var traveling: bool = in_transit[token]
-	if not traveling and token.global_position.y >= 1.02:
+	if not traveling:
+		_lift_wait[token] = float(_lift_wait.get(token, 0.0)) + get_physics_process_delta_time()
+	if not traveling and (token.global_position.y >= 1.02 or _lift_wait[token] >= LIFT_PATIENCE):
 		traveling = true
 		in_transit[token] = true
+		_lift_wait.erase(token)
 	var displacement := Vector3(
 		target.x - token.global_position.x, 0, target.z - token.global_position.z
 	)
 	if traveling and displacement.length() < 0.035:
 		in_transit.erase(token)
+		_lift_wait.erase(token)
 		return
 	if not traveling:
 		displacement = Vector3.ZERO
