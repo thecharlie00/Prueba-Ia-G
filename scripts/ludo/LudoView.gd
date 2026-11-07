@@ -184,8 +184,8 @@ func _token_position(player: int, token: int, progress: int) -> Vector3:
 	return _track_position(LudoRules.track_square(player, progress)) + _share_offset(player, token, progress)
 
 
-# Parchís: dos fichas en la misma casilla (barrera o seguro compartido) se ponen una al lado
-# de la otra, en el sentido del recorrido, para que no se monten.
+# Parchís: dos fichas en la misma casilla (barrera o seguro compartido) se ponen una hacia
+# dentro y otra hacia fuera del anillo; a lo largo del recorrido chocarían con las vecinas.
 func _share_offset(player: int, token: int, progress: int) -> Vector3:
 	if rules == null or not rules.is_parchis():
 		return Vector3.ZERO
@@ -201,11 +201,25 @@ func _share_offset(player: int, token: int, progress: int) -> Vector3:
 	if mates.size() < 2:
 		return Vector3.ZERO
 	mates.sort()
-	var side := -1.0 if mates.find(Vector2i(player, token)) == 0 else 1.0
 	var here := _track_position(LudoRules.track_square(player, progress)) if progress < 52 else _lane_position(player, progress)
 	var outward := Vector3(here.x - CENTER.x, 0, here.z - CENTER.z).normalized()
-	var along := Vector3(-outward.z, 0, outward.x)
-	return along * side * 0.075
+	if progress >= 52:
+		# En el pasillo de meta, de lado (las casillas del pasillo van hacia el centro).
+		outward = Vector3(-outward.z, 0, outward.x)
+	# Cada ficha va al lado en el que ya está: con un orden fijo, dos fichas cruzadas se
+	# empujarían una contra otra sin poder pasar.
+	var other: Vector2i = mates[1] if mates[0] == Vector2i(player, token) else mates[0]
+	var mine := _side_value(player, token, outward)
+	var theirs := _side_value(other.x, other.y, outward)
+	var side := 1.0 if mine > theirs or (is_equal_approx(mine, theirs) and mates.find(Vector2i(player, token)) == 1) else -1.0
+	return outward * side * 0.08
+
+
+func _side_value(player: int, token: int, axis: Vector3) -> float:
+	if player >= tokens.size() or token >= tokens[player].size():
+		return 0.0
+	var body: Token3D = tokens[player][token]
+	return snappedf(Vector3(body.global_position.x - CENTER.x, 0, body.global_position.z - CENTER.z).dot(axis), 0.01)
 
 
 func _make_tokens() -> void:

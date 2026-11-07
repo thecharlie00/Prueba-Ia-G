@@ -28,12 +28,20 @@ pasar de 1.000 $ de ventas).
 | Producto | Precio | Qué lleva |
 |---|---|---|
 | Tablerama | 9,99 € (12,99 € tras el primer año) | Todas las mesas, reglas y bots |
-| Demo | Gratis | Mesa libre y dos juegos, sin guardar mesas |
+| Demo | Gratis | Mesa libre (con tutorial), brisca y parchís; el resto de mesas se ven en el menú, bloqueadas |
 | Pack de apoyo | 3,99 € | Banda sonora, fondos, tapetes y dorsos extra (sin ventaja de juego) |
 | Workshop | Gratis | Mazos y mesas de la comunidad |
 
 Lanzamiento con 10–15 % de descuento, precios regionales activados, rebajas de temporada al
 20–40 %. Sin anuncios, microtransacciones ni suscripción. El «pack de 4» vuelve con el online.
+
+### Cómo se genera la demo
+
+Es el mismo proyecto con la característica `demo` (presets «Demo Windows» y «Demo Linux» de
+`export_presets.cfg`; la CI los exporta y prueba que la de Linux arranca). Para probarla sin
+exportar: `-- --demo`. Las mesas permitidas están en `scripts/ui/Edition.gd`, que también
+guarda la dirección de la tienda (`STORE_URL`) para el botón «Añadir a la lista de deseados»
+en cuanto exista la página de Steam.
 
 ## Gastos
 

@@ -29,7 +29,12 @@ func _run() -> void:
 	for i in 30:
 		await tree.process_frame
 	print("PRUEBA DE ARRANQUE: menú cargado (%s)" % OS.get_name())
+	var edition := get_node_or_null("/root/Edition")
+	if edition != null and edition.demo:
+		print("PRUEBA DE ARRANQUE: edición demo")
 	for path in SCENES:
+		if edition != null and not edition.allows(path):
+			continue
 		if tree.change_scene_to_file(path) != OK:
 			printerr("PRUEBA DE ARRANQUE: no se pudo abrir ", path)
 			tree.quit(1)
