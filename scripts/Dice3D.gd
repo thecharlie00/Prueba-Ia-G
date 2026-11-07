@@ -66,9 +66,17 @@ func top_face() -> int:
 func _on_sleeping_changed() -> void:
 	if sleeping and _awaiting_result and not is_grabbed:
 		_awaiting_result = false
-		_note("dado: resultado")
-		_celebrate(top_face())
-		result_ready.emit(top_face())
+		var meter := get_node_or_null("/root/PerfMeter")
+		var t0 := Time.get_ticks_usec()
+		if meter == null or meter.dice_part_enabled("pop"):
+			_celebrate(top_face())
+		elif meter.dice_part_enabled("sound"):
+			_sound("pop")
+		var t1 := Time.get_ticks_usec()
+		if meter == null or meter.dice_part_enabled("signal"):
+			result_ready.emit(top_face())
+		var t2 := Time.get_ticks_usec()
+		_note("dado: resultado", " (número %.1f ms, avisos %.1f ms)" % [(t1 - t0) / 1000.0, (t2 - t1) / 1000.0])
 
 
 func _make_pips() -> void:
@@ -118,7 +126,9 @@ func _make_pips() -> void:
 func _celebrate(value: int) -> void:
 	if not is_inside_tree():
 		return
-	_sound("pop")
+	var meter := get_node_or_null("/root/PerfMeter")
+	if meter == null or meter.dice_part_enabled("sound"):
+		_sound("pop")
 	var style := get_node_or_null("/root/ToonStyle")
 	var calm: bool = style != null and style.reduce_motion
 	var host := _effects_host()
@@ -250,10 +260,10 @@ func _exit_tree() -> void:
 		_pop.queue_free()
 
 
-func _note(event: String) -> void:
+func _note(event: String, cost := "") -> void:
 	var meter := get_node_or_null("/root/PerfMeter")
 	if meter != null:
-		meter.note(event)
+		meter.note(event, cost)
 
 
 func _sound(effect: String) -> void:
