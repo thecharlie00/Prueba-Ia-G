@@ -242,6 +242,7 @@ func _parchis() -> void:
 				var home: Vector3 = homes[body]
 				if Vector2(body.global_position.x - home.x, body.global_position.z - home.z).length() > 0.1:
 					_report.append("  J%d ficha %d en el progreso %d · está en %s, su casa es %s · posiciones %s" % [player + 1, index + 1, view.rules.positions[player][index], body.global_position, home, view.rules.positions])
+					_report.append("    tránsito %s · quieta %s · espera %s · tiempo %s · velocidad %s · dormida %s · física %s · fase %s · sostenida %s" % [view.in_transit.get(body, "no"), view._stalled.get(body, "-"), view._lift_wait.get(body, "-"), view._transit_time.get(body, "-"), body.linear_velocity, body.sleeping, view.is_physics_processing(), view.rules.phase, view.grabber.held == body])
 	_report.append("parchís: %d movimientos, ganador J%d, %d veces con fichas compartiendo casilla, desvío máximo %.3f" % [moves, view.rules.winner + 1, barriers, offset])
 	_check(view.rules.phase == LudoRules.FINISHED, "parchís: la partida termina")
 	_check(offset < 0.15, "parchís: las fichas acaban en su casilla (desvío %.3f)" % offset)
