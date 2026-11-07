@@ -17,6 +17,8 @@ var camera: Camera3D
 var active := false
 var color_index := 0
 var strokes: Array[MeshInstance3D] = []
+## Datos de cada trazo para guardarlo con la mesa: {"color": índice, "points": [[x,y,z], …]}.
+var stroke_data: Array[Dictionary] = []
 var _points: PackedVector3Array = PackedVector3Array()
 var _drawing := false
 var _chip: PanelContainer
@@ -57,12 +59,15 @@ func undo_stroke() -> void:
 		return
 	var last: MeshInstance3D = strokes.pop_back()
 	last.queue_free()
+	if not stroke_data.is_empty():
+		stroke_data.pop_back()
 
 
 func clear() -> void:
 	for stroke in strokes:
 		stroke.queue_free()
 	strokes.clear()
+	stroke_data.clear()
 
 
 func _input(event: InputEvent) -> void:
@@ -106,24 +111,30 @@ func _input(event: InputEvent) -> void:
 func begin_stroke(screen_point: Vector2) -> bool:
 	if strokes.size() >= MAX_STROKES:
 		strokes.pop_front().queue_free()
+		stroke_data.pop_front()
 	_points = PackedVector3Array()
 	var hit: Variant = surface_point(screen_point)
 	if hit == null:
 		return false
 	_drawing = true
+	_add_stroke(color_index)
+	_points.append(hit)
+	_rebuild()
+	return true
+
+
+func _add_stroke(index: int) -> void:
 	var stroke := MeshInstance3D.new()
 	stroke.name = "Stroke"
 	stroke.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = COLORS[color_index]
+	material.albedo_color = COLORS[index]
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	stroke.material_override = material
 	add_child(stroke)
 	strokes.append(stroke)
-	_points.append(hit)
-	_rebuild()
-	return true
+	stroke_data.append({"color": index, "points": []})
 
 
 func extend_stroke(screen_point: Vector2) -> void:
@@ -184,6 +195,49 @@ func _rebuild() -> void:
 	arrays[Mesh.ARRAY_VERTEX] = vertices
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	stroke.mesh = mesh
+	var saved: Array = []
+	for p in _points:
+		saved.append([snappedf(p.x, 0.001), snappedf(p.y, 0.001), snappedf(p.z, 0.001)])
+	stroke_data[stroke_data.size() - 1]["points"] = saved
+
+
+## Trazos para guardar con la mesa.
+func export_strokes() -> Array:
+	return stroke_data.duplicate(true)
+
+
+## Restaura trazos guardados (ya validados con valid_strokes).
+func import_strokes(data: Array) -> void:
+	clear()
+	for entry in data:
+		_add_stroke(int(entry["color"]))
+		_points = PackedVector3Array()
+		for p in entry["points"]:
+			_points.append(Vector3(float(p[0]), float(p[1]), float(p[2])))
+		_rebuild()
+	_points = PackedVector3Array()
+	_drawing = false
+
+
+static func valid_strokes(data: Variant) -> bool:
+	if not data is Array or data.size() > MAX_STROKES:
+		return false
+	for entry in data:
+		if not entry is Dictionary:
+			return false
+		var color: Variant = entry.get("color")
+		if not (color is int or color is float) or int(color) < 0 or int(color) >= COLORS.size():
+			return false
+		var points: Variant = entry.get("points")
+		if not points is Array or points.is_empty() or points.size() > MAX_POINTS:
+			return false
+		for p in points:
+			if not p is Array or p.size() != 3:
+				return false
+			for value in p:
+				if not (value is float or value is int) or absf(float(value)) > 50.0:
+					return false
+	return true
 
 
 func _build_chip() -> void:

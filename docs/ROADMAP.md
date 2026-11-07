@@ -97,15 +97,15 @@ Todo en local primero, con el diseño preparado para red.
 - [x] **Rebobinado** de la mesa libre: guarda un momento cada vez que la mesa queda quieta tras una acción (hasta 40) y una tira «hace 12 s · hace 1 min…» permite volver a cualquiera. Usa el mismo formato validado que guardar y cargar. *Pendiente en los modos con reglas.*
 - [x] **Zonas privadas** por jugador en la mesa libre: lo que hay dentro solo lo ve su asiento (V cambia de asiento); los demás ven una nubecilla con «?» por pieza. *Faltan las manos 2D con orden y selección múltiple.*
 - [ ] **Snap points y zonas editables** en lugar de la cuadrícula 4×4 fija; cartas que caen alineadas en zonas de descarte.
-- [x] **Componentes utilitarios**: contador, bolsa con número de piezas, nota de texto y reloj con cuenta atrás; se guardan y se rebobinan. *Falta el tablero de puntuación.*
-- [x] **Señalar ("ping")**: tecla P o «Señalar» en el menú; aro amarillo que se expande y flecha que bota. **Pincel** (D) con 5 colores en todas las mesas físicas. *Los dibujos aún no se guardan.*
+- [x] **Componentes utilitarios**: contador, bolsa con número de piezas, nota de texto, reloj con cuenta atrás y marcador de 4 jugadores; se guardan y se rebobinan.
+- [x] **Señalar ("ping")**: tecla P o «Señalar» en el menú; aro amarillo que se expande y flecha que bota. **Pincel** (D) con 5 colores en todas las mesas físicas; en la mesa libre los dibujos se guardan con la partida.
 - [x] **Volcar la mesa** como gesto cómico (Ctrl+F): las piezas saltan, la mesa da un respingo y la cámara tiembla; se deshace con Rebobinar.
-- [ ] **Inspección 3D ampliada** de cartas y piezas (hoy es textual).
+- [x] **Inspección 3D ampliada**: con Alt, la pieza gira en un pequeño estudio con su propia luz; las cartas solo se balancean para no enseñar la cara oculta.
 - [x] **Vistas por asiento** y vista cenital con V (Mayús+V hacia atrás).
 - [x] **Mando**: cursor con el stick, A/B como clics, stick derecho orbita, gatillos zoom, botones a los atajos. *Falta probarlo en una Steam Deck, glifos de mando y remapeo de teclas.*
-- [ ] Apilado automático de cartas y fichas compatibles (pendiente del GDD).
+- [x] **Apilado automático**: carta sobre mazo entra arriba, carta sobre carta forma un mazo nuevo y ficha sobre ficha se centra encima (mesa libre y mesa de cartas).
 
-**Estado (7 de noviembre de 2026):** hecho casi todo en local; además, pantalla adaptable con F11, física con Jolt, zoom de cartas en la mano e idiomas español, inglés y catalán. Quedan las manos 2D, los snap points editables, la inspección 3D, el apilado automático y las pruebas con personas y en Steam Deck.
+**Estado (7 de noviembre de 2026):** hecho casi todo en local; además, pantalla adaptable con F11, física con Jolt, zoom de cartas en la mano e idiomas español, inglés y catalán. Quedan las manos 2D y los snap points editables, y las pruebas con personas y en Steam Deck. Adelantado de la fase 6: bots para completar mesas.
 
 **Salida:** test de usabilidad: el 90 % de novatos mueve, voltea y roba sin ayuda en su primer intento (objetivo del GDD); partida completa con mando en Steam Deck.
 
@@ -142,7 +142,7 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 ### Fase 5 · Early Access en Steam
 
 - [ ] Catálogo de lanzamiento: ajedrez, damas, dominó, ludo, isla de recursos, cartas y **roles ocultos** (pendiente del GDD).
-- [ ] Bots básicos para completar mesas en ludo, dominó y damas (ajedrez ya tiene IA).
+- [x] Bots básicos para completar mesas en ludo (cualquier jugador), dominó (jugador 2) y damas (oscuras, minimax a 2 jugadas); el ajedrez ya tenía IA.
 - [ ] Localización revisada: español, catalán e inglés; después francés, alemán, portugués.
 - [ ] Página de Steam con capturas y tráiler cartoon.
 - [ ] **Demo gratuita** con los modos locales y unión a salas online (ver §5).

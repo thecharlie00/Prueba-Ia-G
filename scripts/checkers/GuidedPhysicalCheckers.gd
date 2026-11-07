@@ -27,6 +27,10 @@ var _light: Material
 var _dark: Material
 var _selected: Material
 var _legal: Material
+## Las oscuras las juega un bot (TableBots).
+var bot_enabled := false
+var _bot_wait := 0.0
+var _bot_toggle: CheckBox
 
 
 func _ready() -> void:
@@ -65,7 +69,49 @@ func _ready() -> void:
 		_open_free,
 		_can_leave_table
 	)
+	_bot_toggle = CheckBox.new()
+	_bot_toggle.name = "BotToggle"
+	_bot_toggle.text = "Las oscuras las juega un bot"
+	_bot_toggle.toggled.connect(set_bot_enabled)
+	var content := $UI/Panel/Margin/Content
+	content.add_child(_bot_toggle)
+	content.move_child(_bot_toggle, $UI/Panel/Margin/Content/Undo.get_index())
 	_refresh_guides()
+
+
+func set_bot_enabled(enabled: bool) -> void:
+	bot_enabled = enabled
+	_bot_wait = 0.0
+	if _bot_toggle != null and _bot_toggle.button_pressed != enabled:
+		_bot_toggle.set_pressed_no_signal(enabled)
+	_refresh_guides()
+
+
+func is_bot_turn() -> bool:
+	return bot_enabled and rules.turn == CheckersRules.BLACK and rules.status() == "playing"
+
+
+func _process(delta: float) -> void:
+	if not is_bot_turn() or is_instance_valid(grabber.held) or is_instance_valid(_dragged):
+		_bot_wait = 0.0
+		return
+	_bot_wait += delta
+	if _bot_wait >= TableBots.THINK_TIME:
+		_bot_wait = 0.0
+		bot_step()
+
+
+## Una jugada del bot (un paso o un salto de la cadena).
+func bot_step() -> bool:
+	var move := TableBots.checkers_choice(rules)
+	if move.is_empty():
+		return false
+	var mover := _token_at_square(int(move["from"]))
+	if not _apply_move(int(move["from"]), int(move["to"]), mover):
+		return false
+	$UI/Panel/Margin/Content/Help.text = "El bot ha movido. Te toca."
+	_refresh_guides()
+	return true
 
 
 func _physics_process(_delta: float) -> void:
@@ -121,7 +167,9 @@ func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: 
 		$UI/Panel/Margin/Content/Help.text = "Movimiento cancelado; la ficha vuelve a su casilla."
 
 
-func _apply_move(from_square: int, to_square: int) -> bool:
+func _apply_move(from_square: int, to_square: int, mover: Token3D = null) -> bool:
+	if mover == null:
+		mover = _dragged
 	var chosen: Dictionary = {}
 	for move in rules.legal_moves_from(from_square):
 		if int(move["to"]) == to_square:
@@ -144,8 +192,8 @@ func _apply_move(from_square: int, to_square: int) -> bool:
 	if not rules.play(from_square, to_square):
 		return false
 	_snapshots.append(snapshot)
-	token_squares[_dragged] = to_square
-	home_positions[_dragged] = _square_center(to_square)
+	token_squares[mover] = to_square
+	home_positions[mover] = _square_center(to_square)
 	if is_instance_valid(victim):
 		token_squares[victim] = -1
 		# El color procede del estado lógico anterior, no de la apariencia.
@@ -199,6 +247,9 @@ func _undo() -> void:
 	if _snapshots.is_empty() or not rules.undo():
 		return
 	var snapshot: Dictionary = _snapshots.pop_back()
+	# Con bot, deshacer vuelve hasta tu última jugada (si no, el bot la repetiría al momento).
+	while bot_enabled and rules.turn == CheckersRules.BLACK and not _snapshots.is_empty() and rules.undo():
+		snapshot = _snapshots.pop_back()
 	token_squares = snapshot["squares"]
 	home_positions = snapshot["homes"]
 	white_captured = snapshot["white_captured"]
@@ -327,6 +378,8 @@ func _refresh_guides() -> void:
 		status_label.text = (
 			"Turno: " + ("blancas" if rules.turn == CheckersRules.WHITE else "oscuras")
 		)
+		if is_bot_turn():
+			status_label.text += " (bot)"
 		if rules.forced_from >= 0:
 			status_label.text += " · continúa la captura"
 		elif rules.has_any_capture():
