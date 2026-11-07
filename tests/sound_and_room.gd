@@ -40,7 +40,7 @@ func _run() -> void:
 	dice._celebrate(4)
 	await process_frame
 	var pop := main.find_child("ResultPop", true, false) as DicePop
-	if pop == null or pop.text_value != 4 or pop.texture == null:
+	if pop == null or pop.text_value != 4 or pop.text != "4":
 		_fail("Al salir un resultado, el número debe saltar encima del dado.")
 		return
 	await create_timer(1.6).timeout

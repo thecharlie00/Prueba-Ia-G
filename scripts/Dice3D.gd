@@ -23,8 +23,6 @@ func _ready() -> void:
 	super._ready()
 	sleeping_state_changed.connect(_on_sleeping_changed)
 	_make_pips()
-	# Los números se dibujan al abrir la mesa, no al salir el primer resultado.
-	_prepare_digits.call_deferred()
 	if not _effects_warmed and DisplayServer.get_name() != "headless":
 		_effects_warmed = true
 		_warm_up_effects.call_deferred()
@@ -133,12 +131,14 @@ func _celebrate(value: int) -> void:
 	var style := get_node_or_null("/root/ToonStyle")
 	var calm: bool = style != null and style.reduce_motion
 	var host := _effects_host()
-	# Número 3D ya dibujado (DiceDigits) en un sprite reutilizado: no rehace texto.
+	# Número dibujado con la interfaz 2D siguiendo al dado (DicePop), uno por dado.
 	if not is_instance_valid(_pop):
 		_pop = DicePop.new()
-		host.add_child(_pop)
-	_pop.show_value(value, self, DiceDigits.for_scene(host), calm)
+		DicePop.layer_for(host).add_child(_pop)
+	_pop.show_value(value, self, calm)
 	if calm:
+		return
+	if meter != null and not meter.dice_part_enabled("sparks"):
 		return
 	var sparks := _make_sparks()
 	host.add_child(sparks)
@@ -210,11 +210,6 @@ func _warm_up_effects() -> void:
 	for i in 3:
 		await get_tree().process_frame
 	sparks.queue_free()
-
-
-func _prepare_digits() -> void:
-	if is_inside_tree():
-		DiceDigits.for_scene(_effects_host())
 
 
 func _exit_tree() -> void:
