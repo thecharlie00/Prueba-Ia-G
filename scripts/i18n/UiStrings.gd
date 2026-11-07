@@ -280,5 +280,11 @@ const ROWS := [
 	["Ordenar por número", "Sort by number", "Ordena per número"],
 	["PARCHÍS · MESA LOCAL", "PARCHÍS · LOCAL TABLE", "PARXÍS · TAULA LOCAL"],
 	["Tu mano está vacía", "Your hand is empty", "La teva mà és buida"],
+	["INCLUIDO EN LA DEMO", "INCLUDED IN THE DEMO", "INCLÒS A LA DEMO"],
+	["Mesa libre y dos juegos completos con reglas y bots.", "Free table and two full games with rules and bots.", "Taula lliure i dos jocs complets amb regles i bots."],
+	["DEMO GRATUITA · Mesa libre, brisca y parchís. El resto de mesas, en el juego completo.", "FREE DEMO · Free table, brisca and parchís. Every other table is in the full game.", "DEMO GRATUÏTA · Taula lliure, brisca i parxís. La resta de taules, al joc complet."],
+	["Esa mesa está en el juego completo. La demo incluye la mesa libre, la brisca y el parchís.", "That table is in the full game. The demo includes the free table, brisca and parchís.", "Aquesta taula és al joc complet. La demo inclou la taula lliure, la brisca i el parxís."],
+	["Incluida en el juego completo", "Included in the full game", "Inclosa al joc complet"],
+	["Añadir a la lista de deseados", "Add to wishlist", "Afegeix a la llista de desitjos"],
 	["Clic en una carta de tu mano para jugarla.", "Click a card in your hand to play it.", "Clic en una carta de la teva mà per jugar-la."],
 ]

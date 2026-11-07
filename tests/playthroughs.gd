@@ -235,6 +235,13 @@ func _parchis() -> void:
 		for index in 4:
 			homes[view.tokens[player][index]] = view._token_position(player, index, view.rules.positions[player][index])
 	var offset := _worst_offset(homes)
+	if offset >= 0.15:
+		for player in view.rules.players:
+			for index in 4:
+				var body: Token3D = view.tokens[player][index]
+				var home: Vector3 = homes[body]
+				if Vector2(body.global_position.x - home.x, body.global_position.z - home.z).length() > 0.1:
+					_report.append("  J%d ficha %d en el progreso %d · está en %s, su casa es %s · posiciones %s" % [player + 1, index + 1, view.rules.positions[player][index], body.global_position, home, view.rules.positions])
 	_report.append("parchís: %d movimientos, ganador J%d, %d veces con fichas compartiendo casilla, desvío máximo %.3f" % [moves, view.rules.winner + 1, barriers, offset])
 	_check(view.rules.phase == LudoRules.FINISHED, "parchís: la partida termina")
 	_check(offset < 0.15, "parchís: las fichas acaban en su casilla (desvío %.3f)" % offset)
