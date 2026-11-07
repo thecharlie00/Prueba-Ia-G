@@ -14,10 +14,17 @@ const FACES := {
 var _awaiting_result := false
 
 
+## Una vez por partida basta: los shaders y los glifos quedan preparados.
+static var _effects_warmed := false
+
+
 func _ready() -> void:
 	super._ready()
 	sleeping_state_changed.connect(_on_sleeping_changed)
 	_make_pips()
+	if not _effects_warmed and DisplayServer.get_name() != "headless":
+		_effects_warmed = true
+		_warm_up_effects.call_deferred()
 
 
 func roll(impulse_scale: float = 1.0) -> void:
@@ -110,20 +117,9 @@ func _celebrate(value: int) -> void:
 	_sound("pop")
 	var style := get_node_or_null("/root/ToonStyle")
 	var calm: bool = style != null and style.reduce_motion
-	var label := Label3D.new()
-	label.name = "ResultPop"
-	label.text = str(value)
-	label.font_size = 150
-	label.pixel_size = 0.004
-	label.modulate = Palette.SUN
-	label.outline_size = 36
-	label.outline_modulate = Palette.INK
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.no_depth_test = true
-	label.render_priority = 3
-	if style != null:
-		label.font = style.DISPLAY_FONT
-	get_parent().add_child(label)
+	var host := _effects_host()
+	var label := _make_pop(str(value))
+	host.add_child(label)
 	label.global_position = global_position + Vector3.UP * 0.65
 	var tween := label.create_tween()
 	if calm:
@@ -139,6 +135,42 @@ func _celebrate(value: int) -> void:
 	tween.tween_callback(label.queue_free)
 	if calm:
 		return
+	var sparks := _make_sparks()
+	host.add_child(sparks)
+	sparks.global_position = global_position + Vector3.UP * 0.3
+	sparks.emitting = true
+	get_tree().create_timer(1.2).timeout.connect(sparks.queue_free)
+
+
+## Los efectos van a la raíz de la escena, no junto a las piezas: así guardar y el
+## rebobinado no se encuentran nodos que no son piezas mientras dura la celebración.
+func _effects_host() -> Node:
+	var scene := get_tree().current_scene
+	return scene if scene != null and scene.is_ancestor_of(self) else get_parent()
+
+
+static func _make_pop(text: String) -> Label3D:
+	var label := Label3D.new()
+	label.name = "ResultPop"
+	label.text = text
+	# Tamaño de letra moderado: rasterizar el contorno de cada número nuevo a tamaños muy
+	# grandes provocaba un tirón visible al salir el resultado.
+	label.font_size = 96
+	label.pixel_size = 0.00625
+	label.modulate = Palette.SUN
+	label.outline_size = 22
+	label.outline_modulate = Palette.INK
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.no_depth_test = true
+	label.render_priority = 3
+	var tree := Engine.get_main_loop() as SceneTree
+	var style := tree.root.get_node_or_null("ToonStyle") if tree != null else null
+	if style != null:
+		label.font = style.DISPLAY_FONT
+	return label
+
+
+static func _make_sparks() -> CPUParticles3D:
 	var sparks := CPUParticles3D.new()
 	sparks.name = "ResultSparks"
 	sparks.one_shot = true
@@ -152,6 +184,15 @@ func _celebrate(value: int) -> void:
 	sparks.initial_velocity_max = 2.8
 	sparks.scale_amount_min = 0.6
 	sparks.scale_amount_max = 1.2
+	sparks.mesh = _spark_mesh()
+	var colors := Gradient.new()
+	colors.offsets = PackedFloat32Array([0.0, 0.33, 0.66, 1.0])
+	colors.colors = PackedColorArray([Palette.SUN, Palette.CORAL, Palette.MINT, Palette.PLAYER_BLUE])
+	sparks.color_initial_ramp = colors
+	return sparks
+
+
+static func _spark_mesh() -> SphereMesh:
 	var dot := SphereMesh.new()
 	dot.radius = 0.035
 	dot.height = 0.07
@@ -161,15 +202,30 @@ func _celebrate(value: int) -> void:
 	spark_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	spark_material.vertex_color_use_as_albedo = true
 	dot.material = spark_material
-	sparks.mesh = dot
-	var colors := Gradient.new()
-	colors.offsets = PackedFloat32Array([0.0, 0.33, 0.66, 1.0])
-	colors.colors = PackedColorArray([Palette.SUN, Palette.CORAL, Palette.MINT, Palette.PLAYER_BLUE])
-	sparks.color_initial_ramp = colors
-	get_parent().add_child(sparks)
-	sparks.global_position = global_position + Vector3.UP * 0.3
+	return dot
+
+
+## Precalentado: la primera vez que se dibujan el número y las chispas el driver compila sus
+## shaders y se generan los glifos, y eso congelaba el juego un momento justo al salir el
+## resultado. Se dibujan una vez, casi invisibles, al cargar la mesa.
+func _warm_up_effects() -> void:
+	var host := _effects_host()
+	var label := _make_pop("1234567890")
+	label.modulate.a = 0.01
+	label.outline_modulate.a = 0.01
+	host.add_child(label)
+	label.global_position = global_position
+	var sparks := _make_sparks()
+	sparks.amount = 1
+	sparks.scale_amount_min = 0.01
+	sparks.scale_amount_max = 0.01
+	host.add_child(sparks)
+	sparks.global_position = global_position
 	sparks.emitting = true
-	get_tree().create_timer(1.2).timeout.connect(sparks.queue_free)
+	for i in 3:
+		await get_tree().process_frame
+	label.queue_free()
+	sparks.queue_free()
 
 
 func _sound(effect: String) -> void:

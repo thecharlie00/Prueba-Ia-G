@@ -21,11 +21,11 @@ config/icon="res://icon.svg"
 
 [autoload]
 
+Locale="*res://scripts/i18n/Locale.gd"
 ToonStyle="*res://scripts/style/ToonStyle.gd"
 Sfx="*res://scripts/audio/Sfx.gd"
 SessionNavigation="*res://scripts/ui/SessionNavigation.gd"
 Gamepad="*res://scripts/ui/Gamepad.gd"
-Locale="*res://scripts/i18n/Locale.gd"
 
 [display]
 
