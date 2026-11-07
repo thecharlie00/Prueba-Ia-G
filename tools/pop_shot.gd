@@ -15,7 +15,7 @@ func _run() -> void:
 	for i in 12:
 		await process_frame
 	var pop: DicePop = dice._pop
-	print("pop visible=%s escala=%s pos=%s textura=%s" % [pop.visible, pop.scale, pop.global_position, pop.texture])
+	print("pop visible=%s escala=%s pos=%s" % [pop.visible, pop.scale, pop.position])
 	await RenderingServer.frame_post_draw
 	root.get_viewport().get_texture().get_image().save_png(OS.get_cmdline_user_args()[0])
 	quit(0)
