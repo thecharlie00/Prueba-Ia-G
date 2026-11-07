@@ -292,3 +292,46 @@ static func _island_robber_tile(rules: IslandRules) -> int:
 			best_value = value
 			best = tile_id
 	return best
+
+
+## Brisca: carta que juega el bot.
+## Al salir: la carta que menos vale y, a igualdad, la más floja, guardando los triunfos.
+## Al responder: si la baza lleva puntos, la gana con lo más barato que pueda; si no, la
+## gana con una carta del mismo palo que sume, o tira la carta que menos pierde.
+static func brisca_choice(rules: BriscaRules) -> String:
+	var hand: Array = rules.hands[rules.turn]
+	if hand.is_empty():
+		return ""
+	var on_table := rules.card_to_beat()
+	if on_table.is_empty():
+		return _brisca_cheapest(rules, hand, true)
+	var winners: Array = hand.filter(func(card: String) -> bool: return rules.beats(card, on_table))
+	var at_stake := BriscaRules.card_points(on_table)
+	var same_suit_winners := winners.filter(
+		func(card: String) -> bool: return BriscaRules.suit_of(card) != rules.trump_suit
+	)
+	if not same_suit_winners.is_empty():
+		# Ganar con el mismo palo no cuesta triunfos: la de más puntos se lleva más.
+		var best: String = same_suit_winners[0]
+		for card in same_suit_winners:
+			if BriscaRules.card_points(card) > BriscaRules.card_points(best):
+				best = card
+		return best
+	if at_stake >= 10 and not winners.is_empty():
+		return _brisca_cheapest(rules, winners, false)
+	return _brisca_cheapest(rules, hand, true)
+
+
+# La carta que menos pierde: menos puntos, luego menos fuerza; con save_trumps, los triunfos
+# solo si no hay otra.
+static func _brisca_cheapest(rules: BriscaRules, cards: Array, save_trumps: bool) -> String:
+	var best := ""
+	var best_cost := INF
+	for card in cards:
+		var cost: float = BriscaRules.card_points(card) * 100.0 + float(BriscaRules.STRENGTH[BriscaRules.rank_of(card)])
+		if save_trumps and BriscaRules.suit_of(card) == rules.trump_suit:
+			cost += 10000.0
+		if cost < best_cost:
+			best_cost = cost
+			best = card
+	return best

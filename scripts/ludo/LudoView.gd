@@ -16,6 +16,8 @@ const TRACK_RADIUS := 1.37
 const MAX_SAVE_BYTES := 500000
 
 @export_range(2, 4) var player_count := 2
+## "ludo" o "parchis" (LudoRules): mismo tablero, reglas del parchís español.
+@export var variant := "ludo"
 @export var save_path := "user://diceon_ludo.json"
 var confirm_action: ConfirmAction
 var rules: LudoRules
@@ -46,7 +48,7 @@ var _bot_wait := 0.0
 func _ready() -> void:
 	confirm_action = CONFIRM_ACTION.new()
 	add_child(confirm_action)
-	rules = LudoRules.new(player_count)
+	rules = LudoRules.new(player_count, variant)
 	_make_board()
 	_make_tokens()
 	_make_tray()
@@ -178,8 +180,32 @@ func _token_position(player: int, token: int, progress: int) -> Vector3:
 	if progress == LudoRules.FINISH:
 		return _finished_position(player, token)
 	if progress >= 52:
-		return _lane_position(player, progress)
-	return _track_position(LudoRules.track_square(player, progress))
+		return _lane_position(player, progress) + _share_offset(player, token, progress)
+	return _track_position(LudoRules.track_square(player, progress)) + _share_offset(player, token, progress)
+
+
+# Parchís: dos fichas en la misma casilla (barrera o seguro compartido) se ponen una al lado
+# de la otra, en el sentido del recorrido, para que no se monten.
+func _share_offset(player: int, token: int, progress: int) -> Vector3:
+	if rules == null or not rules.is_parchis():
+		return Vector3.ZERO
+	var mates: Array[Vector2i] = []
+	if progress < 52:
+		mates = rules.tokens_on(LudoRules.track_square(player, progress))
+	else:
+		for other in range(4):
+			if rules.positions[player][other] == progress:
+				mates.append(Vector2i(player, other))
+	if not Vector2i(player, token) in mates:
+		mates.append(Vector2i(player, token))
+	if mates.size() < 2:
+		return Vector3.ZERO
+	mates.sort()
+	var side := -1.0 if mates.find(Vector2i(player, token)) == 0 else 1.0
+	var here := _track_position(LudoRules.track_square(player, progress)) if progress < 52 else _lane_position(player, progress)
+	var outward := Vector3(here.x - CENTER.x, 0, here.z - CENTER.z).normalized()
+	var along := Vector3(-outward.z, 0, outward.x)
+	return along * side * 0.075
 
 
 func _make_tokens() -> void:
@@ -276,7 +302,7 @@ func _make_ui() -> void:
 	header.add_theme_constant_override("separation", 10)
 	column.add_child(header)
 	header.add_child(GameThemes.emblem(theme, 36.0))
-	var title := _label(header, "LUDO · MESA LOCAL")
+	var title := _label(header, "PARCHÍS · MESA LOCAL" if rules.is_parchis() else "LUDO · MESA LOCAL")
 	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	title.add_theme_font_size_override("font_size", 20)
 	title.add_theme_color_override("font_color", theme["accent"].lightened(0.2))
@@ -308,6 +334,12 @@ func _make_ui() -> void:
 	var explanation := _label(
 		column,
 		(
+			"Salida con 5 (obligatoria) · el 6 da otra tirada y vale 7 sin fichas en casa.\n"
+			+ "Dos fichas forman barrera: nadie pasa. En los seguros no se come.\n"
+			+ "Comer: 20 de premio · llegar a meta: 10 · el tercer 6 manda a casa la última ficha movida."
+		)
+		if rules.is_parchis()
+		else (
 			"Salida con 6 · el 6 da otra tirada · meta exacta.\n"
 			+ "Verde: destino válido; casillas de color: seguras.\n"
 			+ "Recorrido horario; sin apilar ni bloqueos de barrera. "
@@ -385,12 +417,16 @@ func bot_step() -> bool:
 func _refresh() -> void:
 	_update_seats()
 	status.text = (
-		"Ludo · %d jugadores\nTurno J%d (%s)%s" % [rules.players, rules.turn + 1, NAMES[rules.turn], " · bot" if is_bot_turn() else ""]
+		"%s · %d jugadores\nTurno J%d (%s)%s" % ["Parchís" if rules.is_parchis() else "Ludo", rules.players, rules.turn + 1, NAMES[rules.turn], " · bot" if is_bot_turn() else ""]
 	)
 	if rules.phase == LudoRules.FINISHED:
 		status.text = "¡Gana J%d (%s)!" % [rules.winner + 1, NAMES[rules.winner]]
+	elif rules.phase == LudoRules.MOVE and rules.bonus > 0:
+		status.text += " · premio de %d casillas" % rules.bonus
 	elif rules.phase == LudoRules.MOVE:
 		status.text += " · dado %d" % rules.die
+		if rules.steps() != rules.die:
+			status.text += " (cuenta %d)" % rules.steps()
 	elif waiting_roll:
 		status.text += " · esperando el dado…"
 	roll_button.disabled = rules.phase != LudoRules.ROLL or waiting_roll
@@ -407,6 +443,8 @@ func _refresh() -> void:
 		help.text = (
 			"Lanza o arrastra y suelta el dado." if not waiting_roll else "Espera a que se detenga."
 		)
+	elif rules.phase == LudoRules.MOVE and rules.bonus > 0:
+		help.text = "Premio: mueve %d casillas con la ficha que quieras." % rules.bonus
 	elif rules.phase == LudoRules.MOVE:
 		help.text = "Elige una ficha disponible o arrástrala a su destino verde."
 	else:

@@ -11,12 +11,18 @@ const THEMES := {
 	"domino": {"name": "Dominó", "accent": Color("4d7cfe")},
 	"ludo": {"name": "Ludo", "accent": Color("ff9a3d")},
 	"island": {"name": "La isla", "accent": Color("2f8f4e")},
+	"brisca": {"name": "Brisca", "accent": Color("d99a00")},
+	"parchis": {"name": "Parchís", "accent": Color("e2504a")},
 }
 
 
 ## Clave del juego a partir de la escena de la vista.
 static func key_for(view: Node) -> String:
 	var file := view.scene_file_path.get_file().to_lower() if view != null else ""
+	if file.begins_with("brisca"):
+		return "brisca"
+	if file.begins_with("parchis"):
+		return "parchis"
 	if file.begins_with("cardtable"):
 		return "cards"
 	if "chess" in file:

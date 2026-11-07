@@ -15,6 +15,8 @@ var confirm_action: ConfirmAction
 var english: Deck3D
 var spanish: Deck3D
 var hand: CardHand
+## Barajas propias en la mesa: {nombre del nodo («Mazo_<carpeta>»): Deck3D}.
+var custom_decks := {}
 
 @onready var objects: Node3D = $Objects
 @onready var grabber: PhysicsGrabber3D = $PhysicsGrabber3D
@@ -52,6 +54,7 @@ func _ready() -> void:
 	$UI/Panel/Margin/Content/SaveRow/Save.pressed.connect(_save_game)
 	_add_hand_button($UI/Panel/Margin/Content/English, "Mano inglesa", true)
 	_add_hand_button($UI/Panel/Margin/Content/Spanish, "Mano española", false)
+	_add_custom_row()
 	confirm_action.bind_button(
 		$UI/Panel/Margin/Content/SaveRow/Load as Button,
 		"Cargar mesa",
@@ -109,6 +112,73 @@ func _unhandled_input(event: InputEvent) -> void:
 	else:
 		_return_card(grabber.hovered as Card3D)
 	get_viewport().set_input_as_handled()
+
+
+# --- Barajas propias (imágenes en user://mazos) ------------------------------
+
+func _add_custom_row() -> void:
+	var content := $UI/Panel/Margin/Content
+	var row := HBoxContainer.new()
+	row.name = "Custom"
+	var load_button := Button.new()
+	load_button.name = "LoadCustom"
+	load_button.text = "Cargar barajas propias"
+	load_button.tooltip_text = "Una carpeta por baraja dentro de la carpeta de mazos; una imagen por carta"
+	load_button.pressed.connect(load_custom_decks)
+	row.add_child(load_button)
+	var folder_button := Button.new()
+	folder_button.name = "OpenFolder"
+	folder_button.text = "Abrir carpeta"
+	folder_button.tooltip_text = "Abre la carpeta donde se ponen las imágenes de las barajas"
+	folder_button.pressed.connect(func() -> void: OS.shell_open(CustomDecks.ensure_root()))
+	row.add_child(folder_button)
+	content.add_child(row)
+	content.move_child(row, $UI/Panel/Margin/Content/SaveRow.get_index())
+
+
+## Pone en la mesa las barajas propias que aún no estén. Devuelve cuántas se han añadido.
+func load_custom_decks() -> int:
+	CustomDecks.ensure_root()
+	CustomDecks.clear_cache()
+	var found := CustomDecks.scan()
+	var added := 0
+	for folder in found:
+		var key := CustomDecks.deck_name(folder)
+		if custom_decks.has(key) and is_instance_valid(custom_decks[key]):
+			continue
+		var labels: Array[String] = []
+		labels.assign(found[folder])
+		if labels.size() > SandboxPersistence.MAX_CARDS:
+			labels.resize(SandboxPersistence.MAX_CARDS)
+		var slot := custom_decks.size()
+		var deck := DECK_SCENE.instantiate() as Deck3D
+		deck.name = key
+		deck.display_name = folder + " · N para robar"
+		deck.initial_cards = labels
+		deck.draw_offset = Vector3(0, 0.65, -0.95)
+		deck.position = Vector3(-1.2 + (slot % 4) * 0.8, 1.05 + (slot / 4) * 0.3, 1.55)
+		objects.add_child(deck)
+		_connect_deck(deck)
+		custom_decks[key] = deck
+		added += 1
+	if found.is_empty():
+		status_label.text = "No hay barajas propias: pon una carpeta con imágenes en la carpeta de mazos."
+	elif added == 0:
+		status_label.text = "Las barajas propias ya están en la mesa."
+	else:
+		status_label.text = "%d baraja(s) propia(s) en la mesa." % added
+	return added
+
+
+func _deck_for_label(label: String) -> Deck3D:
+	if label in _english_cards():
+		return english
+	if label in _spanish_cards():
+		return spanish
+	var key := CustomDecks.deck_name(CustomDecks.folder_of(label))
+	if CustomDecks.is_label(label) and custom_decks.has(key) and is_instance_valid(custom_decks[key]):
+		return custom_decks[key]
+	return null
 
 
 # --- Mano -------------------------------------------------------------------
@@ -193,11 +263,7 @@ func _return_card(card: Card3D) -> bool:
 	if card.freeze or card.is_grabbed:
 		status_label.text = "Suelta o desbloquea la carta antes de devolverla."
 		return false
-	var deck: Deck3D
-	if card.card_label in _english_cards():
-		deck = english
-	elif card.card_label in _spanish_cards():
-		deck = spanish
+	var deck := _deck_for_label(card.card_label)
 	if not is_instance_valid(deck) or deck.freeze or deck.is_grabbed:
 		status_label.text = "Desbloquea y suelta la baraja antes de devolver la carta."
 		return false
@@ -287,6 +353,7 @@ func _load_game() -> void:
 		objects.remove_child(old)
 		old.queue_free()
 	hand.set_cards(loaded["record"].get("hand", []))
+	custom_decks.clear()
 	for i in range(pieces.size()):
 		var piece := pieces[i]
 		objects.add_child(piece)
@@ -294,12 +361,17 @@ func _load_game() -> void:
 		if piece is Deck3D:
 			piece.spread_draws = true
 			piece.draw_offset = Vector3(0, 0.65, 1.0)
-			piece._initial_count = 52 if piece.name == ENGLISH_NAME else 40
 			_connect_deck(piece)
 			if piece.name == ENGLISH_NAME:
 				english = piece
-			else:
+				piece._initial_count = 52
+			elif piece.name == SPANISH_NAME:
 				spanish = piece
+				piece._initial_count = 40
+			else:
+				piece.spread_draws = false
+				piece.draw_offset = Vector3(0, 0.65, -0.95)
+				custom_decks[String(piece.name)] = piece
 	status_label.text = (
 		"Archivo principal inválido o ausente: cargada la copia anterior."
 		if loaded["backup"]
@@ -325,33 +397,70 @@ static func _decode_save(record: Variant) -> Variant:
 	var spanish_cards := _spanish_cards()
 	var seen := {}
 	var decks := {}
+	# Barajas propias: «Mazo_<carpeta>», con cartas «img:<carpeta>/<archivo>».
+	var custom_names := {}
+	for piece in table["objects"]:
+		if piece["type"] == "deck" and String(piece["name"]).begins_with("Mazo_"):
+			custom_names[piece["name"]] = true
 	for piece in table["objects"]:
 		if piece["type"] == "deck":
 			var name: String = piece["name"]
-			if name not in [ENGLISH_NAME, SPANISH_NAME] or decks.has(name):
+			if decks.has(name):
 				return null
 			decks[name] = true
-			var allowed := english_cards if name == ENGLISH_NAME else spanish_cards
+			var allowed: Array[String] = []
+			if name == ENGLISH_NAME:
+				allowed = english_cards
+			elif name == SPANISH_NAME:
+				allowed = spanish_cards
+			elif name.begins_with("Mazo_"):
+				var folder := ""
+				for label in piece["cards"]:
+					if not label is String or not CustomDecks.is_label(label):
+						return null
+					var label_folder := CustomDecks.folder_of(label)
+					if not folder.is_empty() and label_folder != folder:
+						return null
+					folder = label_folder
+				if not folder.is_empty() and CustomDecks.deck_name(folder) != name:
+					return null
+				allowed.assign(piece["cards"])
+			else:
+				return null
 			for label in piece["cards"]:
 				if label not in allowed or seen.has(label):
 					return null
 				seen[label] = true
 		elif piece["type"] == "card":
 			var label: String = piece["label"]
-			if (label not in english_cards and label not in spanish_cards) or seen.has(label):
+			if not _known_label(label, english_cards, spanish_cards, custom_names) or seen.has(label):
 				return null
 			seen[label] = true
 		else:
 			return null
 	for label in hand_cards:
-		if not label is String or (label not in english_cards and label not in spanish_cards):
+		if not label is String or not _known_label(label, english_cards, spanish_cards, custom_names):
 			return null
 		if seen.has(label):
 			return null
 		seen[label] = true
-	if decks.size() != 2 or seen.size() != english_cards.size() + spanish_cards.size():
+	if not decks.has(ENGLISH_NAME) or not decks.has(SPANISH_NAME):
+		return null
+	# Ninguna carta de las barajas inglesa y española puede perderse.
+	var standard := 0
+	for label in seen:
+		if label in english_cards or label in spanish_cards:
+			standard += 1
+	if standard != english_cards.size() + spanish_cards.size():
 		return null
 	return record
+
+
+# Carta conocida: de las barajas fijas o de una baraja propia que está en el guardado.
+static func _known_label(label: String, english_cards: Array[String], spanish_cards: Array[String], custom: Dictionary) -> bool:
+	if label in english_cards or label in spanish_cards:
+		return true
+	return CustomDecks.is_label(label) and custom.has(CustomDecks.deck_name(CustomDecks.folder_of(label)))
 
 
 func _on_selection_changed(object: InteractiveTableObject) -> void:

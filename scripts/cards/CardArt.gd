@@ -45,6 +45,10 @@ var dev := 0
 ## kind: "playing" (label "A ♠" o "7 O"), "back", "resource" (value 0..4),
 ## "development" (value 0..4, índice de IslandRules.DEV_NAMES).
 static func texture(kind_name: String, value: Variant = "") -> Texture2D:
+	# Carta de una baraja propia: su imagen; si no se puede leer, el reverso.
+	if kind_name == "playing" and str(value).begins_with(CustomDecks.PREFIX):
+		var custom := CustomDecks.texture(str(value))
+		return custom if custom != null else texture("back")
 	var key := "%s|%s" % [kind_name, value]
 	if _cache.has(key) and is_instance_valid(_cache[key]["viewport"]):
 		return _cache[key]["texture"]

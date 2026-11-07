@@ -35,7 +35,7 @@ func _ready() -> void:
 func set_card_label(value: String) -> void:
 	card_label = value
 	_apply_art()
-	display_name = "Carta " + value + " · F para voltear"
+	display_name = "Carta " + CustomDecks.pretty(value) + " · F para voltear"
 	var label := get_node_or_null("Visual/FaceLabel") as Label3D
 	if label:
 		label.text = value

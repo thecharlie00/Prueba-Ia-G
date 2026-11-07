@@ -131,6 +131,7 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 
 ### Fase 4 · Editor no-code y Workshop gratuito
 
+- [x] Primer paso sin conexión: **barajas propias desde imágenes** (una carpeta por baraja en la carpeta de mazos, una imagen por carta) en la mesa de cartas, con guardado y validación de rutas.
 - [ ] Asistente de importación: imágenes, hojas de cartas (filas × columnas), fichas extruidas, glTF/GLB.
 - [ ] **Estilo cartoon automático opcional** para lo importado (shader toon y contorno), para que el contenido de la comunidad encaje con el juego.
 - [ ] Zonas, rutas y casillas pintadas; reglas de disparador → condición → acción del GDD.
@@ -156,7 +157,9 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 
 ### Fase 6 · Versión 1.0 y después
 
-- Más juegos y variantes (parchís completo, mus, brisca, guiñote, juegos de dados).
+- [x] **Brisca** para dos (contra el bot o dos personas en el mismo equipo, con la mano tapada al cambiar de turno) y **parchís** con reglas españolas para 2 y 4 (salir con 5, barreras, comer 20, meta 10, el 6 vale 7, castigo del tercer 6). Hecho en noviembre de 2026, antes del online.
+- [x] **Manos ordenables**: ordenar por palo o por número y arrastrar cartas a otro hueco del abanico.
+- Más juegos y variantes (mus, guiñote, tute, juegos de dados).
 - Salas de hasta 16 jugadores tras perfilado.
 - Chat de voz integrado.
 - Tablets (iOS/Android) con controles táctiles propios.
