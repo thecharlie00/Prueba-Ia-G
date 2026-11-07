@@ -39,8 +39,8 @@ func _run() -> void:
 	var dice := main.get_node("Objects/Dice") as Dice3D
 	dice._celebrate(4)
 	await process_frame
-	var pop := main.find_child("ResultPop", true, false) as Label3D
-	if pop == null or pop.text != "4":
+	var pop := main.find_child("ResultPop", true, false) as DicePop
+	if pop == null or pop.text_value != 4 or pop.texture == null:
 		_fail("Al salir un resultado, el número debe saltar encima del dado.")
 		return
 	await create_timer(1.6).timeout
