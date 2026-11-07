@@ -11,7 +11,7 @@ Las fases se ordenan por dependencias, no por fechas. Cada fase tiene un criteri
 
 | | Tabletop Simulator | Tabletop Playground | **Tablerama (objetivo)** |
 |---|---|---|---|
-| Precio | 19,99 $; rebajas a ~10 $; cada jugador compra su copia | 14,99 $; cada jugador compra su copia | **9,99–12,99 €** de lanzamiento, pack de 4 con descuento y **demo gratuita que puede unirse a salas** |
+| Precio | 19,99 $; rebajas a ~10 $; cada jugador compra su copia | 14,99 $; cada jugador compra su copia | **9,99 €** de lanzamiento en Steam (Windows y Linux), demo gratuita; con el online, pack de 4 y demo que se une a salas |
 | Estética | Realista, depende de cada mod | Realista / neutra | **Cartoon coherente**: sombreado plano, contornos, piezas redondeadas, animación con "juice" |
 | Reglas | No impide jugadas ilegales salvo scripts del mod | Igual, scripting en JavaScript | **Juegos incluidos con reglas opcionales** (ya hay 7 modos) y reglas no-code en el editor |
 | Contenido | Miles de mods gratis; marketplace de mods de pago anunciado en la 2.0 | Unos cientos de juegos | Catálogo propio + **Workshop siempre gratuito** |
@@ -40,7 +40,7 @@ Resumen de reseñas de Steam agregadas, hilos de Reddit, el tablero de sugerenci
 | 8 | Mal soporte de mando y Steam Deck | Steam Deck Verified como objetivo, controles con mando | **Parcial**: mando completo (cursor con stick, A/B clic, gatillos zoom, botones a atajos); falta probar en una Steam Deck y glifos de mando | 2 |
 | 9 | Polémica por los mods de pago del marketplace de la 2.0 | Workshop gratuito como compromiso público | **Pendiente** | 4 |
 | 10 | Mods de calidad irregular, que se rompen | Paquetes con assets incluidos y validados (no enlaces externos que caducan) | **Pendiente** | 4 |
-| 11 | Cada amigo tiene que comprar el juego | Precio bajo, pack de 4 y demo gratuita que se une a salas de quien tiene el juego completo (ver §5) | **Decidido**, pendiente de implementar | 3, 5 |
+| 11 | Cada amigo tiene que comprar el juego | Precio bajo (9,99 €); con el online, pack de 4 y demo que se une a salas de quien tiene el juego completo (ver §5) | **Decidido**, pendiente de implementar | 3, 5 |
 | 12 | Traducciones automáticas y fuentes sin soporte | Localización revisada por personas, fuentes con cobertura completa | **Parcial**: español, inglés y catalán en menús, interfaz común y herramientas; los mensajes de reglas de cada juego siguen en español | 5 |
 | 13 | VR rota | Fuera de alcance | — | — |
 | 14 | Moderación y toxicidad en chat (polémicas de moderación) | Silenciar, bloquear, denunciar, permisos del anfitrión y política clara | **Pendiente** | 3 |
@@ -148,7 +148,7 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 - [ ] Localización revisada: español, catalán e inglés; después francés, alemán, portugués.
 - [ ] Página de Steam con capturas y tráiler cartoon.
 - [ ] **Demo gratuita** con los modos locales y unión a salas online (ver §5).
-- [ ] Precio y **pack de 4** del juego completo (ver §5).
+- [ ] Precio de 9,99 € y precios regionales (ver §5 y `docs/MODELO-NEGOCIO.md`); pack de 4 cuando llegue el online.
 - [ ] Rama beta pública para probar cada actualización antes de publicarla.
 - [ ] Objetivo **Steam Deck Verified** y Linux nativo.
 
@@ -175,26 +175,38 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 | Grupos donde solo una persona compra el juego | Es intencionado: baja la barrera de entrada. Medir conversión de demo a compra y ajustar lo que ofrece el juego completo, no restringir la demo |
 | TTS 2.0 mejora sus controles y su UI | Competir en precio, estética, reglas incluidas y Workshop gratuito, no solo en controles |
 
-## 5. Modelo de venta (decidido el 6 de noviembre de 2026)
+## 5. Modelo de venta (revisado el 7 de noviembre de 2026)
 
-Responde a la queja de TTS de que todo el grupo tiene que comprar el juego: basta con que **una persona** tenga el juego completo para que sus amigos jueguen online con la demo.
+Detalle, cuentas y fuentes en [`docs/MODELO-NEGOCIO.md`](MODELO-NEGOCIO.md). Objetivo: gastar lo mínimo y quedarse el máximo por copia.
 
-| | **Juego completo** (pago único) | **Pack de 4** | **Demo gratuita** |
-|---|---|---|---|
-| Modos locales y juegos incluidos | ✓ | ✓ (4 copias completas) | ✓ |
-| Crear y alojar salas online | ✓ | ✓ | ✗ |
-| **Unirse** a salas online | ✓ | ✓ | ✓, solo a salas de alguien con el juego completo |
-| Descargar juegos del Workshop | ✓ | ✓ | ✗; juega los que use la sala, que le envía el anfitrión solo para esa sesión |
-| Editor y publicar en el Workshop | ✓ | ✓ | ✗ |
+| | Decisión |
+|---|---|
+| Plataformas | **PC: Windows y Linux** (Steam Deck). Sin macOS ni móvil: la firma de Apple cuesta 99 $ al año |
+| Tienda | **Solo Steam** el primer año (alta 100 $, recuperables). itch.io gratis para la demo y pruebas. Epic quizá el segundo año |
+| Precio | **9,99 €** (12,99 € tras el primer año), 10–15 % de descuento de lanzamiento, precios regionales |
+| Contenido 1.0 | **Todo offline**: mesas, reglas y bots; sin servidores ni gasto mensual |
+| Extras | Workshop gratuito (mazos de imágenes) y pack de apoyo opcional de 3,99 € sin ventaja de juego |
+| Lanzamiento | Next Fest de junio de 2027 con la demo y salida el 6 de julio de 2027 |
 
-Sin suscripción ni microtransacciones. El pack de 4 son cuatro copias completas con descuento para regalar al grupo.
+Sin suscripción, anuncios ni microtransacciones.
+
+### Cuando llegue el online (fase 3)
+
+Se mantiene la idea original: basta con que **una persona** tenga el juego completo para que sus amigos se unan con la demo, y vuelve el **pack de 4** para regalar al grupo.
+
+| | **Juego completo** | **Demo gratuita** |
+|---|---|---|
+| Modos locales | ✓ | Mesa libre y dos juegos |
+| Crear y alojar salas online | ✓ | ✗ |
+| **Unirse** a salas online | ✓ | ✓, solo a salas de alguien con el juego completo |
+| Workshop: descargar, editor y publicar | ✓ | ✗; juega lo que use la sala |
 
 ### Decisiones abiertas
 
-1. **Precio exacto** dentro de 9,99–12,99 € y descuento del pack de 4.
-2. Si la demo tiene algún límite en salas (por ejemplo, número de jugadores con demo por sala).
-3. Número máximo de jugadores en Early Access.
-4. Si el volteo de mesa y otros gestos cómicos se pueden desactivar por sala.
+1. Si la demo tiene algún límite en salas (por ejemplo, número de jugadores con demo por sala).
+2. Número máximo de jugadores en Early Access.
+3. Si el volteo de mesa y otros gestos cómicos se pueden desactivar por sala.
+4. Momento del alta de autónomo y facturación a Valve (gestor).
 
 ## 6. Nombre: Tablerama (elegido el 6 de noviembre de 2026)
 
