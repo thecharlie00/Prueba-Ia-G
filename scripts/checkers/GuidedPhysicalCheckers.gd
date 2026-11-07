@@ -119,17 +119,7 @@ func _physics_process(_delta: float) -> void:
 		var token := key as Token3D
 		if not is_instance_valid(token) or token == grabber.held or token.freeze:
 			continue
-		var home: Vector3 = home_positions[token]
-		var displacement := Vector3(
-			home.x - token.global_position.x, 0, home.z - token.global_position.z
-		)
-		var velocity := Vector3(token.linear_velocity.x, 0, token.linear_velocity.z)
-		if displacement.length() < 0.015 and velocity.length() < 0.03:
-			continue
-		var acceleration: Vector3 = displacement * home_spring - velocity * home_damping
-		if token.sleeping:
-			token.sleeping = false
-		token.apply_central_force(acceleration.limit_length(max_home_acceleration) * token.mass)
+		HomeSteering.steer(token, home_positions[token], home_spring, home_damping, max_home_acceleration)
 
 
 func _on_grab_started(object: InteractiveTableObject) -> void:
