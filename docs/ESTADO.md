@@ -31,6 +31,23 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 - **Tutorial jugable** de 9 pasos (menú «Empieza aquí» y la primera vez que se abre la mesa libre) y atajos flotando sobre cada pieza.
 - **Idiomas**: español, inglés y catalán (selector en el menú principal).
 
+### Más juego sin red (7 de noviembre de 2026)
+
+- **Bots**: en el ludo se marca qué jugadores lleva un bot; en el dominó guiado, el jugador 2; en las damas guiadas, las oscuras (minimax a 2 jugadas). Piensan un momento antes de cada acción para que se vea lo que hacen; deshacer en damas vuelve hasta tu jugada.
+- **Apilado automático**: carta sobre mazo, carta sobre carta (mazo nuevo) y ficha sobre ficha.
+- **Inspección 3D** con Alt: la pieza ampliada girando en su propio estudio.
+- **Marcador** de 4 jugadores (1–4 elige la fila, + / − puntos).
+- **Dibujos guardados** con la mesa libre.
+- **Medidor de tirones** (F3) para diagnosticar rendimiento en equipos reales.
+
+### Cierre técnico de la fase 0 (7 de noviembre de 2026)
+
+- `tests/playthroughs.gd`: partidas completas en ajedrez, damas, dominó, ludo e isla con física real, más pausa y salida en 12 mesas.
+- `HomeSteering`: las piezas que van lejos (comidas, cadena del dominó, ladrón) vuelan por encima de las demás sin chocar y aterrizan en su casa; el ajedrez se mantiene derecho.
+- Bot de la isla de recursos (`TableBots.island_action`).
+- `-- --prueba-arranque` y paso de CI que arranca el ejecutable de Linux y abre todas las mesas.
+- [PRUEBAS.md](PRUEBAS.md): protocolo para la prueba con 3 personas, lo único que falta para cerrar la fase.
+
 ## Pendiente para completar el GDD
 
 1. Robustecer el ajedrez con pruebas exhaustivas de reglas, casos límite, accesibilidad, relojes, una IA más avanzada para distintos niveles y juego libre opcional.

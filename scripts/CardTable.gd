@@ -30,6 +30,7 @@ func _ready() -> void:
 	_make_hand()
 	grabber.selection_changed.connect(_on_selection_changed)
 	grabber.placement_message.connect(_on_placement_message)
+	grabber.grab_finished.connect(_on_grab_finished)
 	confirm_action.bind_button(
 		$UI/Panel/Margin/Content/Reset as Button,
 		"Reiniciar mesa",
@@ -362,6 +363,17 @@ func _on_selection_changed(object: InteractiveTableObject) -> void:
 		if is_instance_valid(object)
 		else "Inglesa: %d · Española: %d" % [english.cards_remaining, spanish.cards_remaining]
 	)
+
+
+## Apilado automático: carta sobre mazo o sobre otra carta (TableStacking).
+func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: String) -> void:
+	if reason != "released":
+		return
+	match TableStacking.on_release(objects, object, target):
+		"deck":
+			status_label.text = "Carta añadida arriba del mazo."
+		"new_deck":
+			status_label.text = "Dos cartas juntas forman un mazo nuevo."
 
 
 func _on_placement_message(message: String) -> void:

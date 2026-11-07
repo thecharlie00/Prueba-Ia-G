@@ -42,6 +42,7 @@ var _info_chips: Array[Label] = []
 var _drawer_button: Button
 var _last_hint := ""
 var _hint_time := 0.0
+const HINT_LINGER := 7.0
 var _seat_signature := ""
 var _seat_check := 0.0
 ## Identidad del juego (GameThemes): acento, nombre y emblema.
@@ -354,7 +355,7 @@ func _table_bounds() -> AABB:
 func _process(delta: float) -> void:
 	_refresh_seats(delta)
 	_sync()
-	if _bubble.visible:
+	if not _last_hint.is_empty():
 		_hint_time += delta
 
 
@@ -372,7 +373,11 @@ func _sync() -> void:
 		_last_hint = hint
 		_hint_time = 0.0
 	_bubble_text.text = hint
-	_bubble.visible = not hint.is_empty()
+	# La pista se aparta sola tras unos segundos sin cambiar, para no tapar la mesa ni los
+	# nombres de los jugadores; vuelve en cuanto hay una pista nueva.
+	var fade := clampf((_hint_time - HINT_LINGER) / 0.6, 0.0, 1.0)
+	_bubble.modulate.a = 1.0 - fade
+	_bubble.visible = not hint.is_empty() and fade < 1.0
 	_bubble_text.custom_minimum_size.x = minf(560.0, 9.0 * hint.length() + 20.0)
 	for i in _proxies.size():
 		var original := actions[i]
