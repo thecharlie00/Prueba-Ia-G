@@ -124,16 +124,7 @@ func _physics_process(_delta: float) -> void:
 		var tile := key as Domino3D
 		if not is_instance_valid(tile) or tile == grabber.held or tile.freeze:
 			continue
-		var home: Vector3 = homes[tile]
-		var displacement := Vector3(
-			home.x - tile.global_position.x, 0, home.z - tile.global_position.z
-		)
-		var velocity := Vector3(tile.linear_velocity.x, 0, tile.linear_velocity.z)
-		if displacement.length() >= 0.015 or velocity.length() >= 0.03:
-			var acceleration: Vector3 = displacement * HOME_SPRING - velocity * HOME_DAMPING
-			if tile.sleeping:
-				tile.sleeping = false
-			tile.apply_central_force(acceleration.limit_length(MAX_ACCELERATION) * tile.mass)
+		HomeSteering.steer(tile, homes[tile], HOME_SPRING, HOME_DAMPING, MAX_ACCELERATION)
 		if home_rotations.has(tile):
 			_steer_rotation(tile, home_rotations[tile])
 
@@ -415,8 +406,9 @@ func _open_free() -> void:
 
 func hud_seats() -> Array:
 	return [
-		{"name": "Jugador 1", "color": Palette.PLAYER_RED, "bot": false, "side": "west"},
-		{"name": "Jugador 2", "color": Palette.PLAYER_BLUE, "bot": false, "side": "east"},
+		# J1 al fondo: sentado a la izquierda quedaba cortado en el borde de la pantalla.
+		{"name": "Jugador 1", "color": Palette.PLAYER_RED, "bot": false, "side": "north"},
+		{"name": "Jugador 2", "color": Palette.PLAYER_BLUE, "bot": bot_enabled, "side": "east"},
 	]
 
 

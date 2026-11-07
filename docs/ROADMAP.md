@@ -57,14 +57,16 @@ Resumen (7 de noviembre de 2026): de las 20, **10 están hechas o casi hechas en
 
 ## 3. Fases
 
-### Fase 0 · Cerrar la beta local (en curso)
+### Fase 0 · Cerrar la beta local (falta la prueba con personas)
 
 Cumplir los bloqueos de [BETA.md](BETA.md) antes de abrir frentes nuevos.
 
-- [ ] Ejecución con renderizador real y revisión visual de todos los modos.
-- [ ] Partidas manuales completas en cada modo, con ratón y teclado; ajustar masas y fuerzas.
-- [ ] Exportaciones de Windows, Linux y macOS que arranquen en equipos reales.
+- [x] Ejecución con renderizador real y revisión visual de todos los modos: 16 escenas a 1280×720 y 1024×600 (`tools/review_shots.gd`). Corregidos: avatares tapados por el panel en la isla y cortados en el dominó, y la pista que tapaba nombres (ahora se aparta sola).
+- [x] Partidas completas en cada modo con reglas, con física y vistas reales (`tests/playthroughs.gd`, bots e IA por las mismas funciones que el jugador) y pausa/salida en 12 mesas. Encontraron y se corrigieron: piezas comidas atascadas al cruzar el tablero, la cadena del dominó que se enredaba al desplazarse, el ladrón de la isla bloqueado y caminos que empujaban pueblos. Las piezas ahora vuelan por encima de las demás hasta su casa (`HomeSteering`). *Falta la versión con personas (abajo).*
+- [x] Exportaciones: Linux arranca y abre las 16 escenas (`-- --prueba-arranque`, comprobado también en CI en cada PR). Windows se exporta pero wine 9 se cierra antes de iniciar Godot, así que falta probarlo en un PC real; macOS solo se exporta.
 - [x] Ejecutar la suite completa de tests en CI (GitHub Actions con Godot headless) en cada PR, con exportaciones de Windows, Linux y macOS como artefactos.
+
+- [ ] **Prueba con 3 personas** siguiendo [PRUEBAS.md](PRUEBAS.md) (recorrido, hoja de observación y criterio de bloqueo).
 
 **Salida:** 3 personas ajenas al proyecto completan una partida de cada modo sin bloqueos.
 

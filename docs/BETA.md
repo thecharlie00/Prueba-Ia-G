@@ -14,12 +14,14 @@ Este documento es una lista de trabajo, no una declaración de que exista ya una
 
 ## Bloqueos antes de considerar una beta local jugable
 
-- Ejecutar una compilación con renderizador real: inspeccionar las siluetas, lectura de cartas, iluminación, cámara, paneles, foco, pantallas pequeñas y estabilidad gráfica.
-- Verificar en cada modo el flujo de pausa y confirmación de salida; las partidas locales que no tienen guardado perderán su estado al volver al menú.
-- Probar manualmente con ratón y teclado: agarre, altura, colisiones, recuperación, pausas durante acciones y partidas completas de cada variante. Ajustar masas, fuerzas y objetivos según resultados reales.
-- Comprobar los temporales y la recuperación del guardado anterior ante cortes reales y espacio insuficiente; no se garantiza atomicidad ni durabilidad en todos los sistemas, ni hay bloqueo entre instancias. La mesa de ajedrez físico libre todavía no se guarda; la isla guarda el estado lógico, no poses físicas.
-- Validar los dos modos de agarre, la suelta sobre la interfaz y fuera de ventana, el bloqueo, la inspección, las vistas rápidas, el deshacer de una pieza y la recuperación de piezas en partidas manuales, y ampliar claridad, accesibilidad y opciones de control; verificar que el estado lógico y el físico no confunden al jugador en casos de colisión o piezas desplazadas.
-- Preparar exportaciones para los sistemas objetivo y probar instalación, inicio, rendimiento y regresiones en equipos reales.
+Estado a 7 de noviembre de 2026. La prueba con personas está descrita en [PRUEBAS.md](PRUEBAS.md).
+
+- [x] **Renderizador real**: revisión visual de las 16 escenas a 1280×720 y 1024×600 con OpenGL por software. Corregidos los avatares tapados o cortados y la pista que tapaba nombres. *Falta una pasada con GPU real.*
+- [x] **Pausa y salida**: comprobadas automáticamente en 12 mesas (`tests/playthroughs.gd`).
+- [x] **Partidas completas** de cada variante con reglas, con física real: ajedrez, damas, dominó, ludo e isla de recursos terminan y cada pieza física acaba donde dice el estado lógico. Masas y fuerzas ajustadas: las piezas que van lejos vuelan por encima de las demás y los caminos de la isla ya no empujan pueblos.
+- [x] **Guardados**: escritura atómica con copia anterior, probada en los tests de cada juego. *No se garantiza durabilidad ante cortes de corriente en todos los sistemas ni hay bloqueo entre instancias.*
+- [ ] **Controles con personas**: agarre (dos modos), soltar sobre la interfaz y fuera de la ventana, bloqueo, inspección, vistas y deshacer, con 3 personas ajenas ([PRUEBAS.md](PRUEBAS.md)).
+- [x] **Exportaciones**: Linux arranca y abre todas las mesas (también en CI). *Windows y macOS están exportados pero sin probar en equipos reales.*
 
 ## Más allá de la beta local básica
 

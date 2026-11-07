@@ -40,6 +40,14 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 - **Dibujos guardados** con la mesa libre.
 - **Medidor de tirones** (F3) para diagnosticar rendimiento en equipos reales.
 
+### Cierre técnico de la fase 0 (7 de noviembre de 2026)
+
+- `tests/playthroughs.gd`: partidas completas en ajedrez, damas, dominó, ludo e isla con física real, más pausa y salida en 12 mesas.
+- `HomeSteering`: las piezas que van lejos (comidas, cadena del dominó, ladrón) vuelan por encima de las demás sin chocar y aterrizan en su casa; el ajedrez se mantiene derecho.
+- Bot de la isla de recursos (`TableBots.island_action`).
+- `-- --prueba-arranque` y paso de CI que arranca el ejecutable de Linux y abre todas las mesas.
+- [PRUEBAS.md](PRUEBAS.md): protocolo para la prueba con 3 personas, lo único que falta para cerrar la fase.
+
 ## Pendiente para completar el GDD
 
 1. Robustecer el ajedrez con pruebas exhaustivas de reglas, casos límite, accesibilidad, relojes, una IA más avanzada para distintos niveles y juego libre opcional.

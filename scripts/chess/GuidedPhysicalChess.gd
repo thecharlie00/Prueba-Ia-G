@@ -90,17 +90,8 @@ func _physics_process(_delta: float) -> void:
 		var piece := key as PhysicalChessPiece
 		if not is_instance_valid(piece) or piece == grabber.held or piece.freeze:
 			continue
-		var home: Vector3 = homes[piece]
-		var displacement := Vector3(
-			home.x - piece.global_position.x, 0, home.z - piece.global_position.z
-		)
-		var velocity := Vector3(piece.linear_velocity.x, 0, piece.linear_velocity.z)
-		if displacement.length() < 0.015 and velocity.length() < 0.03:
-			continue
-		var acceleration := displacement * SPRING - velocity * DAMPING
-		if piece.sleeping:
-			piece.sleeping = false
-		piece.apply_central_force(acceleration.limit_length(MAX_ACCELERATION) * piece.mass)
+		# Vuela por encima del rey (la pieza más alta) y se mantiene derecha.
+		HomeSteering.steer(piece, homes[piece], SPRING, DAMPING, MAX_ACCELERATION, 0.85, true)
 
 
 func _on_grab_started(object: InteractiveTableObject) -> void:
