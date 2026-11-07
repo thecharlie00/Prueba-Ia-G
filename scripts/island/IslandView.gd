@@ -125,16 +125,8 @@ func _physics_process(delta: float) -> void:
 		var piece := key as IslandPiece3D
 		if not is_instance_valid(piece) or piece == grabber.held or piece.freeze:
 			continue
-		var home: Vector3 = homes[piece]
-		var displacement := Vector3(
-			home.x - piece.global_position.x, 0, home.z - piece.global_position.z
-		)
-		var velocity := Vector3(piece.linear_velocity.x, 0, piece.linear_velocity.z)
-		if displacement.length() >= 0.012 or velocity.length() >= 0.03:
-			var acceleration := displacement * 28.0 - velocity * 9.0
-			if piece.sleeping:
-				piece.sleeping = false
-			piece.apply_central_force(acceleration.limit_length(20.0) * piece.mass)
+		# El ladrón cruza la isla volando por encima de pueblos y caminos (HomeSteering).
+		HomeSteering.steer(piece, homes[piece], 28.0, 9.0, 20.0)
 		if road_rotations.has(piece):
 			_steer_road(piece, road_rotations[piece])
 
@@ -190,7 +182,8 @@ var seats: TableSeats
 
 
 func _make_seats() -> void:
-	var angles := [90, 180, 270, 0]
+	# J2 y J3 hacia el fondo: a la izquierda del todo quedaban detrás del panel.
+	var angles := [90, 212, 290, 0]
 	var spots := TableSeats.ring(Vector3.ZERO, 2.9, -0.15, angles.slice(0, rules.players))
 	var names := ["Naranja", "Azul", "Rojo", "Blanco"]
 	for player in range(rules.players):

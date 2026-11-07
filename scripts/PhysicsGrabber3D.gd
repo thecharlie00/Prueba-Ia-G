@@ -452,6 +452,9 @@ func _begin_grab(mouse: Vector2) -> void:
 	_target = point + _grab_offset
 	_grab_start_position = held.global_position
 	held.on_grab()
+	# Una pieza que volaba hacia su casa recupera las colisiones al cogerla con la mano.
+	if HomeSteering.is_traveling(held):
+		HomeSteering.land(held)
 	grab_started.emit(held)
 	if click_to_grab:
 		placement_message.emit("Ficha sujeta: haz clic de nuevo para soltarla.")
