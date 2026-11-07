@@ -24,7 +24,7 @@ var _last_process_ms := 0.0
 var _last_event_cost := ""
 ## Prueba A/B del tirón del dado (F4 con el medidor abierto): qué partes del resultado se
 ## desactivan para ver cuál provoca el parón en un equipo concreto.
-const DICE_MODES := ["normal", "sin número", "sin sonido", "sin número ni sonido", "sin aviso a la mesa", "sin chispas"]
+const DICE_MODES := ["normal", "sin número", "sin sonido", "sin número ni sonido", "sin aviso a la mesa"]
 var dice_mode := 0
 
 
@@ -64,8 +64,6 @@ func dice_part_enabled(part: String) -> bool:
 			return dice_mode != 2 and dice_mode != 3
 		"signal":
 			return dice_mode != 4
-		"sparks":
-			return dice_mode != 5
 	return true
 
 

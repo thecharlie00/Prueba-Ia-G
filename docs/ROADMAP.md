@@ -80,7 +80,7 @@ Es la diferencia que se ve en una captura de Steam, así que va antes que el onl
 - [x] **Rediseño de piezas**: kit de formas común para dados, dominó, cartas, fichas, ajedrez, damas, ludo e isla (casillas 3D con paisaje; pueblo, ciudad y camino con silueta propia).
 - [x] **Cartas**: arte vectorial para la baraja inglesa y la española, el reverso y las cartas de la isla; manos de cartas en 3D sujetas delante de la cámara.
 - [x] **Mesa y entorno**: suelo de tablones, alfombra y habitación con paredes de una cara, ventana, estantería y planta.
-- [x] **"Juice"**: estirar y aplastar al agarrar y soltar, chispas y número que salta al resolverse un dado, con opción de **reducir animaciones**. Volcar la mesa ya hace temblar la cámara.
+- [x] **"Juice"**: estirar y aplastar al agarrar y soltar, número que salta en el centro de la pantalla al resolverse un dado, con opción de **reducir animaciones**. Volcar la mesa ya hace temblar la cámara.
 - [x] **Audio**: efectos generados por código (agarrar, soltar, dados, cartas, botones, turno), con opción para apagarlos. *Falta música ambiental y volúmenes separados.*
 - [x] **UI cartoon**: tema común, fuentes Lilita One y Nunito, información en la mesa (jugadores sentados, cartel de turno, barra de acciones, cajón «Partida»). Cada juego tiene su color de acento y su emblema (`GameThemes`). *La isla y el ludo conservan su panel de acciones.*
 - [x] Mantener la **legibilidad**: jugadores con número y nombre además del color; números de la isla con puntos de probabilidad; cartas con índice en dos esquinas.

@@ -15,17 +15,10 @@ var _awaiting_result := false
 var _pop: DicePop
 
 
-## Una vez por partida basta: los shaders y los glifos quedan preparados.
-static var _effects_warmed := false
-
-
 func _ready() -> void:
 	super._ready()
 	sleeping_state_changed.connect(_on_sleeping_changed)
 	_make_pips()
-	if not _effects_warmed and DisplayServer.get_name() != "headless":
-		_effects_warmed = true
-		_warm_up_effects.call_deferred()
 
 
 func roll(impulse_scale: float = 1.0) -> void:
@@ -120,8 +113,8 @@ func _make_pips() -> void:
 			pip_parent.add_child(pip)
 
 
-## Al quedar quieto: el número salta encima del dado y salen chispas de colores
-## (sin chispas ni salto con "Reducir animaciones").
+## Al quedar quieto: suena y el número del resultado salta en el centro de la pantalla
+## (sin salto con "Reducir animaciones").
 func _celebrate(value: int) -> void:
 	if not is_inside_tree():
 		return
@@ -131,20 +124,11 @@ func _celebrate(value: int) -> void:
 	var style := get_node_or_null("/root/ToonStyle")
 	var calm: bool = style != null and style.reduce_motion
 	var host := _effects_host()
-	# Número dibujado con la interfaz 2D siguiendo al dado (DicePop), uno por dado.
+	# Número dibujado con la interfaz 2D (DicePop), uno por dado.
 	if not is_instance_valid(_pop):
 		_pop = DicePop.new()
 		DicePop.layer_for(host).add_child(_pop)
 	_pop.show_value(value, self, calm)
-	if calm:
-		return
-	if meter != null and not meter.dice_part_enabled("sparks"):
-		return
-	var sparks := _make_sparks()
-	host.add_child(sparks)
-	sparks.global_position = global_position + Vector3.UP * 0.3
-	sparks.emitting = true
-	get_tree().create_timer(1.2).timeout.connect(sparks.queue_free)
 
 
 ## Los efectos van a la raíz de la escena, no junto a las piezas: así guardar y el
@@ -158,58 +142,6 @@ func _effects_host() -> Node:
 	while node.get_parent() != null and node.get_parent() != get_tree().root:
 		node = node.get_parent()
 	return node if node != self else get_parent()
-
-
-static func _make_sparks() -> CPUParticles3D:
-	var sparks := CPUParticles3D.new()
-	sparks.name = "ResultSparks"
-	sparks.one_shot = true
-	sparks.emitting = false
-	sparks.amount = 16
-	sparks.lifetime = 0.7
-	sparks.explosiveness = 1.0
-	sparks.direction = Vector3.UP
-	sparks.spread = 70.0
-	sparks.initial_velocity_min = 1.6
-	sparks.initial_velocity_max = 2.8
-	sparks.scale_amount_min = 0.6
-	sparks.scale_amount_max = 1.2
-	sparks.mesh = _spark_mesh()
-	var colors := Gradient.new()
-	colors.offsets = PackedFloat32Array([0.0, 0.33, 0.66, 1.0])
-	colors.colors = PackedColorArray([Palette.SUN, Palette.CORAL, Palette.MINT, Palette.PLAYER_BLUE])
-	sparks.color_initial_ramp = colors
-	return sparks
-
-
-static func _spark_mesh() -> SphereMesh:
-	var dot := SphereMesh.new()
-	dot.radius = 0.035
-	dot.height = 0.07
-	dot.radial_segments = 8
-	dot.rings = 4
-	var spark_material := StandardMaterial3D.new()
-	spark_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	spark_material.vertex_color_use_as_albedo = true
-	dot.material = spark_material
-	return dot
-
-
-## Precalentado: la primera vez que se dibujan el número y las chispas el driver compila sus
-## shaders y se generan los glifos, y eso congelaba el juego un momento justo al salir el
-## resultado. Se dibujan una vez, casi invisibles, al cargar la mesa.
-func _warm_up_effects() -> void:
-	var host := _effects_host()
-	var sparks := _make_sparks()
-	sparks.amount = 1
-	sparks.scale_amount_min = 0.01
-	sparks.scale_amount_max = 0.01
-	host.add_child(sparks)
-	sparks.global_position = global_position
-	sparks.emitting = true
-	for i in 3:
-		await get_tree().process_frame
-	sparks.queue_free()
 
 
 func _exit_tree() -> void:
