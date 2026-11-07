@@ -1,21 +1,20 @@
 class_name DicePop
 extends Label
-## Número que salta encima del dado al salir el resultado.
+## Número del resultado del dado, en el centro de la pantalla.
 ##
-## Se dibuja con la interfaz 2D, pero colocado y escalado según la cámara para que se vea
-## como antes: encima del dado, más pequeño cuanto más lejos. Las dos versiones 3D (Label3D
+## Sale en el centro de la pantalla, grande, con rebote y desvanecido. Las versiones 3D (Label3D
 ## y luego Sprite3D con imágenes ya hechas) congelaban ~0,4 s cada tirada en el equipo de
 ## Carlos (medido con F3/F4); la interfaz 2D es el mismo camino que usa el HUD, que no da
 ## problemas.
 
-const HEIGHT := 0.65
 const RISE := 0.35
-## Altura del número en la mesa, en metros (para calcular su tamaño en pantalla).
-const WORLD_SIZE := 0.55
 const BASE_FONT := 96
+## Tamaño en pantalla (respecto a la letra base) y subida del salto, en píxeles.
+const SCREEN_SCALE := 1.6
+const RISE_PIXELS := 40.0
 
 var anchor: Node3D
-## Animados por la tirada: subida en metros y escala del rebote.
+## Animados por la tirada: subida (0 a RISE) y escala del rebote.
 var rise := 0.0
 var pop_scale := 1.0
 var _tween: Tween
@@ -93,17 +92,15 @@ func _follow() -> void:
 	if not is_instance_valid(anchor) or not anchor.is_inside_tree():
 		hide()
 		return
-	var camera := get_viewport().get_camera_3d()
-	if camera == null:
-		return
-	var point := anchor.global_position + Vector3.UP * (HEIGHT + rise)
-	if camera.is_position_behind(point):
-		self_modulate.a = 0.0
-		return
-	self_modulate.a = 1.0
-	var center := camera.unproject_position(point)
-	# Tamaño en pantalla de WORLD_SIZE metros a esa distancia: perspectiva como en 3D.
-	var top := camera.unproject_position(point + camera.global_basis.y * WORLD_SIZE)
-	var perspective := clampf(center.distance_to(top) / (BASE_FONT * 0.72), 0.25, 3.0)
-	scale = Vector2.ONE * perspective * pop_scale
+	# En el centro de la pantalla, no sobre el dado. Si salen varios a la vez (los dos dados
+	# de la isla), se colocan uno al lado del otro.
+	var screen := get_viewport().get_visible_rect().size
+	var shown: Array[Node] = []
+	for sibling in get_parent().get_children():
+		if sibling is DicePop and sibling.visible:
+			shown.append(sibling)
+	var index := shown.find(self)
+	var spread := (index - (shown.size() - 1) * 0.5) * size.x * 1.15 * SCREEN_SCALE
+	var center := screen * 0.5 + Vector2(spread, -rise * RISE_PIXELS / RISE)
+	scale = Vector2.ONE * SCREEN_SCALE * pop_scale
 	position = center - size * 0.5
