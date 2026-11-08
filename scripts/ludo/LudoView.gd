@@ -495,9 +495,15 @@ func _physics_process(delta: float) -> void:
 			# Una ficha parada a varios centímetros de su sitio (porque se formó o deshizo una
 			# barrera, o la empujó otra) no se mueve con esta fuerza: el rozamiento la frena.
 			# Se la vuelve a llevar por el aire, como en un movimiento.
-			if displacement.length() > STALL_DISTANCE and velocity.length() < 0.05:
-				_stalled[token] = float(_stalled.get(token, 0.0)) + delta
-				if _stalled[token] >= STALL_TIME:
+			# Se mide si se ha desplazado de verdad, no la velocidad: encajada contra otra ficha
+			# tiembla con algo de velocidad sin avanzar.
+			if displacement.length() > STALL_DISTANCE:
+				var stall: Dictionary = _stalled.get(token, {"at": token.global_position, "time": 0.0})
+				if token.global_position.distance_to(stall["at"]) > 0.02:
+					stall = {"at": token.global_position, "time": 0.0}
+				stall["time"] = float(stall["time"]) + delta
+				_stalled[token] = stall
+				if stall["time"] >= STALL_TIME:
 					_stalled.erase(token)
 					in_transit[token] = false
 					continue
