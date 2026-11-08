@@ -25,6 +25,17 @@ var die: Dice3D
 var tokens: Array = []
 var markers: Array[MeshInstance3D] = []
 var in_transit: Dictionary = {}
+## Tiempo que lleva cada ficha quieta lejos de su sitio (ver _physics_process).
+var _stalled: Dictionary = {}
+## Tiempo en tránsito sin haber podido subir (otra ficha encima): pasado un momento, se desliza.
+var _lift_wait: Dictionary = {}
+const LIFT_PATIENCE := 0.6
+## Último recurso: una ficha que lleva tanto tiempo en tránsito sin llegar se recoloca encima
+## de su casilla (como la tecla H de recuperar en la mesa libre).
+const TRANSIT_LIMIT := 3.0
+var _transit_time: Dictionary = {}
+const STALL_DISTANCE := 0.06
+const STALL_TIME := 0.5
 var waiting_roll := false
 var stable_time := 0.0
 var stuck_time := 0.0
@@ -184,8 +195,8 @@ func _token_position(player: int, token: int, progress: int) -> Vector3:
 	return _track_position(LudoRules.track_square(player, progress)) + _share_offset(player, token, progress)
 
 
-# Parchís: dos fichas en la misma casilla (barrera o seguro compartido) se ponen una al lado
-# de la otra, en el sentido del recorrido, para que no se monten.
+# Parchís: dos fichas en la misma casilla (barrera o seguro compartido) se ponen una hacia
+# dentro y otra hacia fuera del anillo; a lo largo del recorrido chocarían con las vecinas.
 func _share_offset(player: int, token: int, progress: int) -> Vector3:
 	if rules == null or not rules.is_parchis():
 		return Vector3.ZERO
@@ -201,11 +212,25 @@ func _share_offset(player: int, token: int, progress: int) -> Vector3:
 	if mates.size() < 2:
 		return Vector3.ZERO
 	mates.sort()
-	var side := -1.0 if mates.find(Vector2i(player, token)) == 0 else 1.0
 	var here := _track_position(LudoRules.track_square(player, progress)) if progress < 52 else _lane_position(player, progress)
 	var outward := Vector3(here.x - CENTER.x, 0, here.z - CENTER.z).normalized()
-	var along := Vector3(-outward.z, 0, outward.x)
-	return along * side * 0.075
+	if progress >= 52:
+		# En el pasillo de meta, de lado (las casillas del pasillo van hacia el centro).
+		outward = Vector3(-outward.z, 0, outward.x)
+	# Cada ficha va al lado en el que ya está: con un orden fijo, dos fichas cruzadas se
+	# empujarían una contra otra sin poder pasar.
+	var other: Vector2i = mates[1] if mates[0] == Vector2i(player, token) else mates[0]
+	var mine := _side_value(player, token, outward)
+	var theirs := _side_value(other.x, other.y, outward)
+	var side := 1.0 if mine > theirs or (is_equal_approx(mine, theirs) and mates.find(Vector2i(player, token)) == 1) else -1.0
+	return outward * side * 0.08
+
+
+func _side_value(player: int, token: int, axis: Vector3) -> float:
+	if player >= tokens.size() or token >= tokens[player].size():
+		return 0.0
+	var body: Token3D = tokens[player][token]
+	return snappedf(Vector3(body.global_position.x - CENTER.x, 0, body.global_position.z - CENTER.z).dot(axis), 0.01)
 
 
 func _make_tokens() -> void:
@@ -467,6 +492,23 @@ func _physics_process(delta: float) -> void:
 				target.x - token.global_position.x, 0, target.z - token.global_position.z
 			)
 			var velocity := Vector3(token.linear_velocity.x, 0, token.linear_velocity.z)
+			# Una ficha parada a varios centímetros de su sitio (porque se formó o deshizo una
+			# barrera, o la empujó otra) no se mueve con esta fuerza: el rozamiento la frena.
+			# Se la vuelve a llevar por el aire, como en un movimiento.
+			# Se mide si se ha desplazado de verdad, no la velocidad: encajada contra otra ficha
+			# tiembla con algo de velocidad sin avanzar.
+			if displacement.length() > STALL_DISTANCE:
+				var stall: Dictionary = _stalled.get(token, {"at": token.global_position, "time": 0.0})
+				if token.global_position.distance_to(stall["at"]) > 0.02:
+					stall = {"at": token.global_position, "time": 0.0}
+				stall["time"] = float(stall["time"]) + delta
+				_stalled[token] = stall
+				if stall["time"] >= STALL_TIME:
+					_stalled.erase(token)
+					in_transit[token] = false
+					continue
+			else:
+				_stalled.erase(token)
 			if displacement.length() > 0.012 or velocity.length() > 0.03:
 				token.sleeping = false
 				token.apply_central_force(
@@ -477,24 +519,42 @@ func _physics_process(delta: float) -> void:
 func _steer_in_transit(token: Token3D, target: Vector3) -> void:
 	# Sube primero para no quedar atascada en las demás fichas de la casa.
 	var traveling: bool = in_transit[token]
-	if not traveling and token.global_position.y >= 1.02:
+	_transit_time[token] = float(_transit_time.get(token, 0.0)) + get_physics_process_delta_time()
+	if _transit_time[token] >= TRANSIT_LIMIT:
+		token.global_position = target + Vector3.UP * 0.12
+		token.linear_velocity = Vector3.ZERO
+		token.angular_velocity = Vector3.ZERO
+		_finish_transit(token)
+		return
+	if not traveling:
+		_lift_wait[token] = float(_lift_wait.get(token, 0.0)) + get_physics_process_delta_time()
+	if not traveling and (token.global_position.y >= 1.02 or _lift_wait[token] >= LIFT_PATIENCE):
 		traveling = true
 		in_transit[token] = true
+		_lift_wait.erase(token)
 	var displacement := Vector3(
 		target.x - token.global_position.x, 0, target.z - token.global_position.z
 	)
 	if traveling and displacement.length() < 0.035:
-		in_transit.erase(token)
+		_finish_transit(token)
 		return
 	if not traveling:
 		displacement = Vector3.ZERO
-	var acceleration := (
-		displacement * 28.0 - Vector3(token.linear_velocity.x, 0, token.linear_velocity.z) * 9.0
-	)
+	var pull := displacement * 28.0
+	if traveling and token.global_position.y < 1.0 and displacement.length() > 0.035:
+		# Deslizándose (no pudo subir): empuje mínimo para vencer el rozamiento de otra ficha encima.
+		pull = displacement.normalized() * maxf(pull.length(), 16.0)
+	var acceleration := pull - Vector3(token.linear_velocity.x, 0, token.linear_velocity.z) * 9.0
 	acceleration.y = (1.07 - token.global_position.y) * 45.0 - token.linear_velocity.y * 12.0
 	acceleration.y += float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
 	token.sleeping = false
 	token.apply_central_force(acceleration.limit_length(40.0) * token.mass)
+
+
+func _finish_transit(token: Token3D) -> void:
+	in_transit.erase(token)
+	_lift_wait.erase(token)
+	_transit_time.erase(token)
 
 
 func _update_die(delta: float) -> void:

@@ -148,7 +148,7 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 - [x] Bots básicos para completar mesas en ludo (cualquier jugador), dominó (jugador 2) y damas (oscuras, minimax a 2 jugadas); el ajedrez ya tenía IA.
 - [ ] Localización revisada: español, catalán e inglés; después francés, alemán, portugués.
 - [ ] Página de Steam con capturas y tráiler cartoon.
-- [ ] **Demo gratuita** con los modos locales y unión a salas online (ver §5).
+- [x] **Demo gratuita** local: mesa libre, brisca y parchís, exportada con la característica `demo` (presets propios en la CI). Pendiente: unión a salas online (ver §5).
 - [ ] Precio de 9,99 € y precios regionales (ver §5 y `docs/MODELO-NEGOCIO.md`); pack de 4 cuando llegue el online.
 - [ ] Rama beta pública para probar cada actualización antes de publicarla.
 - [ ] Objetivo **Steam Deck Verified** y Linux nativo.

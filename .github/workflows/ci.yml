@@ -55,6 +55,10 @@ jobs:
             dir: linux
           - preset: macOS
             dir: macos
+          - preset: Demo Windows
+            dir: demo-windows
+          - preset: Demo Linux
+            dir: demo-linux
     steps:
       - uses: actions/checkout@v4
 
@@ -95,6 +99,16 @@ jobs:
           sudo apt-get update -q >/dev/null && sudo apt-get install -y -q xvfb libgl1-mesa-dri >/dev/null || true
           xvfb-run -a -s "-screen 0 1280x720x24" timeout 900 build/linux/Tablerama.x86_64 \
             --rendering-driver opengl3 --resolution 1280x720 -- --prueba-arranque 2>&1 | tee arranque.log
+          grep -q "PRUEBA DE ARRANQUE: correcta" arranque.log
+          ! grep -E "^SCRIPT ERROR" arranque.log
+
+      - name: Prueba de arranque (demo para Linux)
+        if: matrix.preset == 'Demo Linux'
+        run: |
+          sudo apt-get update -q >/dev/null && sudo apt-get install -y -q xvfb libgl1-mesa-dri >/dev/null || true
+          xvfb-run -a -s "-screen 0 1280x720x24" timeout 900 build/demo-linux/TableramaDemo.x86_64 \
+            --rendering-driver opengl3 --resolution 1280x720 -- --prueba-arranque 2>&1 | tee arranque.log
+          grep -q "PRUEBA DE ARRANQUE: edición demo" arranque.log
           grep -q "PRUEBA DE ARRANQUE: correcta" arranque.log
           ! grep -E "^SCRIPT ERROR" arranque.log
 

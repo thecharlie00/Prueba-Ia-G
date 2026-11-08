@@ -36,6 +36,7 @@ func _build() -> void:
 	)
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(subtitle)
+	_demo_banner(column)
 	var scroll := ScrollContainer.new()
 	scroll.name = "GameList"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -49,6 +50,13 @@ func _build() -> void:
 	_group(list, "EMPIEZA AQUÍ", "Aprende a jugar en la mesa libre en tres minutos, paso a paso.")
 	var tutorial := _game(list, "Tutorial", "Tutorial jugable", "res://scenes/Main.tscn")
 	tutorial.pressed.connect(func() -> void: Tutorial.requested = true)
+	var edition := get_node_or_null("/root/Edition")
+	if edition != null and edition.demo:
+		# Demo: lo que se puede jugar, arriba del todo.
+		_group(list, "INCLUIDO EN LA DEMO", "Mesa libre y dos juegos completos con reglas y bots.")
+		_game(list, "DemoBrisca", "Brisca · 2 jugadores", "res://scenes/Brisca.tscn")
+		_game(list, "DemoParchis", "Parchís · 4 jugadores", "res://scenes/Parchis.tscn")
+		_game(list, "DemoSandbox", "Abrir mesa libre", "res://scenes/Main.tscn")
 	_group(list, "ISLA DE RECURSOS", "Tres o cuatro jugadores · estrategia inspirada en Catán.")
 	_game(list, "Island", "Isla de recursos · 3 jugadores", "res://scenes/Island.tscn")
 	_game(list, "IslandFour", "Isla de recursos · 4 jugadores", "res://scenes/IslandFour.tscn")
@@ -125,6 +133,8 @@ func _build() -> void:
 	quit_button.pressed.connect(get_tree().quit)
 	column.add_child(quit_button)
 	var first := list.get_node("Island") as Button
+	if first.disabled:
+		first = list.get_node("Tutorial") as Button
 	first.grab_focus()
 
 
@@ -158,8 +168,45 @@ func _game(parent: VBoxContainer, id: String, title: String, scene: String) -> B
 	button.add_theme_stylebox_override("pressed", _style(ACCENT, true))
 	button.add_theme_stylebox_override("focus", _focus_style())
 	button.pressed.connect(_open.bind(scene))
+	var edition := get_node_or_null("/root/Edition")
+	if edition != null and not edition.allows(scene):
+		# Demo: la mesa se ve, pero se abre en el juego completo.
+		button.disabled = true
+		button.tooltip_text = "Incluida en el juego completo"
+		button.add_theme_stylebox_override("disabled", _style(Color("8f8aa8")))
+		button.add_theme_color_override("font_disabled_color", Color("3b3760"))
 	parent.add_child(button)
 	return button
+
+
+## Demo: cartel con lo que incluye y, si ya hay página de tienda, el botón para apuntarse.
+func _demo_banner(column: VBoxContainer) -> void:
+	var edition := get_node_or_null("/root/Edition")
+	if edition == null or not edition.demo:
+		return
+	var banner := PanelContainer.new()
+	banner.name = "DemoBanner"
+	banner.add_theme_stylebox_override("panel", _style(ACCENT))
+	column.add_child(banner)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	banner.add_child(row)
+	var text := _label("DEMO GRATUITA · Mesa libre, brisca y parchís. El resto de mesas, en el juego completo.", 15, INK)
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text)
+	if not str(edition.STORE_URL).is_empty():
+		var store := Button.new()
+		store.name = "Store"
+		store.text = "Añadir a la lista de deseados"
+		store.pressed.connect(func() -> void: OS.shell_open(edition.STORE_URL))
+		row.add_child(store)
+	if not str(edition.notice).is_empty():
+		var notice := _label(edition.notice, 14, Color("ff9a8c"))
+		notice.name = "DemoNotice"
+		notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(notice)
+		edition.notice = ""
 
 
 func _open(path: String) -> void:
