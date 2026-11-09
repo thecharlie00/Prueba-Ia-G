@@ -2,7 +2,17 @@ extends CanvasLayer
 
 signal controls_changed(click_to_grab: bool)
 
-const MENU_PATH := "res://scenes/Menu.tscn"
+const MENU_PATH := "res://scenes/BotMenu.tscn"
+
+## Pantallas de menú (no son mesas): en ellas no aparecen los botones de
+## sesión ni la pausa. La salida desde una mesa siempre vuelve al menú principal.
+const MENU_SCENES := [
+	"res://scenes/BotMenu.tscn",
+	"res://scenes/ModeSelect.tscn",
+	"res://scenes/Menu.tscn",
+	"res://scenes/BotSelect.tscn",
+]
+
 var settings_path := "user://diceon_controls.cfg"
 var click_to_grab := false
 var controls_status: Label
@@ -24,6 +34,10 @@ var _visible := false
 ## Hueco que se deja a la derecha para el botón «Partida» del HUD de la mesa.
 const HUD_RESERVE := 172.0
 var _top_reserve := -1.0
+
+
+func _in_game(scene: Node) -> bool:
+	return scene != null and not MENU_SCENES.has(scene.scene_file_path)
 
 
 func _ready() -> void:
@@ -220,7 +234,7 @@ func set_click_to_grab(enabled: bool) -> void:
 
 func _process(_delta: float) -> void:
 	var scene := get_tree().current_scene
-	var in_game := scene != null and scene.scene_file_path != MENU_PATH
+	var in_game := _in_game(scene)
 	menu_button.visible = in_game and not _visible
 	help_button.visible = in_game and not _visible
 	# Las mesas con HUD tienen su botón «Partida» en la esquina: los botones de sesión se
@@ -249,13 +263,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		if not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed:
 			var scene := get_tree().current_scene
-			if scene != null and scene.scene_file_path != MENU_PATH:
+			if _in_game(scene):
 				_toggle_help()
 				get_viewport().set_input_as_handled()
 			return
 	if event is InputEventKey and event.keycode == KEY_ESCAPE and event.pressed and not event.echo:
 		var scene := get_tree().current_scene
-		if scene != null and scene.scene_file_path != MENU_PATH:
+		if _in_game(scene):
 			_toggle()
 			get_viewport().set_input_as_handled()
 
