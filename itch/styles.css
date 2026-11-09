@@ -1,0 +1,520 @@
+/* ==========================================================================
+   Tablerama · página de demo para itch.io
+   Paleta y lenguaje visual de ToonStyle (scripts/style/ToonStyle.gd,
+   docs/ARTE.md): cartoon de mesa, contornos de tinta, botones redondeados.
+   ========================================================================== */
+
+:root {
+  --ink:        #1d1a3a;   /* INK      — contornos y bordes */
+  --panel:      #2a2552;   /* PANEL    — fondo de paneles */
+  --panel-2:    #352f5e;   /* panel atenuado para bloques alternos */
+  --paper:      #fff8ec;   /* PAPER    — texto sobre paneles */
+  --sun:        #ffc83d;   /* SUN      — acentos y botones principales */
+  --sun-light:  #ffd96e;   /* SUN_LIGHT— hover */
+  --lavender:   #c9c5ef;   /* LAVENDER — texto secundario */
+  --muted:      #8b87b3;   /* MUTED    — texto muxo */
+  --felt:       #1e7a5f;   /* FELT     — acentos secundarios */
+  --radius:     14px;
+  --radius-sm:  10px;
+  --border:     3px solid var(--ink);
+  --maxw:       1080px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--panel);
+  color: var(--paper);
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+  padding-top: 76px;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: var(--sun-light);
+}
+
+h1, h2, h3 {
+  color: var(--paper);
+  line-height: 1.25;
+}
+
+/* ============================== TOPBAR ============================== */
+
+.topbar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 60px;
+  background: var(--panel);
+  border-bottom: var(--border);
+  z-index: 10;
+}
+
+.topbar-inner {
+  max-width: var(--maxw);
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.logo {
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--paper);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.topnav {
+  display: flex;
+  gap: 18px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.topnav a {
+  color: var(--lavender);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 4px;
+  border-bottom: 3px solid transparent;
+}
+
+.topnav a:hover {
+  color: var(--paper);
+  border-bottom-color: var(--sun);
+}
+
+/* ============================== BOTONES ============================== */
+
+.btn {
+  display: inline-block;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+  border: var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.05s;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: var(--sun);
+  color: var(--ink);
+}
+
+.btn-primary:hover {
+  background: var(--sun-light);
+}
+
+.btn-secondary {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.btn-secondary:hover {
+  background: var(--lavender);
+}
+
+.btn-sm {
+  padding: 8px 14px;
+  font-size: 14px;
+  border-radius: var(--radius-sm);
+}
+
+.btn-lg {
+  padding: 14px 28px;
+  font-size: 17px;
+}
+
+/* ============================== LAYOUT ============================== */
+
+main {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.block {
+  padding: 48px 0 8px;
+}
+
+.block-alt {
+  background: var(--panel-2);
+  border-top: var(--border);
+  border-bottom: var(--border);
+  max-width: var(--maxw);
+  margin: 40px auto;
+  padding: 48px 20px 56px;
+  border-radius: var(--radius);
+}
+
+.block-head {
+  margin-bottom: 24px;
+}
+
+.block-head h2 {
+  font-size: 30px;
+}
+
+.block-sub {
+  color: var(--lavender);
+  max-width: 720px;
+  margin-top: 10px;
+}
+
+.eyebrow {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--sun);
+}
+
+/* ============================== HERO ============================== */
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 40px;
+  align-items: center;
+  padding: 56px 0 40px;
+}
+
+.hero h1 {
+  font-size: 64px;
+  margin: 10px 0 16px;
+  letter-spacing: 1px;
+}
+
+.hero .tagline {
+  color: var(--lavender);
+  font-size: 18px;
+  max-width: 560px;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 16px;
+  margin: 28px 0 18px;
+  flex-wrap: wrap;
+}
+
+.hero-foot {
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 560px;
+}
+
+.hero-shot {
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #1b1840;
+}
+
+.hero-shot img {
+  width: 100%;
+}
+
+.hero-shot figcaption {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--lavender);
+  background: var(--panel);
+  border-top: var(--border);
+}
+
+/* ============================== TARJETAS / GAMES ============================== */
+
+.cards-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.cards-2 {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.card {
+  background: var(--panel);
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.card h3 {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.card p {
+  color: var(--lavender);
+  font-size: 15px;
+}
+
+.card .tag {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--sun);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px;
+}
+
+.game {
+  background: var(--panel);
+  border: var(--border);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  transition: transform 0.1s, border-color 0.15s;
+}
+
+.game:hover {
+  transform: translateY(-3px);
+  border-color: var(--sun);
+}
+
+.game h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.game p {
+  color: var(--lavender);
+  font-size: 14px;
+}
+
+.game-meta {
+  margin-top: 10px !important;
+  font-size: 12px !important;
+  font-weight: 700;
+  color: var(--sun) !important;
+  letter-spacing: 0.4px;
+}
+
+.game-featured {
+  grid-column: span 2;
+  background: #312b57;
+  border-color: var(--sun);
+}
+
+/* ============================== CARACTERÍSTICAS ============================== */
+
+.feature-list {
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+
+.feature-list li {
+  position: relative;
+  padding-left: 30px;
+  color: var(--lavender);
+  font-size: 15px;
+}
+
+.feature-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--sun);
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.feature-list strong {
+  color: var(--paper);
+}
+
+kbd {
+  display: inline-block;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--ink);
+  border-bottom-width: 4px;
+  border-radius: 6px;
+  padding: 0 6px;
+}
+
+/* ============================== CAPTURA ============================== */
+
+.shot {
+  margin-top: 26px;
+  border: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #1b1840;
+}
+
+.shot:first-child {
+  margin-top: 0;
+}
+
+.shot img {
+  width: 100%;
+}
+
+.shot figcaption {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--lavender);
+  background: var(--panel);
+  border-top: var(--border);
+}
+
+/* ============================== FAQ ============================== */
+
+.faq {
+  background: var(--panel);
+  border: var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 14px;
+  padding: 14px 20px;
+}
+
+.faq summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--paper);
+  font-size: 16px;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.faq summary::after {
+  content: "＋";
+  color: var(--sun);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.faq[open] summary::after {
+  content: "－";
+}
+
+.faq p {
+  margin-top: 10px;
+  color: var(--lavender);
+  font-size: 14px;
+}
+
+/* ============================== CTA FINAL ============================== */
+
+.cta {
+  text-align: center;
+  padding: 64px 0 72px;
+}
+
+.cta h2 {
+  font-size: 34px;
+}
+
+.cta p {
+  color: var(--lavender);
+  margin: 10px 0 26px;
+}
+
+.cta .hero-actions {
+  justify-content: center;
+}
+
+/* ============================== FOOTER ============================== */
+
+.footer {
+  border-top: var(--border);
+  background: var(--panel);
+}
+
+.footer-inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 22px 20px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* ============================== RESPONSIVE ============================== */
+
+@media (max-width: 860px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+
+  .hero h1 {
+    font-size: 48px;
+  }
+
+  .cards-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .game-featured {
+    grid-column: span 1;
+  }
+
+  .topnav {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero h1 {
+    font-size: 40px;
+  }
+
+  .block-head h2 {
+    font-size: 24px;
+  }
+
+  .btn-lg {
+    width: 100%;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+}

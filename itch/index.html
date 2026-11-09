@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<!--
+  Página de demo de Tablerama para itch.io.
+  Uso: subir la carpeta itch/ (o pegar su contenido) y publicar.
+  Los enlaces con href="#" son marcadores: sustituir por la URL real de la
+  demo de itch.io y, cuando exista, por la página de Steam.
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tablerama · Demo gratuita — mesa 3D de juegos de mesa</title>
+  <meta name="description" content="Tablerama es un simulador de mesa 3D local: parchís, ludo, damas, ajedrez, dominó, brisca y una isla de recursos inspirada en Catán, con piezas físicas, bots y guardado local. Demo gratuita en itch.io.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <span class="logo">Tablerama</span>
+      <nav class="topnav">
+        <a href="#demo">Demo</a>
+        <a href="#catalogo">Catálogo</a>
+        <a href="#caracteristicas">Características</a>
+        <a href="#controles">Controles</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="btn btn-primary btn-sm" href="#">Descargar demo</a>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ============ HERO ============ -->
+    <section class="hero">
+      <div class="hero-text">
+        <p class="eyebrow">Demo gratuita · Windows y Linux</p>
+        <h1>Tablerama</h1>
+        <p class="tagline">
+          Una mesa 3D compartida para jugar a los clásicos en el mismo equipo:
+          piezas físicas con física asistida, bots con tres niveles de
+          dificultad y guardado local. Sin internet, sin esperar turno.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="#">Descargar la demo gratis</a>
+          <a class="btn btn-secondary btn-lg" href="#">Añadir a la lista de deseados</a>
+        </div>
+        <p class="hero-foot">
+          La demo incluye la mesa libre con tutorial, brisca y parchís.
+          El resto de mesas se ve en el menú y se abre en el juego completo.
+        </p>
+      </div>
+      <figure class="hero-shot">
+        <img src="img/fase1-mesa-y-manos.png" alt="La mesa 3D de Tablerama con cartas, dados y fichas">
+        <figcaption>Mesa 3D: cartas, dados y fichas con físicas</figcaption>
+      </figure>
+    </section>
+
+    <!-- ============ DEMO ============ -->
+    <section id="demo" class="block">
+      <header class="block-head">
+        <p class="eyebrow">Qué incluye la demo</p>
+        <h2>Tres formas de empezar</h2>
+      </header>
+      <div class="cards-3">
+        <article class="card">
+          <h3>Mesa libre</h3>
+          <p>
+            La mesa sandbox con dados, fichas y cartas físicos: mezcla, roba,
+            coloca y experimenta sin reglas. Incluye un tutorial paso a paso
+            para aprender a agarrar, soltar y mover la cámara en tres minutos.
+          </p>
+          <span class="tag">Con tutorial</span>
+        </article>
+        <article class="card">
+          <h3>Brisca</h3>
+          <p>
+            El clásico de cartas para dos. Física de cartas reales, mezcla
+            asiduida y robo desde la pila, con bot para jugar solo.
+          </p>
+          <span class="tag">Contra el bot</span>
+        </article>
+        <article class="card">
+          <h3>Parchís</h3>
+          <p>
+            Reglas españolas completas: salir con 5, barreras de dos fichas,
+            comer vale 20 y meta 10. En la demo, dos variantes: 4 jugadores
+            y 2 jugadores, con bots para completar la mesa.
+          </p>
+          <span class="tag">Contra bots · 2 y 4 jugadores</span>
+        </article>
+      </div>
+      <figure class="shot">
+        <img src="img/fase1-antes-despues.png" alt="La mesa libre de Tablerama">
+        <figcaption>La mesa libre: antes y después de colocar piezas</figcaption>
+      </figure>
+    </section>
+
+    <!-- ============ CATALOGO ============ -->
+    <section id="catalogo" class="block block-alt">
+      <header class="block-head">
+        <p class="eyebrow">Juego completo</p>
+        <h2>El catálogo de mesas</h2>
+        <p class="block-sub">
+          Cada módulo se puede jugar en mesa local o contra bots, con tres
+          niveles de dificultad (fácil, normal, difícil). El humano siempre
+          empieza como J1; el resto de butacas pueden ser bots.
+        </p>
+      </header>
+      <div class="grid">
+
+        <article class="game">
+          <h3>Parchís</h3>
+          <p>Reglas españolas con barreras, comer y doblar. Fichas físicas con dado.</p>
+          <p class="game-meta">4 jugadores · bots · guardado</p>
+        </article>
+
+        <article class="game">
+          <h3>Parchís · 2 jugadores</h3>
+          <p>La misma variante para dos butacas, contra un bot.</p>
+          <p class="game-meta">2 jugadores · bot · guardado</p>
+        </article>
+
+        <article class="game">
+          <h3>Ludo</h3>
+          <p>Carrera con dado físico y fichas: salir con 5, el 6 da otra tirada y vale 7 sin fichas en casa; barreras y seguros.</p>
+          <p class="game-meta">2 a 4 jugadores · guardado</p>
+        </article>
+
+        <article class="game">
+          <h3>Damas</h3>
+          <p>Damas inglesas adaptadas: vista simple con reglas, fichas físicas asistidas o mesa libre.</p>
+          <p class="game-meta">2 jugadores · IA · guardado</p>
+        </article>
+
+        <article class="game">
+          <h3>Ajedrez</h3>
+          <p>Vista simple, físico con reglas o físico libre, con seis siluetas originales por color y IA para las negras.</p>
+          <p class="game-meta">2 jugadores · IA · guardado</p>
+        </article>
+
+        <article class="game">
+          <h3>Dominó</h3>
+          <p>Doble seis: fichas físicas libres o con reglas para dos, con cadena asistida.</p>
+          <p class="game-meta">2 jugadores · bot · guardado</p>
+        </article>
+
+        <article class="game game-featured">
+          <h3>Isla de recursos</h3>
+          <p>
+            Una isla de recursos inspirada en Catán para tres o cuatro
+            jugadores: pueblos, caminos, ciudades, cartas de desarrollo,
+            ladrón, puertos y comercio con el banco. Dados físicos
+            lanzables con teclado o ratón, interfaz contextual y guardado local.
+          </p>
+          <p class="game-meta">3 o 4 jugadores · bots · guardado</p>
+        </article>
+
+        <article class="game">
+          <h3>Mesa libre</h3>
+          <p>Dados, fichas y cartas sin reglas: la caja de herramientas de la mesa.</p>
+          <p class="game-meta">Sin reglas · tutorial</p>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ============ CARACTERISTICAS ============ -->
+    <section id="caracteristicas" class="block">
+      <header class="block-head">
+        <p class="eyebrow">Por qué Tablerama</p>
+        <h2>Física asistida, no frustrante</h2>
+      </header>
+      <div class="cards-2">
+        <ul class="feature-list">
+          <li><strong>Agarre predictivo.</strong> Dos modos: mantener pulsado o clic para agarrar y soltar. El imán contextual y el apilado automático ayudan sin decidir por ti.</li>
+          <li><strong>Deshacer y recuperación.</strong> Ctrl+Z devuelve la última pieza movedida y las piezas fuera de la mesa se recobran solas.</li>
+          <li><strong>Cámara y vistas.</strong> Arrastrar para orbitar, rueda para acercar, con teclado o ratón; vistas guardadas por mesa.</li>
+          <li><strong>Bots con trois niveles.</strong> Fácil se equivoca a propósito, normal juega con sentido común y difícil busca ventaja. Para completar mesas o jugar solo.</li>
+          <li><strong>Guardado local.</strong> Partida guardada en el equipo con copia anterior; la demo se puede descargar y probar sin cuenta.</li>
+          <li><strong>Sin internet, sin fricción.</strong> Local hotseat: la pantalla se pasa al siguiente jugador. Las manos privadas son opcionales.</li>
+        </ul>
+        <figure class="shot">
+          <img src="img/cartas-isla.png" alt="Recursos y cartas en la isla">
+          <figcaption>La Isla de recursos: cartas y asentamientos</figcaption>
+        </figure>
+      </div>
+      <figure class="shot">
+        <img src="img/cartas.png" alt="Cartas físicas sobre la mesa">
+        <figcaption>Cartas físicas: mezcla, robo y devolución a la pila</figcaption>
+      </figure>
+    </section>
+
+    <!-- ============ CONTROLES ============ -->
+    <section id="controles" class="block block-alt">
+      <header class="block-head">
+        <p class="eyebrow">Primeros pasos</p>
+        <h2>Controles y ayuda</h2>
+      </header>
+      <div class="cards-2">
+        <ul class="feature-list">
+          <li><strong>Agarrar:</strong> mantén pulsado (o modo de dos clics) y suelta para colocar. Rueda con pieza sujeta: altura.</li>
+          <li><strong>Cámara:</strong> botón derecho arrastra para orbitar, rueda para acercar, Inicio para recentrar.</li>
+          <li><strong>La tirada (isla, ludo):</strong> pulsa <kbd>R</kbd> o tira los dados con el ratón; la tirada se lee cuando ambos se detienen.</li>
+          <li><strong>Ayuda:</strong> <kbd>F1</kbd> muestra la guía de controles de la mesa actual.</li>
+          <li><strong>Pausa:</strong> <kbd>Esc</kbd> o el botón «Menú» para pausar, guardar o volver al menú principal.</li>
+          <li><strong>Deshacer:</strong> <kbd>Ctrl</kbd>+<kbd>Z</kbd> en mesas libres.</li>
+        </ul>
+        <figure class="shot">
+          <img src="img/fase1-mesa-y-manos.png" alt="Mesa 3D con la información del turno">
+          <figcaption>La mesa 3D y la información del turno</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section id="faq" class="block">
+      <header class="block-head">
+        <p class="eyebrow">Preguntas frecuentes</p>
+        <h2>Antes de descargar</h2>
+      </header>
+      <details class="faq">
+        <summary>¿La demo es gratis? ¿Necesito cuenta?</summary>
+        <p>La demo es gratuita y no requiere cuenta ni conexión. Se descarga e instala como un programa normal y se juega al instante.</p>
+      </details>
+      <details class="faq">
+        <summary>¿La demo tiene límite de tiempo o de partidas?</summary>
+        <p>No. Se puede jugar sin límite. Lo que la demo limita es el contenido: la mesa libre, la brisca y el parchís; el resto de mesas se muestra en el menú con un aviso de que pertenecen al juego completo.</p>
+      </details>
+      <details class="faq">
+        <summary>¿Se guarda el progreso de las partidas?</summary>
+        <p>Sí. Cada mesa con reglas guarda la partida localmente (con copia anterior). En la demo se guarda igual que en el juego completo.</p>
+      </details>
+      <details class="faq">
+        <summary>¿Puedo jugar solo contra la máquina?</summary>
+        <p>Sí. En «Jugar con bots» se elige la dificultad y la mesa; el humano es siempre el jugador 1 y el resto de butacas son bots. En la demo, la brisca y el parchís se pueden jugar así.</p>
+      </details>
+      <details class="faq">
+        <summary>¿Cómo funciona el juego completo respecto a la demo?</summary>
+        <p>El juego completo añade todas las mesas del catálogo (ajedrez, damas, dominó, ludo, la isla de recursos…), cada una con sus reglas, bots y guardado. La demo no tiene fecha de expiración.</p>
+      </details>
+      <details class="faq">
+        <summary>¿Requisitos del sistema?</summary>
+        <p>Windows o Linux con gráficos compatibles con OpenGL. Resolución de 1280×720 recomendada (escala a ventana). No hace falta mando, teclado y ratón bastan; es local, no hay red.</p>
+      </details>
+    </section>
+
+    <!-- ============ CTA FINAL ============ -->
+    <section class="cta">
+      <h2>Pruébalo en tu mesa</h2>
+      <p>Descarga la demo, escoge mesa y dificultad, y empieza a jugar en minutos.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary btn-lg" href="#">Descargar la demo gratis</a>
+        <a class="btn btn-secondary btn-lg" href="#">Añadir a la lista de deseados</a>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>Tablerama · demo gratuita</span>
+      <span>Prototipo local · sin juego en red</span>
+      <span>hecho con Godot 4</span>
+    </div>
+  </footer>
+
+</body>
+</html>
