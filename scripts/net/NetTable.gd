@@ -1,4 +1,5 @@
 extends Node
+class_name NetTable
 ## Protocolo de mesa online: el anfitrión (master client) valida y difunde; los
 ## clientes reciben los cambios aplicados.
 ##
