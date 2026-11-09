@@ -184,7 +184,7 @@ func _check_seats_outside(view: Node, label: String) -> void:
 			break
 		var spot := avatar.global_position
 		_check(
-			not bounds.grow(0.42).contains_point(Vector3(spot.x, 0.0, spot.z)),
+			not bounds.grow(0.42).has_point(Vector3(spot.x, 0.0, spot.z)),
 			"%s: el asiento %d queda fuera de la mesa" % [label, i + 1]
 		)
 		i += 1
