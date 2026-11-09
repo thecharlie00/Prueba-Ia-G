@@ -143,11 +143,11 @@ static func _domino_reply_value(rules: DominoRules, id: int, end: String) -> flo
 	var left_end := tile.x
 	var right_end := tile.y
 	if not rules.chain.is_empty():
-		var touching: int = rules.chain.front()["left"] if end == "left" else rules.chain.back()["right"]
 		if end == "left":
-			right_end = touching
+			# El extremo libre tras colocar: si x encaja con el front, queda y libre.
+			left_end = tile.y if tile.x == int(rules.chain.front()["left"]) else tile.x
 		else:
-			left_end = touching
+			right_end = tile.x if tile.y == int(rules.chain.back()["right"]) else tile.y
 	var opens: Array = []
 	if rules.chain.is_empty():
 		opens = [left_end, right_end]

@@ -115,14 +115,15 @@ func _run() -> void:
 				_check(brisca_button != null, "tiene la mesa de brisca")
 				if brisca_button != null:
 					brisca_button.pressed.emit()
-					await _ticks(3)
 					_check(TableBots.solo, "elegir una mesa marca el modo solitario")
+					await _ticks(3)
 					_check(
 						current_scene.scene_file_path == "res://scenes/Brisca.tscn",
 						"la mesa elegida se abre"
 					)
 					current_scene.queue_free()
-					await _ticks(2)
+					change_scene_to_file("res://scenes/BotSelect.tscn")
+					await _ticks(3)
 					_check(
 						root.get_node_or_null("BotSelect") != null,
 						"al volver, se está en la selección de bots"
