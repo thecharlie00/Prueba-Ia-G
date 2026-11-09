@@ -49,7 +49,7 @@ func _build() -> void:
 	bots.add_theme_stylebox_override("pressed", _style(Color("e09b00"), true))
 	bots.add_theme_stylebox_override("focus", _focus_style())
 	bots.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/BotMenu.tscn")
+		func() -> void: get_tree().change_scene_to_file("res://scenes/BotSelect.tscn")
 	)
 	column.add_child(bots)
 	_demo_banner(column)
