@@ -81,6 +81,8 @@ var net_table: IslandNetTable
 func _start_online() -> void:
 	if Net.room_game != "Island" and Net.room_game != "IslandFour":
 		return
+	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+		return
 	online = true
 	net_table = IslandNetTable.new()
 	net_table.name = "NetTable"

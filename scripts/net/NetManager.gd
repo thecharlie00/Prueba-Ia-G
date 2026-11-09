@@ -67,22 +67,28 @@ func start_session(user_name: String) -> void:
 	if not is_available():
 		connection_failed.emit("El SDK Photon Fusion no está instalado. Instala el addon Fusion para Godot.")
 		return
-	var app_id := str(get_setting("net/app_id", ""))
+	var app_id := str(ProjectSettings.get_setting("net/app_id", ""))
 	if app_id.is_empty():
 		singleplayer_room = true
 		Fusion.create_singleplayer_room()
 		return
 	Fusion.set_app_id(app_id)
-	Fusion.connect_to_photon.call_deferred(user_name, str(get_setting("net/region", "eu")))
+	Fusion.connect_to_photon.call_deferred(
+		user_name,
+		str(ProjectSettings.get_setting("net/region", "eu"))
+	)
 
 
 func connect_or_retry() -> void:
 	if Fusion.is_connected_to_photon():
 		return
-	local_name = str(get_setting("net/user", "Jugador"))
-	var app_id := str(get_setting("net/app_id", ""))
+	local_name = str(ProjectSettings.get_setting("net/user", "Jugador"))
+	var app_id := str(ProjectSettings.get_setting("net/app_id", ""))
 	if not app_id.is_empty():
-		Fusion.connect_to_photon.call_deferred(local_name, str(get_setting("net/region", "eu")))
+		Fusion.connect_to_photon.call_deferred(
+			local_name,
+			str(ProjectSettings.get_setting("net/region", "eu"))
+		)
 
 
 ## El anfitrión crea la sala con un código. La demo solo puede entrar.
@@ -135,7 +141,8 @@ func leave_room() -> void:
 	Fusion.leave_room()
 
 
-func disconnect() -> void:
+## Cierra la conexión a Photon Cloud (evita chocar con Object.disconnect).
+func disconnect_session() -> void:
 	if Fusion.is_connected_to_photon():
 		Fusion.disconnect_from_photon()
 
