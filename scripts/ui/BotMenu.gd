@@ -18,16 +18,18 @@ func _build() -> void:
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
 	var column := VBoxContainer.new()
-	column.anchors_left = 0.5
-	column.anchors_right = 0.5
-	column.anchors_top = 0.5
-	column.anchors_bottom = 0.5
-	column.offset_left = -160.0
-	column.offset_right = 160.0
-	column.offset_top = -130.0
-	column.offset_bottom = 130.0
 	column.add_theme_constant_override("separation", 26)
 	add_child(column)
+	# Colocación centrada (los contenedores no admiten asignar anchors por propiedad;
+	# se usa el método, válido para cualquier Control).
+	column.set_anchor(SIDE_LEFT, 0.5)
+	column.set_anchor(SIDE_RIGHT, 0.5)
+	column.set_anchor(SIDE_TOP, 0.5)
+	column.set_anchor(SIDE_BOTTOM, 0.5)
+	column.set_offset(SIDE_LEFT, -160.0)
+	column.set_offset(SIDE_RIGHT, 160.0)
+	column.set_offset(SIDE_TOP, -130.0)
+	column.set_offset(SIDE_BOTTOM, 130.0)
 	var title := Label.new()
 	title.name = "Title"
 	title.text = "Tablerama"
@@ -40,7 +42,7 @@ func _build() -> void:
 	jugar.text = "Jugar"
 	jugar.custom_minimum_size = Vector2(300, 62)
 	jugar.add_theme_font_size_override("font_size", 22)
-	jugar.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	jugar.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	jugar.pressed.connect(
 		func() -> void: get_tree().change_scene_to_file("res://scenes/BotSelect.tscn")
 	)
@@ -50,7 +52,7 @@ func _build() -> void:
 	salir.text = "Salir"
 	salir.custom_minimum_size = Vector2(300, 54)
 	salir.add_theme_font_size_override("font_size", 18)
-	salir.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	salir.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	salir.pressed.connect(get_tree().quit)
 	column.add_child(salir)
 	_style_button(jugar, ACCENT)
