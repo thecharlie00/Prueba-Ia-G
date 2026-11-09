@@ -85,7 +85,7 @@ func _build() -> void:
 	_username = LineEdit.new()
 	_username.name = "Username"
 	_username.custom_minimum_size.x = 220
-	_username.text = str(get_setting("net/user", "Jugador"))
+	_username.text = str(ProjectSettings.get_setting("net/user", "Jugador"))
 	name_row.add_child(_username)
 	column.add_child(name_row)
 	_continue_button = _button(column, "Continuar", "Continue", _continue)
@@ -111,7 +111,7 @@ func _build() -> void:
 	_game = OptionButton.new()
 	_game.name = "Game"
 	for entry in Net.ONLINE_GAMES:
-		_game.add_item(entry["title"], entry["id"])
+		_game.add_item(entry["title"])
 	_game.custom_minimum_size.x = 260
 	game_row.add_child(_game)
 	column.add_child(game_row)
@@ -291,12 +291,10 @@ func _game_entry() -> Dictionary:
 
 
 func _selected_entry() -> Dictionary:
-	if _game.selected < 0:
+	var index := _game.selected
+	if index < 0 or index >= Net.ONLINE_GAMES.size():
 		return null
-	for entry in Net.ONLINE_GAMES:
-		if entry["id"] == _game.get_item_id(_game.selected):
-			return entry
-	return null
+	return Net.ONLINE_GAMES[index]
 
 
 func _refresh() -> void:
