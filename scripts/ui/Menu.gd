@@ -36,6 +36,22 @@ func _build() -> void:
 	)
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(subtitle)
+	var bots := Button.new()
+	bots.name = "BotsMenu"
+	bots.text = "Jugar contra bots   →"
+	bots.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	bots.custom_minimum_size = Vector2(0, 42)
+	bots.add_theme_font_size_override("font_size", 16)
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		bots.add_theme_color_override(state, INK)
+	bots.add_theme_stylebox_override("normal", _style(ACCENT))
+	bots.add_theme_stylebox_override("hover", _style(Color("ffe29a")))
+	bots.add_theme_stylebox_override("pressed", _style(Color("e09b00"), true))
+	bots.add_theme_stylebox_override("focus", _focus_style())
+	bots.pressed.connect(
+		func() -> void: get_tree().change_scene_to_file("res://scenes/BotMenu.tscn")
+	)
+	column.add_child(bots)
 	_demo_banner(column)
 	var scroll := ScrollContainer.new()
 	scroll.name = "GameList"

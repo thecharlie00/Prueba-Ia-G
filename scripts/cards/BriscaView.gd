@@ -66,6 +66,10 @@ func _make_ui() -> void:
 	bot_toggle.toggled.connect(set_vs_bot)
 	content.add_child(bot_toggle)
 	content.move_child(bot_toggle, $UI/Panel/Margin/Content/Reset.get_index())
+	if TableBots.solo:
+		# Menú de bots: la mesa empieza en solitario contra el bot.
+		TableBots.solo = false
+		set_vs_bot(true)
 	var save_row := HBoxContainer.new()
 	save_row.name = "SaveRow"
 	var save := Button.new()
@@ -178,9 +182,9 @@ func _process(delta: float) -> void:
 		return
 	if is_bot_turn():
 		_bot_wait += delta
-		if _bot_wait >= TableBots.THINK_TIME:
+		if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 			_bot_wait = 0.0
-			play(TableBots.brisca_choice(rules))
+			play(TableBots.brisca_choice(rules, TableBots.difficulty))
 
 
 func refresh() -> void:

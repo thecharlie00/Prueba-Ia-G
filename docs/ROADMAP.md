@@ -145,7 +145,7 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 ### Fase 5 · Early Access en Steam
 
 - [ ] Catálogo de lanzamiento: ajedrez, damas, dominó, ludo, isla de recursos, cartas y **roles ocultos** (pendiente del GDD).
-- [x] Bots básicos para completar mesas en ludo (cualquier jugador), dominó (jugador 2) y damas (oscuras, minimax a 2 jugadas); el ajedrez ya tenía IA.
+- [x] Bots para completar mesas en ludo/parchís (cualquier jugador), dominó (jugador 2), damas (oscuras, minimax) y brisca, con **menú principal** (título, Jugar, Salir) y **selección de bots** (dificultad + mesa, tres niveles: fácil, normal y difícil). El ajedrez ya tenía IA.
 - [ ] Localización revisada: español, catalán e inglés; después francés, alemán, portugués.
 - [ ] Página de Steam con capturas y tráiler cartoon.
 - [x] **Demo gratuita** local: mesa libre, brisca y parchís, exportada con la característica `demo` (presets propios en la CI). Pendiente: unión a salas online (ver §5).

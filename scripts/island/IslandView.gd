@@ -184,7 +184,21 @@ var seats: TableSeats
 func _make_seats() -> void:
 	# J2 y J3 hacia el fondo: a la izquierda del todo quedaban detrás del panel.
 	var angles := [90, 212, 290, 0]
-	var spots := TableSeats.ring(Vector3.ZERO, 2.9, -0.15, angles.slice(0, rules.players))
+	# Asientos fuera de la mesa física (ya ampliada por _make_dice_tray): el radio fijo
+	# anterior dejaba personajes clavados en el tablero.
+	var bounds := TableSeats.table_aabb($Table/CollisionShape3D)
+	var spots := []
+	for player in range(rules.players):
+		var angle := deg_to_rad(float(angles[player]))
+		spots.append(
+			{
+				"position": TableSeats.seat_outside(
+					Vector3.ZERO, Vector3(cos(angle), 0, sin(angle)), -0.15, bounds,
+					TableSeats.AVATAR_CLEARANCE
+				),
+				"look_at": Vector3.ZERO,
+			}
+		)
 	var names := ["Naranja", "Azul", "Rojo", "Blanco"]
 	for player in range(rules.players):
 		spots[player]["name"] = "J%d %s" % [player + 1, names[player]]

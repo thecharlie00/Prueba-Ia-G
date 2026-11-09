@@ -76,6 +76,10 @@ func _ready() -> void:
 	var content := $UI/Panel/Margin/Content
 	content.add_child(_bot_toggle)
 	content.move_child(_bot_toggle, $UI/Panel/Margin/Content/Undo.get_index())
+	if TableBots.solo:
+		# Menú de bots: la mesa empieza en solitario contra el bot de las oscuras.
+		TableBots.solo = false
+		set_bot_enabled(true)
 	_refresh_guides()
 
 
@@ -96,14 +100,14 @@ func _process(delta: float) -> void:
 		_bot_wait = 0.0
 		return
 	_bot_wait += delta
-	if _bot_wait >= TableBots.THINK_TIME:
+	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 		_bot_wait = 0.0
 		bot_step()
 
 
 ## Una jugada del bot (un paso o un salto de la cadena).
 func bot_step() -> bool:
-	var move := TableBots.checkers_choice(rules)
+	var move := TableBots.checkers_choice(rules, TableBots.difficulty)
 	if move.is_empty():
 		return false
 	var mover := _token_at_square(int(move["from"]))
@@ -407,7 +411,7 @@ func _open_free() -> void:
 func hud_seats() -> Array:
 	return [
 		{"name": "Blancas", "color": Palette.PIECE_LIGHT, "bot": false, "side": "east"},
-		{"name": "Negras", "color": Palette.PIECE_DARK, "bot": false, "side": "north"},
+		{"name": "Negras", "color": Palette.PIECE_DARK, "bot": bot_enabled, "side": "north"},
 	]
 
 

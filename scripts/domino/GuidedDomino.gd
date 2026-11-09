@@ -71,6 +71,10 @@ func _ready() -> void:
 	var content := $UI/Panel/Margin/Content
 	content.add_child(_bot_toggle)
 	content.move_child(_bot_toggle, $UI/Panel/Margin/Content/Actions.get_index())
+	if TableBots.solo:
+		# Menú de bots: la mesa empieza en solitario contra el bot del jugador 2.
+		TableBots.solo = false
+		set_bot_enabled(true)
 	_sync_homes(true)
 	_refresh()
 
@@ -92,14 +96,14 @@ func _process(delta: float) -> void:
 		_bot_wait = 0.0
 		return
 	_bot_wait += delta
-	if _bot_wait >= TableBots.THINK_TIME:
+	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 		_bot_wait = 0.0
 		bot_step()
 
 
 ## Una acción del bot: jugar una ficha, robar o pasar.
 func bot_step() -> bool:
-	var choice := TableBots.domino_choice(rules)
+	var choice := TableBots.domino_choice(rules, TableBots.difficulty)
 	if choice.has("id"):
 		if not rules.play(int(choice["id"]), String(choice["end"])):
 			return false

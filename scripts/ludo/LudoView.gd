@@ -64,6 +64,7 @@ func _ready() -> void:
 	_make_tokens()
 	_make_tray()
 	_make_ui()
+	_apply_solo_bots()
 	_make_seats()
 	grabber.dice_shortcuts_enabled = false
 	grabber.grab_finished.connect(_on_release)
@@ -74,19 +75,34 @@ func _ready() -> void:
 var seats: TableSeats
 
 
+## Menú de bots: la mesa empieza en solitario contra bots (J1 es el humano).
+func _apply_solo_bots() -> void:
+	if not TableBots.solo:
+		return
+	TableBots.solo = false
+	for player in range(1, rules.players):
+		set_bot(true, player)
+
+
 func _make_seats() -> void:
 	var list := []
+	# Asientos fuera de la mesa física: el radio fijo anterior clavaba los personajes
+	# en el tablero (que es más ancho que el tablero de juego).
+	var bounds := TableSeats.table_aabb($Table/CollisionShape3D)
 	for player in range(rules.players):
 		var home := Vector3.ZERO
 		for token in range(4):
 			home += _yard_position(player, token) * 0.25
 		var outward := Vector3(home.x - CENTER.x, 0, home.z - CENTER.z).normalized()
-		var spot := Vector3(CENTER.x, -0.15, CENTER.z) + outward * 3.3
+		var spot := TableSeats.seat_outside(
+			Vector3(CENTER.x, -0.15, CENTER.z), outward, -0.15, bounds,
+			TableSeats.AVATAR_CLEARANCE
+		)
 		list.append(
 			{
 				"name": "Jugador %d" % (player + 1),
 				"color": COLORS[player],
-				"bot": false,
+				"bot": bots[player],
 				"position": spot,
 				"look_at": Vector3(CENTER.x, -0.15, CENTER.z),
 			}
@@ -420,7 +436,7 @@ func _process(delta: float) -> void:
 		_bot_wait = 0.0
 		return
 	_bot_wait += delta
-	if _bot_wait >= TableBots.THINK_TIME:
+	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 		_bot_wait = 0.0
 		bot_step()
 
@@ -431,7 +447,7 @@ func bot_step() -> bool:
 		_roll()
 		return true
 	if rules.phase == LudoRules.MOVE:
-		var token := TableBots.ludo_choice(rules)
+		var token := TableBots.ludo_choice(rules, TableBots.difficulty)
 		if token >= 0:
 			_choose_token(token)
 			help.text = tr("El bot mueve su ficha %d.") % (token + 1)

@@ -92,6 +92,46 @@ static func ring(center: Vector3, radius: float, floor_y: float, angles: Array) 
 	return spots
 
 
+## Distancia horizontal desde el borde de la mesa para que el personaje (shell de radio
+## ~0,44 a la altura del tablero) no la intersecte.
+const AVATAR_CLEARANCE := 0.6
+
+
+## Caja de la mesa física (BoxShape3D del colisionador), en coordenadas globales.
+static func table_aabb(shape_node: CollisionShape3D) -> AABB:
+	var box := shape_node.shape as BoxShape3D
+	if box == null:
+		return AABB()
+	var half := box.size * 0.5
+	return AABB(shape_node.global_position - half, shape_node.global_position + half)
+
+
+## Asiento fuera de la caja de la mesa: desde center en la dirección dir, a la distancia
+## mínima que queda fuera de la caja (expandida `clearance`), a ras de suelo. De así,
+## los personajes no se clavan en la mesa. Mirar al centro de la mesa queda para el
+## llamador.
+static func seat_outside(center: Vector3, dir: Vector3, floor_y: float, bounds: AABB, clearance: float) -> Vector3:
+	var d := Vector2(dir.x, dir.z)
+	if d.length() < 0.01:
+		return Vector3(center.x, floor_y, center.z)
+	d = d.normalized()
+	# Distancia a lo largo de dir para salir por el borde de la caja (el más cercano):
+	# el asiento queda justo más allá de ese borde, con margen.
+	var radius := INF
+	if d.x > 0.01:
+		radius = minf(radius, (bounds.max.x + clearance - center.x) / d.x)
+	elif d.x < -0.01:
+		radius = minf(radius, (bounds.min.x - clearance - center.x) / d.x)
+	if d.y > 0.01:
+		radius = minf(radius, (bounds.max.z + clearance - center.z) / d.y)
+	elif d.y < -0.01:
+		radius = minf(radius, (bounds.min.z - clearance - center.z) / d.y)
+	if radius == INF:
+		return Vector3(center.x, floor_y, center.z)
+	radius = maxf(radius, 0.0)
+	return Vector3(center.x + d.x * radius, floor_y, center.z + d.y * radius)
+
+
 func _process(delta: float) -> void:
 	_time += delta
 	# Oculta los personajes del lado de la cámara aunque la vista no use TableHud.
