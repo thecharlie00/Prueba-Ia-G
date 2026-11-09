@@ -1,6 +1,6 @@
 extends SceneTree
-## Bots: tres dificultades y menú de bots (menú principal → selección), además de la
-## corrección de los asientos fuera de la mesa física (los personajes se clavaban en el tablero).
+## Bots: tres dificultades y menú principal → selección de modo (local/bots), además
+## de la corrección de los asientos fuera de la mesa física (personajes que pasaban el tablero).
 
 var _failed := false
 
@@ -89,54 +89,78 @@ func _run() -> void:
 			jugar.pressed.emit()
 			await _ticks(3)
 			_check(
-				current_scene.scene_file_path == "res://scenes/BotSelect.tscn",
-				"Jugar abre la selección de bots"
+				current_scene.scene_file_path == "res://scenes/ModeSelect.tscn",
+				"Jugar abre la selección de modo"
 			)
-			var selector := root.get_node_or_null("BotSelect") as Control
-			_check(selector != null, "se abre la selección de bots")
-			if selector != null:
-				_check(
-					selector.find_child("Dificultad", true, false) != null,
-					"la selección pide la dificultad"
-				)
-				_check(
-					selector.find_child("MESAS CON BOT", true, false) != null,
-					"la selección muestra las mesas"
-				)
-				var diff2 := selector.find_child("Difficulty2", true, false) as Button
-				_check(diff2 != null, "tiene las tres dificultades")
-				if diff2 != null:
-					diff2.pressed.emit()
-					_check(
-						TableBots.difficulty == TableBots.Difficulty.DIFICIL,
-						"elegir difícil guarda la dificultad"
-					)
-				var brisca_button := selector.find_child("Brisca", true, false) as Button
-				_check(brisca_button != null, "tiene la mesa de brisca")
-				if brisca_button != null:
-					brisca_button.pressed.emit()
-					_check(TableBots.solo, "elegir una mesa marca el modo solitario")
+			var mode := root.get_node_or_null("ModeSelect") as Control
+			_check(mode != null, "se abre la selección de modo")
+			if mode != null:
+				var local_button := mode.find_child("Local", true, false) as Button
+				var bots_button := mode.find_child("Bots", true, false) as Button
+				_check(local_button != null, "la selección tiene jugar en local")
+				_check(bots_button != null, "la selección tiene jugar con bots")
+				if bots_button != null:
+					bots_button.pressed.emit()
 					await _ticks(3)
 					_check(
-						current_scene.scene_file_path == "res://scenes/Brisca.tscn",
-						"la mesa elegida se abre"
+						current_scene.scene_file_path == "res://scenes/BotSelect.tscn",
+						"Jugar con bots abre la selección de bots"
 					)
-					current_scene.queue_free()
-					change_scene_to_file("res://scenes/BotSelect.tscn")
-					await _ticks(3)
-					_check(
-						root.get_node_or_null("BotSelect") != null,
-						"al volver, se está en la selección de bots"
-					)
-					var back := root.get_node_or_null("BotSelect").find_child("Back", true, false) as Button
-					_check(back != null, "la selección tiene volver")
-					if back != null:
-						back.pressed.emit()
-						await _ticks(3)
+					var selector := root.get_node_or_null("BotSelect") as Control
+					_check(selector != null, "se abre la selección de bots")
+					if selector != null:
 						_check(
-							current_scene.scene_file_path == "res://scenes/BotMenu.tscn",
-							"volver vuelve al menú principal"
+							selector.find_child("Dificultad", true, false) != null,
+							"la selección pide la dificultad"
 						)
+						_check(
+							selector.find_child("MESAS CON BOT", true, false) != null,
+							"la selección muestra las mesas"
+						)
+						var diff2 := selector.find_child("Difficulty2", true, false) as Button
+						_check(diff2 != null, "tiene las tres dificultades")
+						if diff2 != null:
+							diff2.pressed.emit()
+							_check(
+								TableBots.difficulty == TableBots.Difficulty.DIFICIL,
+								"elegir difícil guarda la dificultad"
+							)
+						var brisca_button := selector.find_child("Brisca", true, false) as Button
+						_check(brisca_button != null, "tiene la mesa de brisca")
+						if brisca_button != null:
+							brisca_button.pressed.emit()
+							_check(TableBots.solo, "elegir una mesa marca el modo solitario")
+							await _ticks(3)
+							_check(
+								current_scene.scene_file_path == "res://scenes/Brisca.tscn",
+								"la mesa elegida se abre"
+							)
+							current_scene.queue_free()
+							change_scene_to_file("res://scenes/BotSelect.tscn")
+							await _ticks(3)
+							_check(
+								root.get_node_or_null("BotSelect") != null,
+								"al volver, se está en la selección de bots"
+							)
+							var back := root.get_node_or_null("BotSelect").find_child("Back", true, false) as Button
+							_check(back != null, "la selección tiene volver")
+							if back != null:
+								back.pressed.emit()
+								await _ticks(3)
+								_check(
+									current_scene.scene_file_path == "res://scenes/ModeSelect.tscn",
+									"volver vuelve a la selección de modo"
+								)
+								var mode2 := root.get_node_or_null("ModeSelect") as Control
+								if mode2 != null:
+									var local2 := mode2.find_child("Local", true, false) as Button
+									if local2 != null:
+										local2.pressed.emit()
+										await _ticks(3)
+										_check(
+											current_scene.scene_file_path == "res://scenes/Menu.tscn",
+											"Jugar en local abre la lista de juegos"
+										)
 
 	# --- Modo solitario en el ludo: J2 y demás son bots
 	TableBots.solo = true

@@ -137,7 +137,7 @@ func _build() -> void:
 	back.text = "Volver al menú"
 	back.custom_minimum_size.y = 36
 	back.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/BotMenu.tscn")
+		func() -> void: get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
 	)
 	column.add_child(back)
 	_diff_buttons[1].grab_focus()
