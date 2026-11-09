@@ -118,14 +118,17 @@ static func seat_outside(center: Vector3, dir: Vector3, floor_y: float, bounds: 
 	# Distancia a lo largo de dir para salir por el borde de la caja (el más cercano):
 	# el asiento queda justo más allá de ese borde, con margen.
 	var radius := INF
+	# Godot 4: AABB no tiene get_min()/get_max(); position es la esquina mínima y
+	# position + size la máxima.
+	var max_corner := bounds.position + bounds.size
 	if d.x > 0.01:
-		radius = minf(radius, (bounds.get_max().x + clearance - center.x) / d.x)
+		radius = minf(radius, (max_corner.x + clearance - center.x) / d.x)
 	elif d.x < -0.01:
-		radius = minf(radius, (bounds.get_min().x - clearance - center.x) / d.x)
+		radius = minf(radius, (bounds.position.x - clearance - center.x) / d.x)
 	if d.y > 0.01:
-		radius = minf(radius, (bounds.get_max().z + clearance - center.z) / d.y)
+		radius = minf(radius, (max_corner.z + clearance - center.z) / d.y)
 	elif d.y < -0.01:
-		radius = minf(radius, (bounds.get_min().z - clearance - center.z) / d.y)
+		radius = minf(radius, (bounds.position.z - clearance - center.z) / d.y)
 	if radius == INF:
 		return Vector3(center.x, floor_y, center.z)
 	radius = maxf(radius, 0.0)
