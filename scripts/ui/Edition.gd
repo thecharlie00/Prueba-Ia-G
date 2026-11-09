@@ -11,6 +11,7 @@ extends Node
 const DEMO_SCENES := [
 	"res://scenes/Menu.tscn",
 	"res://scenes/BotMenu.tscn",
+	"res://scenes/BotSelect.tscn",
 	"res://scenes/Main.tscn",
 	"res://scenes/Brisca.tscn",
 	"res://scenes/Parchis.tscn",

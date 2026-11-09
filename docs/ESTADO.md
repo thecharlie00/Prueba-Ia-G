@@ -35,7 +35,7 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 
 ### Más juego sin red (7 de noviembre de 2026)
 
-- **Bots**: en el ludo se marca qué jugadores lleva un bot; en el dominó guiado, el jugador 2; en las damas guiadas, las oscuras (minimax). Piensan un momento antes de cada acción para que se vea lo que hacen; deshacer en damas vuelve hasta tu jugada. El menú «Jugar contra bots» abre mesas en solitario (el humano siempre es J1) con **tres dificultades**: fácil (se equivoca a propósito), normal (sentido común) y difícil (mirada de una jugada más, minimax a 3, riesgo elevado en parchís, bazas de 4 puntos en brisca). La isla aún no tiene bot en la vista.
+- **Bots**: en el ludo se marca qué jugadores lleva un bot; en el dominó guiado, el jugador 2; en las damas guiadas, las oscuras (minimax). Piensan un momento antes de cada acción para que se vea lo que hacen; deshacer en damas vuelve hasta tu jugada. El menú principal («Jugar») abre la **selección de bots**: elige la dificultad —**tres niveles**: fácil (se equivoca a propósito), normal (sentido común), difícil (mirada de una jugada más, minimax a 3, riesgo elevado en parchís, bazas de 4 puntos en brisca)— y la mesa en solitario, donde el humano siempre es J1 y la máquina controla al resto; «Salir» cerrará el juego. La isla aún no tiene bot en la vista.
 - **Asientos fuera de la mesa**: los personajes de ludo, parchís e isla se colocan más allá del borde de la mesa física (AABB del colisionador + margen para el cuerpo), así no se clavan en el tablero.
 - **Apilado automático**: carta sobre mazo, carta sobre carta (mazo nuevo) y ficha sobre ficha.
 - **Inspección 3D** con Alt: la pieza ampliada girando en su propio estudio.

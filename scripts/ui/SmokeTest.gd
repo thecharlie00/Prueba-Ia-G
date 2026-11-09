@@ -13,6 +13,7 @@ const SCENES := [
 	"res://scenes/IslandFour.tscn", "res://scenes/CardTable.tscn", "res://scenes/Brisca.tscn",
 	"res://scenes/Parchis.tscn", "res://scenes/Parchis2.tscn", "res://scenes/Menu.tscn",
 	"res://scenes/BotMenu.tscn",
+	"res://scenes/BotSelect.tscn",
 ]
 const FRAMES_PER_SCENE := 45
 

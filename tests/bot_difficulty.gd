@@ -1,6 +1,6 @@
 extends SceneTree
-## Bots: tres dificultades y menú «Jugar contra bots», además de la corrección de los
-## asientos fuera de la mesa física (los personajes se clavaban en el tablero).
+## Bots: tres dificultades y menú de bots (menú principal → selección), además de la
+## corrección de los asientos fuera de la mesa física (los personajes se clavaban en el tablero).
 
 var _failed := false
 
@@ -73,31 +73,69 @@ func _run() -> void:
 	island.queue_free()
 	await _ticks(2)
 
-	# --- Menú de bots: dificultad y salida a una mesa
+	# --- Menú principal: título, Jugar y Salir; Jugar lleva a la selección de bots
 	TableBots.difficulty = TableBots.Difficulty.NORMAL
 	TableBots.solo = false
 	change_scene_to_file("res://scenes/BotMenu.tscn")
 	await _ticks(3)
 	var menu := root.get_node_or_null("BotMenu") as Control
-	_check(menu != null, "se abre el menú de bots")
+	_check(menu != null, "se abre el menú principal")
 	if menu != null:
-		var diff2 := menu.find_child("Difficulty2", true, false) as Button
-		_check(diff2 != null, "tiene las tres dificultades")
-		if diff2 != null:
-			diff2.pressed.emit()
-			_check(TableBots.difficulty == TableBots.Difficulty.DIFICIL, "elegir difícil guarda la dificultad")
-		var brisca_button := menu.find_child("Brisca", true, false) as Button
-		_check(brisca_button != null, "tiene la mesa de brisca")
-		if brisca_button != null:
-			brisca_button.pressed.emit()
+		var jugar := menu.find_child("Jugar", true, false) as Button
+		var salir := menu.find_child("Salir", true, false) as Button
+		_check(jugar != null, "el menú tiene Jugar")
+		_check(salir != null, "el menú tiene Salir")
+		if jugar != null:
+			jugar.pressed.emit()
 			await _ticks(3)
-			_check(TableBots.solo, "elegir una mesa marca el modo solitario")
 			_check(
-				current_scene.scene_file_path == "res://scenes/Brisca.tscn",
-				"la mesa elegida se abre"
+				current_scene.scene_file_path == "res://scenes/BotSelect.tscn",
+				"Jugar abre la selección de bots"
 			)
-			current_scene.queue_free()
-			await _ticks(2)
+			var selector := root.get_node_or_null("BotSelect") as Control
+			_check(selector != null, "se abre la selección de bots")
+			if selector != null:
+				_check(
+					selector.find_child("Dificultad", true, false) != null,
+					"la selección pide la dificultad"
+				)
+				_check(
+					selector.find_child("MESAS CON BOT", true, false) != null,
+					"la selección muestra las mesas"
+				)
+				var diff2 := selector.find_child("Difficulty2", true, false) as Button
+				_check(diff2 != null, "tiene las tres dificultades")
+				if diff2 != null:
+					diff2.pressed.emit()
+					_check(
+						TableBots.difficulty == TableBots.Difficulty.DIFICIL,
+						"elegir difícil guarda la dificultad"
+					)
+				var brisca_button := selector.find_child("Brisca", true, false) as Button
+				_check(brisca_button != null, "tiene la mesa de brisca")
+				if brisca_button != null:
+					brisca_button.pressed.emit()
+					await _ticks(3)
+					_check(TableBots.solo, "elegir una mesa marca el modo solitario")
+					_check(
+						current_scene.scene_file_path == "res://scenes/Brisca.tscn",
+						"la mesa elegida se abre"
+					)
+					current_scene.queue_free()
+					await _ticks(2)
+					_check(
+						root.get_node_or_null("BotSelect") != null,
+						"al volver, se está en la selección de bots"
+					)
+					var back := root.get_node_or_null("BotSelect").find_child("Back", true, false) as Button
+					_check(back != null, "la selección tiene volver")
+					if back != null:
+						back.pressed.emit()
+						await _ticks(3)
+						_check(
+							current_scene.scene_file_path == "res://scenes/BotMenu.tscn",
+							"volver vuelve al menú principal"
+						)
 
 	# --- Modo solitario en el ludo: J2 y demás son bots
 	TableBots.solo = true
