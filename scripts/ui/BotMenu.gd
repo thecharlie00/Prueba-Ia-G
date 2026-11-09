@@ -1,7 +1,7 @@
 extends Control
 
-## Menú principal sencillo: título del juego, botón «Jugar» (abre la selección de
-## dificultad y mesa contra bots) y botón «Salir».
+## Menú principal: título del juego, botón «Jugar» (abre la selección de modo:
+## jugar en local o con bots) y botón «Salir». Es la primera pantalla que se ve.
 
 const BUTTON_STYLE := Color("fff8ec")
 const ACCENT := Color("ffc83d")
@@ -44,7 +44,7 @@ func _build() -> void:
 	jugar.add_theme_font_size_override("font_size", 22)
 	jugar.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	jugar.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/BotSelect.tscn")
+		func() -> void: get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
 	)
 	column.add_child(jugar)
 	var salir := Button.new()

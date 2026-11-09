@@ -9,8 +9,8 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_check(
-		ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/Menu.tscn",
-		"el proyecto arranca en el menú"
+		ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/BotMenu.tscn",
+		"el proyecto arranca en el menú principal"
 	)
 	var nav := root.get_node_or_null("SessionNavigation")
 	_check(nav != null, "el navegador global está registrado")
