@@ -65,6 +65,16 @@ func _build() -> void:
 		func() -> void: get_tree().change_scene_to_file("res://scenes/BotSelect.tscn")
 	)
 	column.add_child(bots)
+	var online := Button.new()
+	online.name = "Online"
+	online.text = "Jugar online"
+	online.custom_minimum_size = Vector2(300, 62)
+	online.add_theme_font_size_override("font_size", 18)
+	online.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	online.pressed.connect(
+		func() -> void: get_tree().change_scene_to_file("res://scenes/Lobby.tscn")
+	)
+	column.add_child(online)
 	var back := Button.new()
 	back.name = "Back"
 	back.text = "Volver"
@@ -77,6 +87,7 @@ func _build() -> void:
 	column.add_child(back)
 	_style_button(local, BUTTON_STYLE)
 	_style_button(bots, ACCENT)
+	_style_button(online, BUTTON_STYLE)
 	_style_button(back, BUTTON_STYLE)
 	local.grab_focus()
 

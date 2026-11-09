@@ -11,6 +11,7 @@ const MENU_SCENES := [
 	"res://scenes/ModeSelect.tscn",
 	"res://scenes/Menu.tscn",
 	"res://scenes/BotSelect.tscn",
+	"res://scenes/Lobby.tscn",
 ]
 
 var settings_path := "user://diceon_controls.cfg"
