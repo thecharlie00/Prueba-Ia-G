@@ -1,5 +1,7 @@
 extends SceneTree
 
+const ISLAND_SCENE := load("res://scenes/Island.tscn")
+
 var failures := 0
 
 
@@ -8,7 +10,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	var view := load("res://scenes/Island.tscn").instantiate() as IslandView
+	var view := ISLAND_SCENE.instantiate() as IslandView
 	root.add_child(view)
 	await _ticks(3)
 	_check(view.dice.size() == 2 and view.homes.size() == 1, "dos dados y ladrón físicos")
@@ -267,6 +269,7 @@ func _run() -> void:
 	view.queue_free()
 	await process_frame
 	await _four_player_view()
+	await _bot_match()
 	if failures:
 		printerr("Island view: %d errores" % failures)
 		quit(1)
@@ -312,6 +315,29 @@ func _four_player_view() -> void:
 		"guardar y cargar cuatro jugadores"
 	)
 	_clean_save(view.save_path)
+	view.queue_free()
+	await process_frame
+
+
+## Partida completa entre bots: la vista juega sola, sin intervención humana.
+func _bot_match() -> void:
+	TableBots.solo = true
+	TableBots.difficulty = TableBots.Difficulty.FACIL
+	var view := ISLAND_SCENE.instantiate() as IslandView
+	root.add_child(view)
+	await _ticks(2)
+	_check(view.bots[1] and view.bots[2], "solo bots marca J2 y J3")
+	view.set_bot(true, 0)  # J1 también bot: la partida se completa sin humano.
+	var guard := 0
+	while view.rules.phase != IslandRules.FINISHED and guard < 4000:
+		view._process(1.0)  # Cada llamada avanza una acción del bot.
+		guard += 1
+	TableBots.solo = false
+	_check(view.rules.phase == IslandRules.FINISHED, "partida entre bots termina")
+	_check(
+		view.rules.winner >= 0 and view.rules.score(view.rules.winner) >= 10,
+		"ganador con 10 puntos"
+	)
 	view.queue_free()
 	await process_frame
 
