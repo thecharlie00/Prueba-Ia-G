@@ -29,6 +29,7 @@ SessionNavigation="*res://scripts/ui/SessionNavigation.gd"
 Gamepad="*res://scripts/ui/Gamepad.gd"
 PerfMeter="*res://scripts/ui/PerfMeter.gd"
 SmokeTest="*res://scripts/ui/SmokeTest.gd"
+Net="*res://scripts/net/NetManager.gd"
 
 [display]
 
@@ -47,6 +48,12 @@ locale/fallback="es"
 3d_physics/layer_1="Mesa"
 3d_physics/layer_2="Piezas"
 3d_physics/layer_3="Bandeja de dados"
+
+[net]
+
+app_id=""
+region="eu"
+user="Jugador"
 
 [physics]
 

@@ -73,6 +73,128 @@ var privacy_ready: Button
 var bots: Array[bool] = [false, false, false, false]
 var bot_toggles: Array[CheckBox] = []
 var _bot_wait := 0.0
+var online := false
+var net_table: IslandNetTable
+
+## Arranca la vista en línea cuando la sala indica la Isla. El anfitrión crea
+## la mesa; los demás piden el registro completo y lo reemiten.
+func _start_online() -> void:
+	if Net.room_game != "Island" and Net.room_game != "IslandFour":
+		return
+	online = true
+	net_table = IslandNetTable.new()
+	net_table.name = "NetTable"
+	net_table.view_node = self
+	net_table.island = rules
+	add_child(net_table)
+	if net_table.is_host():
+		_help("Eres el anfitrión: valida y difunde las acciones de la sala.")
+	else:
+		net_table.request_sync()
+	Net.player_left.connect(_on_net_player_left)
+	_refresh()
+
+
+## Un jugador que se desconecta deja su butaca bajo control del anfitrión.
+func _on_net_player_left(player_id: int) -> void:
+	if online:
+		set_bot(true, player_id - 1)
+
+
+## El jugador local pide aplicar una acción (online). Devuelve false fuera de
+## línea o si el anfitrión no la acepta.
+func submit_change(action: Dictionary, acting_seat: int = -1) -> bool:
+	if not online:
+		return false
+	return net_table.submit(action, acting_seat)
+
+
+## Solo la butaca local puede actuar en línea; las otras butacas juegan desde
+## el anfitrión (bots, humanos conectados o desconectados).
+func _input_allowed() -> bool:
+	return is_local_turn()
+
+
+func is_local_turn() -> bool:
+	if not online:
+		return true
+	var seat := Net.local_seat()
+	if seat < 0 or seat >= rules.players:
+		return false
+	if rules.phase == IslandRules.DISCARD:
+		return rules.discard_player == seat
+	if rules.phase == IslandRules.TRADE_RESPONSE:
+		return int(rules.trade_offer.get("to", -1)) == seat
+	return rules.turn == seat
+
+
+## Cambio validado por el anfitrión (o recibido por red). Se aplica por el
+## mismo camino que el replay del registro para que todos coincidan.
+func apply_change(change: Dictionary) -> bool:
+	if not IslandRules._apply_saved_event(rules, change):
+		return false
+	_apply_change_effects(change)
+	_refresh()
+	return true
+
+
+## Efectos visuales de un cambio ya aplicado en las reglas.
+func _apply_change_effects(change: Dictionary) -> void:
+	match str(change.get("type", "")):
+		"settlement":
+			var id := int(change.get("id", -1))
+			if id >= 0 and rules.building_owner[id] >= 0:
+				_place_building_piece(id, "settlement")
+		"city":
+			var id := int(change.get("id", -1))
+			if id >= 0 and rules.building_owner[id] >= 0:
+				_upgrade_building_piece(id)
+		"road":
+			var id := int(change.get("id", -1))
+			if id >= 0 and rules.road_owner[id] >= 0:
+				_place_road_piece(id)
+		"robber":
+			var id := int(change.get("id", -1))
+			if id >= 0:
+				homes[robber_node] = _tile_position(id)
+		"roll":
+			var a := int(change.get("a", 0))
+			var b := int(change.get("b", 0))
+			_help("Dados: %d + %d." % [a, b])
+
+
+func _place_building_piece(id: int, kind: String) -> void:
+	var piece := _spawn_piece(
+		kind,
+		PLAYER_COLORS[rules.building_owner[id]],
+		_vertex_position(id) + Vector3.UP * 0.15
+	)
+	piece.display_name += " J%d" % (rules.building_owner[id] + 1)
+	building_nodes[id] = piece
+	homes[piece] = _vertex_position(id)
+
+
+func _upgrade_building_piece(id: int) -> void:
+	var piece: IslandPiece3D = building_nodes[id]
+	if is_instance_valid(piece):
+		piece.set_kind("city")
+		piece.display_name += " J%d" % (rules.building_owner[id] + 1)
+
+
+func _place_road_piece(id: int) -> void:
+	var piece := _spawn_piece(
+		"road",
+		PLAYER_COLORS[rules.road_owner[id]],
+		_edge_position(id) + Vector3.UP * 0.12
+	)
+	var edge: Vector2i = rules.board.edges[id]
+	var direction := _vertex_position(edge.y) - _vertex_position(edge.x)
+	piece.rotation.y = atan2(-direction.z, direction.x)
+	piece.display_name += " J%d" % (rules.road_owner[id] + 1)
+	road_rotations[piece] = Quaternion(Vector3.UP, piece.rotation.y)
+	road_nodes[id] = piece
+	homes[piece] = _edge_position(id)
+
 
 @onready var camera: Camera3D = $CameraRig/Camera3D
 @onready var grabber: PhysicsGrabber3D = $PhysicsGrabber3D
@@ -97,6 +219,7 @@ func _ready() -> void:
 	grabber.grab_finished.connect(_on_physical_release)
 	grabber.placement_message.connect(_placement_message)
 	_refresh()
+	_start_online()
 
 
 func _physics_process(delta: float) -> void:
@@ -196,34 +319,74 @@ func _bot_step() -> void:
 			if int(requested[resource]) > int(rules.resources[recipient][resource]):
 				can_pay = false
 				break
-		rules.respond_trade(recipient, can_pay)
+		_bot_respond(recipient, can_pay)
 		_refresh()
 		return
 	var action := TableBots.island_action(rules, TableBots.difficulty)
+	var seat := rules.turn
 	match str(action.get("kind", "")):
 		"settlement", "city":
 			_set_mode(str(action["kind"]))
-			_select_board(_vertex_position(int(action["id"])))
+			_select_board(_vertex_position(int(action["id"])), seat)
 		"road":
 			_set_mode("road")
-			_select_board(_edge_position(int(action["id"])))
+			_select_board(_edge_position(int(action["id"])), seat)
 		"robber":
 			_set_mode("robber")
-			_select_board(_tile_position(int(action["id"])))
+			_select_board(_tile_position(int(action["id"])), seat)
 		"roll":
-			rules.roll(randi_range(1, 6), randi_range(1, 6))
-			_refresh()
+			_bot_roll(seat)
 		"discard":
-			rules.discard(int(action["id"]))
-			_refresh()
+			_bot_action({"type": "discard", "id": int(action["id"])}, seat)
 		"steal":
-			rules.steal(int(action["id"]))
-			_refresh()
+			_bot_action({"type": "steal", "id": int(action["id"])}, seat)
 		"trade":
-			rules.trade_bank(int(action["give"]), int(action["take"]))
-			_refresh()
+			_bot_action(
+				{"type": "bank", "give": int(action["give"]), "take": int(action["take"])},
+				seat
+			)
 		"end":
-			_end_turn()
+			_bot_action({"type": "end"}, seat)
+		_:
+			_help("El bot no encontró acción válida; espera al siguiente turno.")
+
+
+## El bot tira los dados: en línea se envía al anfitrión con su butaca.
+func _bot_roll(seat: int) -> void:
+	var a := randi_range(1, 6)
+	var b := randi_range(1, 6)
+	if online:
+		submit_change({"type": "roll", "a": a, "b": b, "seat": seat}, seat)
+		_help("J%d tira %d + %d." % [seat + 1, a, b])
+	else:
+		rules.roll(a, b)
+		_help("Dados aceptados: %d + %d." % [a, b])
+	_refresh()
+
+
+## El bot aplica (offline) o envía (online) una acción simple.
+func _bot_action(action: Dictionary, seat: int) -> void:
+	if online:
+		submit_change(action, seat)
+	else:
+		match str(action.get("type", "")):
+			"discard":
+				rules.discard(int(action["id"]))
+			"steal":
+				rules.steal(int(action["id"]))
+			"bank":
+				rules.trade_bank(int(action["give"]), int(action["take"]))
+			"end":
+				_end_turn()
+	_refresh()
+
+
+## El bot responde a una oferta de intercambio.
+func _bot_respond(recipient: int, accept: bool) -> void:
+	if online:
+		submit_change({"type": "respond", "player": recipient, "accept": accept}, recipient)
+	else:
+		rules.respond_trade(recipient, accept)
 
 
 func _unstick_die(die: Dice3D, index: int, upright: float, delta: float) -> void:
@@ -476,6 +639,8 @@ func _set_mode(mode: String) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if online and not _input_allowed():
+		return
 	if not privacy_locked and event is InputEventKey and event.pressed and not event.echo:
 		var focus := get_viewport().gui_get_focus_owner()
 		if (focus is LineEdit or focus is TextEdit) and focus.is_visible_in_tree():
@@ -500,55 +665,84 @@ func _unhandled_input(event: InputEvent) -> void:
 	get_viewport().set_input_as_handled()
 
 
-func _select_board(point: Vector3) -> void:
+## Selección de marca en el tablero. En línea se envía al anfitrión (con la
+## butaca que actúa); fuera de línea se aplica directamente.
+func _select_board(point: Vector3, acting_seat: int = -1) -> void:
 	var id := _nearest(point, selection_mode)
 	if id < 0:
 		_help("Selecciona una marca en el tablero.")
 		return
-	var ok := false
-	match selection_mode:
-		"settlement":
-			ok = rules.place_settlement(id)
-			if ok:
-				var piece := _spawn_piece(
-					"settlement",
-					PLAYER_COLORS[rules.building_owner[id]],
-					_vertex_position(id) + Vector3.UP * 0.15
-				)
-				piece.display_name += " J%d" % (rules.building_owner[id] + 1)
-				building_nodes[id] = piece
-				homes[piece] = _vertex_position(id)
-		"city":
-			ok = rules.upgrade_city(id)
-			if ok:
-				var piece: IslandPiece3D = building_nodes[id]
-				piece.set_kind("city")
-				piece.display_name += " J%d" % (rules.building_owner[id] + 1)
-		"road":
-			ok = rules.place_road(id)
-			if ok:
-				var piece := _spawn_piece(
-					"road",
-					PLAYER_COLORS[rules.road_owner[id]],
-					_edge_position(id) + Vector3.UP * 0.12
-				)
-				var edge: Vector2i = rules.board.edges[id]
-				var direction := _vertex_position(edge.y) - _vertex_position(edge.x)
-				piece.rotation.y = atan2(-direction.z, direction.x)
-				road_rotations[piece] = Quaternion(Vector3.UP, piece.rotation.y)
-				piece.display_name += " J%d" % (rules.road_owner[id] + 1)
-				road_nodes[id] = piece
-				homes[piece] = _edge_position(id)
-		"robber":
-			ok = rules.move_robber(id)
-			if ok:
-				homes[robber_node] = _tile_position(id)
-	if ok:
+	if online:
+		var action := _action_for_selection(id, acting_seat)
+		if action != null and submit_change(action, acting_seat):
+			_set_mode("")
+			_help(_phase_guidance())
+		else:
+			_help("Acción no permitida: revisa conexión, distancia, recursos y turno.")
+		return
+	if _apply_selection(selection_mode, id):
 		_set_mode("")
 		_refresh()
 		_help(_phase_guidance())
 	else:
 		_help("Acción no permitida: revisa conexión, distancia, recursos y turno.")
+
+
+## Diccionario de acción (formato registro) para el modo de selección actual.
+func _action_for_selection(id: int, seat: int) -> Dictionary:
+	var actor := seat if seat >= 0 else Net.local_seat()
+	match selection_mode:
+		"settlement":
+			return {"type": "settlement", "id": id, "seat": actor}
+		"city":
+			return {"type": "city", "id": id, "seat": actor}
+		"road":
+			return {"type": "road", "id": id, "seat": actor}
+		"robber":
+			return {"type": "robber", "id": id, "seat": actor}
+	return null
+
+
+## Aplicación local (offline) de una selección: reglas + piezas.
+func _apply_selection(mode: String, id: int) -> bool:
+	match mode:
+		"settlement":
+			return _apply_settlement(id)
+		"city":
+			return _apply_city(id)
+		"road":
+			return _apply_road(id)
+		"robber":
+			return _apply_robber(id)
+	return false
+
+
+func _apply_settlement(id: int) -> bool:
+	if not rules.place_settlement(id):
+		return false
+	_place_building_piece(id, "settlement")
+	return true
+
+
+func _apply_city(id: int) -> bool:
+	if not rules.upgrade_city(id):
+		return false
+	_upgrade_building_piece(id)
+	return true
+
+
+func _apply_road(id: int) -> bool:
+	if not rules.place_road(id):
+		return false
+	_place_road_piece(id)
+	return true
+
+
+func _apply_robber(id: int) -> bool:
+	if not rules.move_robber(id):
+		return false
+	homes[robber_node] = _tile_position(id)
+	return true
 
 
 func _nearest(point: Vector3, mode: String) -> int:
@@ -915,6 +1109,9 @@ func _build_privacy_overlay(layer: CanvasLayer) -> void:
 
 
 func _active_hand_player() -> int:
+	if online:
+		# Piloto: solo se muestra la mano de la butaca local.
+		return Net.local_seat()
 	if rules.phase == IslandRules.DISCARD:
 		return rules.discard_player
 	if rules.phase == IslandRules.TRADE_RESPONSE:
@@ -1123,10 +1320,18 @@ func _refresh() -> void:
 	else:
 		trade_description.text = "Sin oferta pendiente."
 	buttons["trade"].text = "Cambiar %d por 1" % rules.bank_rate(rules.turn, give.get_selected_id())
-	buttons["roll"].disabled = rules.phase != IslandRules.ROLL or waiting_roll
+	buttons["roll"].disabled = (
+		rules.phase != IslandRules.ROLL
+		or waiting_roll
+		or (online and not is_local_turn())
+	)
 	buttons["cancel_roll"].visible = waiting_roll or manual_roll
 	buttons["cancel_roll"].disabled = not waiting_roll and not manual_roll
-	var action := rules.phase == IslandRules.ACTION and not waiting_roll
+	var action := (
+		rules.phase == IslandRules.ACTION
+		and not waiting_roll
+		and _input_allowed()
+	)
 	for id in ["road", "settlement", "city", "trade", "end", "offer", "buy_dev"]:
 		buttons[id].disabled = not action
 	if action:
@@ -1167,6 +1372,12 @@ func _refresh() -> void:
 	if victim.item_count == 0:
 		victim.add_item("Sin víctima", -1)
 	victim.disabled = rules.phase != IslandRules.STEAL
+	if online and not is_local_turn():
+		buttons["steal"].disabled = true
+		buttons["accept"].disabled = true
+		buttons["reject"].disabled = true
+		victim.disabled = true
+		trade_partner.disabled = true
 	turn_controls["roll"].visible = rules.phase == IslandRules.ROLL
 	turn_controls["build"].visible = rules.phase == IslandRules.ACTION
 	turn_controls["resource"].visible = (
@@ -1273,6 +1484,20 @@ func _offer_trade() -> void:
 	for i in range(5):
 		offered.append(int(trade_give[i].value))
 		requested.append(int(trade_take[i].value))
+	if online:
+		var sent := submit_change(
+			{"type": "offer", "other": trade_partner.get_selected_id(), "give": offered, "take": requested}
+		)
+		_set_mode("")
+		_help(
+			(
+				"Oferta enviada: la persona destinataria debe aceptar o rechazar."
+				if sent
+				else "Oferta inválida: revisa jugador, cantidades y recursos disponibles."
+			)
+		)
+		_refresh()
+		return
 	if rules.propose_trade(trade_partner.get_selected_id(), offered, requested):
 		_set_mode("")
 		_help("La persona destinataria debe aceptar o rechazar la oferta.")
@@ -1283,6 +1508,17 @@ func _offer_trade() -> void:
 
 func _respond_trade(accept: bool) -> void:
 	var recipient: int = rules.trade_offer.get("to", -1)
+	if online:
+		var sent := submit_change({"type": "respond", "player": recipient, "accept": accept})
+		_refresh()
+		_help(
+			(
+				"Intercambio aceptado." if accept else "Intercambio rechazado."
+				if sent
+				else "No se puede aceptar: la persona destinataria no tiene los recursos pedidos."
+			)
+		)
+		return
 	var ok := rules.respond_trade(recipient, accept)
 	_refresh()
 	if ok:
@@ -1292,6 +1528,13 @@ func _respond_trade(accept: bool) -> void:
 
 
 func _buy_development() -> void:
+	if online:
+		if submit_change({"type": "buy"}):
+			_help("Carta comprada. Las cartas jugables se activan a partir del próximo turno.")
+		else:
+			_help("No se puede comprar: faltan recursos o el mazo está vacío.")
+		_refresh()
+		return
 	if rules.buy_development():
 		_help("Carta comprada. Las cartas jugables se activan a partir del próximo turno.")
 	else:
@@ -1303,6 +1546,14 @@ func _play_development() -> void:
 	if waiting_roll or manual_roll or grabber.held != null:
 		_help("Termina o cancela la tirada y suelta cualquier objeto antes de jugar la carta.")
 		return
+	if online:
+		if submit_change({"type": "play", "id": dev_choice.get_selected_id()}):
+			_set_mode("")
+			_help("Carta jugada. Completa su efecto antes de continuar.")
+		else:
+			_help("Carta no disponible, recién comprada, ya jugaste una o no puede aplicarse.")
+		_refresh()
+		return
 	if rules.play_development(dev_choice.get_selected_id()):
 		_set_mode("")
 		_help("Carta jugada. Completa su efecto antes de continuar.")
@@ -1313,6 +1564,14 @@ func _play_development() -> void:
 
 func _choose_development_resource() -> void:
 	var resource := take.get_selected_id()
+	if online:
+		var kind := "plenty" if rules.phase == IslandRules.PLENTY else "monopoly"
+		if submit_change({"type": kind, "id": resource}):
+			_help("Recurso aplicado.")
+		else:
+			_help("Recurso no disponible.")
+		_refresh()
+		return
 	var ok := false
 	if rules.phase == IslandRules.PLENTY:
 		ok = rules.take_plenty(resource)
@@ -1419,7 +1678,15 @@ func _finish_roll() -> void:
 	manually_thrown = [false, false]
 	for die in dice:
 		die._awaiting_result = false
-	if rules.roll(roll_results[0], roll_results[1]):
+	if online:
+		var sent := submit_change(
+			{"type": "roll", "a": roll_results[0], "b": roll_results[1], "seat": Net.local_seat()}
+		)
+		if sent:
+			_help("Dados enviados: %d + %d." % [roll_results[0], roll_results[1]])
+		else:
+			_help("La tirada no fue aceptada: otra butaca tiene el turno.")
+	elif rules.roll(roll_results[0], roll_results[1]):
 		_help("Dados aceptados: %d + %d." % [roll_results[0], roll_results[1]])
 	_refresh()
 
@@ -1437,6 +1704,15 @@ func _cancel_roll() -> void:
 
 
 func _trade() -> void:
+	if online:
+		if submit_change(
+			{"type": "bank", "give": give.get_selected_id(), "take": take.get_selected_id()}
+		):
+			_help("Cambio enviado al anfitrión.")
+		else:
+			_help("Cambio no permitido: revisa la proporción de tu puerto y las existencias.")
+		_refresh()
+		return
 	if not rules.trade_bank(give.get_selected_id(), take.get_selected_id()):
 		_help("Cambio no permitido: revisa la proporción de tu puerto y las existencias.")
 	else:
@@ -1445,6 +1721,13 @@ func _trade() -> void:
 
 
 func _discard() -> void:
+	if online:
+		if submit_change({"type": "discard", "id": give.get_selected_id()}):
+			_help("Recurso devuelto al banco.")
+		else:
+			_help("Selecciona un recurso disponible del jugador que debe descartar.")
+		_refresh()
+		return
 	if not rules.discard(give.get_selected_id()):
 		_help("Selecciona un recurso disponible del jugador que debe descartar.")
 	else:
@@ -1453,6 +1736,13 @@ func _discard() -> void:
 
 
 func _steal() -> void:
+	if online:
+		if submit_change({"type": "steal", "id": victim.get_selected_id()}):
+			_help("Se robó un recurso al azar de la víctima.")
+		else:
+			_help("Selecciona una víctima válida.")
+		_refresh()
+		return
 	if not rules.steal(victim.get_selected_id()):
 		_help("Selecciona una víctima válida.")
 	else:
@@ -1461,6 +1751,14 @@ func _steal() -> void:
 
 
 func _end_turn() -> void:
+	if online:
+		if submit_change({"type": "end"}):
+			_set_mode("")
+			_help("Turno terminado.")
+		else:
+			_help("No se puede terminar: revisa la fase y el turno.")
+		_refresh()
+		return
 	if rules.end_turn():
 		_set_mode("")
 		_help("Turno terminado.")
@@ -1468,6 +1766,9 @@ func _end_turn() -> void:
 
 
 func _save_game() -> void:
+	if online:
+		_help("La partida en línea se guarda en el anfitrión; el guardado local no se usa.")
+		return
 	if waiting_roll or manual_roll or grabber.held != null:
 		_help("Suelta el objeto y termina o cancela la tirada antes de guardar.")
 		return
@@ -1482,6 +1783,9 @@ func _save_game() -> void:
 
 
 func _load_game() -> void:
+	if online:
+		_help("La partida en línea se sincroniza desde el anfitrión; el guardado local no se usa.")
+		return
 	if waiting_roll or manual_roll or grabber.held != null:
 		_help("Suelta el objeto y termina o cancela la tirada antes de cargar.")
 		return
@@ -1552,11 +1856,16 @@ func _rebuild_loaded_board() -> void:
 
 
 func _new_game() -> void:
+	if online:
+		_help("La partida en línea continuará desde el anfitrión; para nuovel usa el menú.")
+		return
 	if _can_replace_game():
 		new_game_confirmation.popup_centered()
 
 
 func _confirm_new_game() -> void:
+	if online:
+		return
 	if _can_replace_game():
 		get_tree().change_scene_to_file(scene_file_path)
 
