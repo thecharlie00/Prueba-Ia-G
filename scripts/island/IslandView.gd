@@ -69,6 +69,11 @@ var privacy_overlay: Control
 var privacy_message: Label
 var privacy_ready: Button
 
+## Jugadores que lleva un bot: marcado al abrir la mesa desde «Jugar con bots».
+var bots: Array[bool] = [false, false, false, false]
+var bot_toggles: Array[CheckBox] = []
+var _bot_wait := 0.0
+
 @onready var camera: Camera3D = $CameraRig/Camera3D
 @onready var grabber: PhysicsGrabber3D = $PhysicsGrabber3D
 @onready var objects: Node3D = $Objects
@@ -86,6 +91,7 @@ func _ready() -> void:
 	robber_node = _spawn_piece("robber", Palette.PANEL, desert + Vector3.UP * 0.12)
 	homes[robber_node] = desert
 	_build_ui()
+	_apply_solo_bots()
 	_make_seats()
 	grabber.dice_shortcuts_enabled = false
 	grabber.grab_finished.connect(_on_physical_release)
@@ -129,6 +135,95 @@ func _physics_process(delta: float) -> void:
 		HomeSteering.steer(piece, homes[piece], 28.0, 9.0, 20.0)
 		if road_rotations.has(piece):
 			_steer_road(piece, road_rotations[piece])
+
+
+## Turno automatico de los bots: juegan solos con la pausa de la dificultad elegida.
+func _process(delta: float) -> void:
+	if not _bot_turn_active():
+		_bot_wait = 0.0
+		return
+	_bot_wait += delta
+	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
+		_bot_wait = 0.0
+		_bot_step()
+
+
+## Aplica el modo «Jugar con bots»: el humano es siempre J1 y el resto son bots.
+func _apply_solo_bots() -> void:
+	if not TableBots.solo:
+		return
+	TableBots.solo = false
+	privacy_enabled = false
+	privacy_locked = false
+	for player in range(1, player_count):
+		set_bot(true, player)
+
+
+func set_bot(enabled: bool, player: int) -> void:
+	if player < 0 or player >= bots.size():
+		return
+	bots[player] = enabled
+	_bot_wait = 0.0
+	if player < bot_toggles.size() and is_instance_valid(bot_toggles[player]):
+		bot_toggles[player].set_pressed_no_signal(enabled)
+	_refresh()
+
+
+func _bot_turn_active() -> bool:
+	if waiting_roll or manual_roll or is_instance_valid(grabber.held):
+		return false
+	if rules.phase == IslandRules.FINISHED:
+		return false
+	# El jugador que tiene que descartar puede no ser el de turno.
+	if rules.phase == IslandRules.DISCARD:
+		return rules.discard_player >= 0 and bots[rules.discard_player]
+	# Las fases de cartas de desarrollo son humanas; la oferta de intercambio la
+	# responde el bot destinatario (los bots no proponen, pero sí responden).
+	if rules.phase in [IslandRules.FREE_ROADS, IslandRules.PLENTY, IslandRules.MONOPOLY]:
+		return false
+	if rules.phase == IslandRules.TRADE_RESPONSE:
+		return bots[int(rules.trade_offer.get("to", -1))]
+	return bots[rules.turn]
+
+
+func _bot_step() -> void:
+	# Oferta del humano dirigida a un bot: acepta si puede pagar lo pedido.
+	if rules.phase == IslandRules.TRADE_RESPONSE:
+		var recipient := int(rules.trade_offer.get("to", -1))
+		var requested: Array = rules.trade_offer.get("take", [])
+		var can_pay := true
+		for resource in range(5):
+			if int(requested[resource]) > int(rules.resources[recipient][resource]):
+				can_pay = false
+				break
+		rules.respond_trade(recipient, can_pay)
+		_refresh()
+		return
+	var action := TableBots.island_action(rules, TableBots.difficulty)
+	match str(action.get("kind", "")):
+		"settlement", "city":
+			_set_mode(str(action["kind"]))
+			_select_board(_vertex_position(int(action["id"])))
+		"road":
+			_set_mode("road")
+			_select_board(_edge_position(int(action["id"])))
+		"robber":
+			_set_mode("robber")
+			_select_board(_tile_position(int(action["id"])))
+		"roll":
+			rules.roll(randi_range(1, 6), randi_range(1, 6))
+			_refresh()
+		"discard":
+			rules.discard(int(action["id"]))
+			_refresh()
+		"steal":
+			rules.steal(int(action["id"]))
+			_refresh()
+		"trade":
+			rules.trade_bank(int(action["give"]), int(action["take"]))
+			_refresh()
+		"end":
+			_end_turn()
 
 
 func _unstick_die(die: Dice3D, index: int, upright: float, delta: float) -> void:
@@ -693,6 +788,18 @@ func _build_options_tab(column: VBoxContainer) -> void:
 			+ "ni protege el guardado. Se guarda el estado lógico, no las poses físicas."
 		)
 	)
+	_label(column, "Jugadores que lleva un bot:")
+	var bot_row := HBoxContainer.new()
+	bot_row.name = "BotRow"
+	column.add_child(bot_row)
+	for player in range(player_count):
+		var toggle := CheckBox.new()
+		toggle.name = "Bot%d" % (player + 1)
+		toggle.text = "J%d" % (player + 1)
+		toggle.add_theme_color_override("font_color", PLAYER_COLORS[player].lightened(0.3))
+		toggle.toggled.connect(set_bot.bind(player))
+		bot_row.add_child(toggle)
+		bot_toggles.append(toggle)
 
 
 func _build_hand(layer: CanvasLayer) -> void:
