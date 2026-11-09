@@ -103,7 +103,7 @@ static func table_aabb(shape_node: CollisionShape3D) -> AABB:
 	if box == null:
 		return AABB()
 	var half := box.size * 0.5
-	return AABB(shape_node.global_position - half, shape_node.global_position + half)
+	return AABB(shape_node.global_position - half, half * 2.0)
 
 
 ## Asiento fuera de la caja de la mesa: desde center en la dirección dir, a la distancia
@@ -119,13 +119,13 @@ static func seat_outside(center: Vector3, dir: Vector3, floor_y: float, bounds: 
 	# el asiento queda justo más allá de ese borde, con margen.
 	var radius := INF
 	if d.x > 0.01:
-		radius = minf(radius, (bounds.max.x + clearance - center.x) / d.x)
+		radius = minf(radius, (bounds.get_max().x + clearance - center.x) / d.x)
 	elif d.x < -0.01:
-		radius = minf(radius, (bounds.min.x - clearance - center.x) / d.x)
+		radius = minf(radius, (bounds.get_min().x - clearance - center.x) / d.x)
 	if d.y > 0.01:
-		radius = minf(radius, (bounds.max.z + clearance - center.z) / d.y)
+		radius = minf(radius, (bounds.get_max().z + clearance - center.z) / d.y)
 	elif d.y < -0.01:
-		radius = minf(radius, (bounds.min.z - clearance - center.z) / d.y)
+		radius = minf(radius, (bounds.get_min().z - clearance - center.z) / d.y)
 	if radius == INF:
 		return Vector3(center.x, floor_y, center.z)
 	radius = maxf(radius, 0.0)

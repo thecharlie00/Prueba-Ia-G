@@ -103,7 +103,9 @@ func _build() -> void:
 	)
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(subtitle)
-	column.add_child(_label("Dificultad", 14, ACCENT))
+	var diff_label := _label("Dificultad", 14, ACCENT)
+	diff_label.name = "Dificultad"
+	column.add_child(diff_label)
 	var diff_row := HBoxContainer.new()
 	diff_row.add_theme_constant_override("separation", 10)
 	column.add_child(diff_row)
@@ -181,7 +183,9 @@ func _group(parent: VBoxContainer, title: String, description: String) -> void:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
 	parent.add_child(box)
-	box.add_child(_label(title, 14, ACCENT))
+	var group_label := _label(title, 14, ACCENT)
+	group_label.name = title
+	box.add_child(group_label)
 	var detail := _label(description, 13, MUTED)
 	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(detail)
