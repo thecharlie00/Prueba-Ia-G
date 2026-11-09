@@ -676,7 +676,7 @@ func _select_board(point: Vector3, acting_seat: int = -1) -> void:
 		return
 	if online:
 		var action := _action_for_selection(id, acting_seat)
-		if action != null and submit_change(action, acting_seat):
+		if not action.is_empty() and submit_change(action, acting_seat):
 			_set_mode("")
 			_help(_phase_guidance())
 		else:
@@ -702,7 +702,7 @@ func _action_for_selection(id: int, seat: int) -> Dictionary:
 			return {"type": "road", "id": id, "seat": actor}
 		"robber":
 			return {"type": "robber", "id": id, "seat": actor}
-	return null
+	return {}
 
 
 ## Aplicación local (offline) de una selección: reglas + piezas.

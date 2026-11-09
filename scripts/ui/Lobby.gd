@@ -9,20 +9,20 @@ const INK := Color("1d1a3a")
 const ACCENT := Color("ffc83d")
 const PANEL := Color("2a2552")
 
-var _username := LineEdit
-var _code := LineEdit
-var _status := Label
-var _seats := VBoxContainer
-var _chat_log := TextEdit
-var _chat_input := LineEdit
-var _game := OptionButton
-var _continue_button := Button
-var _create_button := Button
-var _enter_button := Button
-var _start_button := Button
-var _leave_button := Button
-var _send_button := Button
-var _code_label := Label
+var _username: LineEdit
+var _code: LineEdit
+var _status: Label
+var _seats: VBoxContainer
+var _chat_log: TextEdit
+var _chat_input: LineEdit
+var _game: OptionButton
+var _continue_button: Button
+var _create_button: Button
+var _enter_button: Button
+var _start_button: Button
+var _leave_button: Button
+var _send_button: Button
+var _code_label: Label
 
 
 func _ready() -> void:
@@ -140,7 +140,7 @@ func _build() -> void:
 	_chat_log.custom_minimum_size.x = 300
 	_chat_log.custom_minimum_size.y = 70
 	_chat_log.editable = false
-	_chat_log.wrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_chat_log.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	column.add_child(_chat_log)
 	var chat_row := _row()
 	_chat_input = LineEdit.new()
@@ -279,21 +279,20 @@ func in_room_started() -> bool:
 func _can_start() -> bool:
 	if Net.room_game.is_empty():
 		return _game.selected >= 0
-	var entry := _game_entry()
-	return entry != null
+	return not _game_entry().is_empty()
 
 
 func _game_entry() -> Dictionary:
 	for entry in Net.ONLINE_GAMES:
 		if entry["id"] == Net.room_game:
 			return entry
-	return null
+	return {}
 
 
 func _selected_entry() -> Dictionary:
 	var index := _game.selected
 	if index < 0 or index >= Net.ONLINE_GAMES.size():
-		return null
+		return {}
 	return Net.ONLINE_GAMES[index]
 
 
@@ -389,7 +388,7 @@ func _create_room() -> void:
 		_set_status("La demo solo puede entrar a salas; compra el juego para crearlas.")
 		return
 	var entry := _selected_entry()
-	if entry == null:
+	if entry.is_empty():
 		return
 	Net.create_room(entry["id"], int(entry["seats"]))
 	_set_status("Creando sala…")
@@ -415,9 +414,9 @@ func _start() -> void:
 	if not (Net.is_host() or Net.is_singleplayer()):
 		return
 	var entry := _game_entry()
-	if entry == null and Net.room_game.is_empty():
+	if entry.is_empty() and Net.room_game.is_empty():
 		entry = _selected_entry()
-	if entry == null:
+	if entry.is_empty():
 		return
 	if Net.is_host() and not Net.is_singleplayer() and not Edition.allows(entry["scene"]):
 		_set_status("Esa mesa está en el juego completo; la demo solo puede entrar a salas.")
