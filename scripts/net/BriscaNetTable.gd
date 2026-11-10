@@ -30,6 +30,7 @@ func _on_sync(record: Dictionary) -> void:
 	var replayed := BriscaRules.from_record(record)
 	if replayed == null:
 		return
+	synced = true
 	brisca = replayed
 	view_node.sync_from_rules(replayed)
 	_mark_synced()

@@ -37,6 +37,7 @@ func _on_sync(record: Dictionary) -> void:
 	var replayed := LudoRules.from_record(record)
 	if replayed == null:
 		return
+	synced = true
 	ludo = replayed
 	view_node.rules = replayed
 	view_node.sync_from_rules()

@@ -494,7 +494,7 @@ func _release(reason: String = "released") -> void:
 
 func is_online_table() -> bool:
 	var p := get_parent()
-	return p != null and bool(p.get("online"))
+	return p != null and p.get("online") == true
 
 
 # Devuelve solo una pieza a donde se agarró. No revierte cartas, dados ni reglas.

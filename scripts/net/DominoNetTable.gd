@@ -37,7 +37,10 @@ func _apply_event(change: Dictionary) -> bool:
 
 
 func _on_sync(record: Dictionary) -> void:
+	var prev_synced := synced
+	synced = true
 	if not view_node.sync_from_record(record):
+		synced = prev_synced
 		return
 	domino = view_node.rules
 	_mark_synced()

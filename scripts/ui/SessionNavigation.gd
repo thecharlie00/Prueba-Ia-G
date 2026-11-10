@@ -324,7 +324,7 @@ func _toggle() -> void:
 	overlay.visible = _visible
 	menu_button.visible = not _visible
 	var scene := get_tree().current_scene
-	var is_online := scene != null and bool(scene.get("online"))
+	var is_online: bool = scene != null and scene.get("online") == true
 	# En partidas online no se congela el árbol de escena para seguir recibiendo y animando RPCs.
 	get_tree().paused = _visible and not is_online
 	if _visible:
@@ -400,7 +400,7 @@ func _return_to_menu() -> void:
 	overlay.visible = false
 	get_tree().paused = false
 	var scene := get_tree().current_scene
-	if scene != null and bool(scene.get("online")):
+	if scene != null and scene.get("online") == true:
 		var net := get_node_or_null("/root/Net")
 		if net != null and net.has_method("leave_room"):
 			net.leave_room()

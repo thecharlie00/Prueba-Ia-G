@@ -77,6 +77,7 @@ func _on_sync(record: Dictionary) -> void:
 	var replayed := IslandRules.from_record(record)
 	if replayed == null:
 		return
+	synced = true
 	island = replayed
 	view_node.rules = replayed
 	view_node._rebuild_loaded_board()
