@@ -22,7 +22,9 @@ de online muestra un aviso y el juego local sigue funcionando.
 ## Arquitectura
 
 - **`Net`** (autoload `scripts/net/NetManager.gd`): sesión, conexión a Photon,
-  ciclo de vida de salas, inventario de butacas y señales
+  buscador de salas públicas (`room_listings`, `room_list_changed`,
+  `LOBBY_PROP_KEYS`), validación de contraseñas con hash SHA-256 + salt,
+  ciclo de vida de salas, inventario de butacas/bots/«Listo» y señales
   (`room_joined/left`, `player_joined/left`, `start_announced`,
   `room_info_received`). También es receptor de broadcast permanente, para que
   el handshake de sala funcione aunque el anfitrión ya esté en partida.
@@ -32,8 +34,17 @@ de online muestra un aviso y el juego local sigue funcionando.
   `sync_state`, `net_chat`. Sync con reintentos (10 × 2 s).
 - **`IslandNetTable`** (`scripts/net/IslandNetTable.gd`): validación por fase
   (turno, descarte, víctimas, ofertas…) y replay del registro para sync.
-- **`Lobby`** (`scripts/ui/Lobby.gd` + `scenes/Lobby.tscn`): nombre, crear sala
-  (solo full edition), entrar por código, butacas, chat y «Empezar» (anfitrión).
+- **`Lobby`** (`scripts/ui/Lobby.gd` + `scenes/Lobby.tscn`):
+  - **Crear sala** (solo juego completo): modo 2/3/4 jugadores, título
+    opcional, casilla «Sala pública» y contraseña opcional (hash SHA-256 + salt).
+  - **Unirse por código**: entrada a salas públicas o privadas de 6 caracteres.
+  - **Salas públicas disponibles**: lista en tiempo real vía `Fusion.get_room_list()` /
+    `room_list_updated`, botón «Actualizar» con enfriamiento y filtros por
+    texto (título, anfitrión o código), jugadores, hueco disponible y sin clave.
+  - **Sala de espera**: butacas con estado «Listo» por invitado (`ReadyToggle`),
+    bots configurables en huecos libres (`SeatBot<N>`), expulsión por el
+    anfitrión (`KickSeat<N>`), chat en vivo y botón «Empezar partida» bloqueado
+    hasta que todos los invitados estén listos.
 - **`IslandView`** (online): `submit_change` envía al anfitrión; `apply_change`
   aplica cambios recibidos por el mismo camino que el replay del guardado
   (`IslandRules._apply_saved_event`), para que todos los clientes coincidan.
