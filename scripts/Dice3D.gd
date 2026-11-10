@@ -55,6 +55,25 @@ func top_face() -> int:
 	return value
 
 
+## Gira el dado para que la cara `value` quede arriba (usado por el cliente
+## al recibir una tirada de red: animation local sin físicas reales).
+func set_top_face(value: int) -> void:
+	var rotations := {
+		1: Vector3(0.0, 0.0, 0.0),
+		6: Vector3(PI, 0.0, 0.0),
+		2: Vector3(0.0, 0.0, PI / 2.0),
+		5: Vector3(0.0, 0.0, -PI / 2.0),
+		3: Vector3(-PI / 2.0, 0.0, 0.0),
+		4: Vector3(PI / 2.0, 0.0, 0.0),
+	}
+	if not rotations.has(value):
+		return
+	global_rotation = rotations[value]
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	sleeping = true
+
+
 func _on_sleeping_changed() -> void:
 	if sleeping and _awaiting_result and not is_grabbed:
 		_awaiting_result = false

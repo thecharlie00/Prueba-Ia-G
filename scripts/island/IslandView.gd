@@ -25,6 +25,7 @@ var dice: Array[Dice3D] = []
 var roll_results: Array[int] = [0, 0]
 var waiting_roll := false
 var manual_roll := false
+var _roll_actor := -1
 var manually_thrown: Array[bool] = [false, false]
 var settled_time := 0.0
 var stuck_times: Array[float] = [0.0, 0.0]
@@ -84,6 +85,10 @@ func _start_online() -> void:
 	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
 		return
 	online = true
+	# Bots marcados por el host antes de empezar.
+	for player in range(rules.players):
+		if player < Net.room_bots.size() and Net.room_bots[player]:
+			set_bot(true, player)
 	net_table = IslandNetTable.new()
 	net_table.name = "NetTable"
 	net_table.view_node = self
@@ -97,10 +102,15 @@ func _start_online() -> void:
 	_refresh()
 
 
-## Un jugador que se desconecta deja su butaca bajo control del anfitrión.
+## Un jugador que se desconecta deja su butaca bajo control del anfitrión
+## solo si el host había marcado esa butaca como bot.
 func _on_net_player_left(player_id: int) -> void:
 	if online:
-		set_bot(true, player_id - 1)
+		var seat := player_id - 1
+		if seat < Net.room_bots.size() and Net.room_bots[seat]:
+			set_bot(true, seat)
+		else:
+			set_bot(false, seat)
 
 
 ## El jugador local pide aplicar una acción (online). Devuelve false fuera de
@@ -142,30 +152,77 @@ func apply_change(change: Dictionary) -> bool:
 
 ## Efectos visuales de un cambio ya aplicado en las reglas.
 func _apply_change_effects(change: Dictionary) -> void:
-	match str(change.get("type", "")):
+	var kind := str(change.get("type", ""))
+	# La animación se ve en todos los clientes y también en el host cuando la
+	# acción no es del jugador local (bot o remitente).
+	var actor := int(change.get("seat", -1))
+	var is_remote := online and (actor != Net.local_seat())
+	match kind:
 		"settlement":
 			var id := int(change.get("id", -1))
 			if id >= 0 and rules.building_owner[id] >= 0:
-				_place_building_piece(id, "settlement")
+				_place_building_piece(id, "settlement", is_remote)
 		"city":
 			var id := int(change.get("id", -1))
 			if id >= 0 and rules.building_owner[id] >= 0:
 				_upgrade_building_piece(id)
+			if is_remote:
+				_help("J%d construye ciudad." % (rules.building_owner[id] + 1))
 		"road":
 			var id := int(change.get("id", -1))
 			if id >= 0 and rules.road_owner[id] >= 0:
-				_place_road_piece(id)
+				_place_road_piece(id, is_remote)
 		"robber":
 			var id := int(change.get("id", -1))
 			if id >= 0:
 				homes[robber_node] = _tile_position(id)
+			if is_remote:
+				_help("El ladrón se mueve a una casilla.")
 		"roll":
 			var a := int(change.get("a", 0))
 			var b := int(change.get("b", 0))
-			_help("Dados: %d + %d." % [a, b])
+			if is_remote:
+				_animate_remote_roll(a, b)
+			else:
+				_help("Dados: %d + %d." % [a, b])
+		"discard":
+			if is_remote:
+				var rid := int(change.get("id", -1))
+				_help("J%d descarta: %s." % [rules.discard_player + 1, _resource_name(rid)])
+		"steal":
+			if is_remote:
+				var victim := int(change.get("id", -1))
+				_help("J%d roba a J%d." % [rules.turn + 1, victim + 1])
+		"bank":
+			if is_remote:
+				_help("J%d intercambia con el banco." % (rules.turn + 1))
+		"buy":
+			if is_remote:
+				_help("J%d compra carta de desarrollo." % (rules.turn + 1))
+		"play":
+			if is_remote:
+				_help("J%d juega carta de desarrollo." % (rules.turn + 1))
+		"offer":
+			if is_remote:
+				var other := int(change.get("other", -1))
+				_help("J%d propone intercambio a J%d." % [rules.turn + 1, other + 1])
+		"respond":
+			if is_remote:
+				var player := int(change.get("player", -1))
+				var accept := bool(change.get("accept", false))
+				_help("J%d %s la oferta." % [player + 1, "acepta" if accept else "rechaza"])
+		"end":
+			if is_remote:
+				_help("Turno de J%d." % (rules.turn + 1))
+		"plenty":
+			if is_remote:
+				_help("J%d recoge recursos (fiesta)." % (rules.turn + 1))
+		"monopoly":
+			if is_remote:
+				_help("J%d recoge recursos (monopolio)." % (rules.turn + 1))
 
 
-func _place_building_piece(id: int, kind: String) -> void:
+func _place_building_piece(id: int, kind: String, is_remote := false) -> void:
 	var piece := _spawn_piece(
 		kind,
 		PLAYER_COLORS[rules.building_owner[id]],
@@ -174,6 +231,9 @@ func _place_building_piece(id: int, kind: String) -> void:
 	piece.display_name += " J%d" % (rules.building_owner[id] + 1)
 	building_nodes[id] = piece
 	homes[piece] = _vertex_position(id)
+	if is_remote:
+		_animate_piece_drop(piece, _vertex_position(id) + Vector3.UP * 0.15)
+		_help("J%d coloca %s." % [rules.building_owner[id] + 1, "ciudad" if kind == "city" else "asentamiento"])
 
 
 func _upgrade_building_piece(id: int) -> void:
@@ -183,7 +243,7 @@ func _upgrade_building_piece(id: int) -> void:
 		piece.display_name += " J%d" % (rules.building_owner[id] + 1)
 
 
-func _place_road_piece(id: int) -> void:
+func _place_road_piece(id: int, is_remote := false) -> void:
 	var piece := _spawn_piece(
 		"road",
 		PLAYER_COLORS[rules.road_owner[id]],
@@ -196,6 +256,49 @@ func _place_road_piece(id: int) -> void:
 	road_rotations[piece] = Quaternion(Vector3.UP, piece.rotation.y)
 	road_nodes[id] = piece
 	homes[piece] = _edge_position(id)
+	if is_remote:
+		_animate_piece_drop(piece, _edge_position(id) + Vector3.UP * 0.12)
+		_help("J%d coloca camino." % (rules.road_owner[id] + 1))
+
+
+## Animación de caída para piezas colocadas por red (el cliente recibe el
+## evento y ve la pieza caer desde arriba con físicas).
+func _animate_piece_drop(piece: IslandPiece3D, target: Vector3) -> void:
+	piece.sleeping = false
+	piece.global_position = target + Vector3.UP * 2.0
+	piece.linear_velocity = Vector3.ZERO
+	piece.angular_velocity = Vector3.ZERO
+	piece.apply_central_impulse(Vector3(0.0, -3.0, 0.0) * piece.mass)
+	piece.apply_torque_impulse(Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * piece.mass)
+
+
+## Animación de tirada de dados para clientes: levantar los dados, tirarlos
+## y al detenerse fijar el resultado recibido del host.
+func _animate_remote_roll(a: int, b: int) -> void:
+	for i in range(dice.size()):
+		dice[i].sleeping = false
+		dice[i].global_position += Vector3.UP * 1.5
+		dice[i].linear_velocity = Vector3.ZERO
+		dice[i].angular_velocity = Vector3.ZERO
+		dice[i].roll(0.8)
+	# Después de un tiempo, fijar el resultado recibido (por si no coincide).
+	var timer := Timer.new()
+	timer.wait_time = 2.0
+	timer.one_shot = true
+	timer.timeout.connect(func():
+		dice[0].set_top_face(a)
+		dice[1].set_top_face(b)
+		_help("Dados: %d + %d." % [a, b])
+		_refresh()
+	)
+	add_child(timer)
+	timer.start()
+
+
+## Nombre del recurso para mensajes (0= madera, 1= barro, …).
+func _resource_name(index: int) -> String:
+	var names := ["madera", "barro", "lana", "trigo", "mineral"]
+	return names[index] if index >= 0 and index < names.size() else "recurso"
 
 
 @onready var camera: Camera3D = $CameraRig/Camera3D
@@ -297,6 +400,10 @@ func set_bot(enabled: bool, player: int) -> void:
 func _bot_turn_active() -> bool:
 	if waiting_roll or manual_roll or is_instance_valid(grabber.held):
 		return false
+	# Online: los bots solo actúan en el anfitrión; los clientes reciben las
+	# acciones广播adas y las reproducen con animaciones.
+	if online and not net_table.is_host():
+		return false
 	if rules.phase == IslandRules.FINISHED:
 		return false
 	# El jugador que tiene que descartar puede no ser el de turno.
@@ -353,8 +460,15 @@ func _bot_step() -> void:
 			_help("El bot no encontró acción válida; espera al siguiente turno.")
 
 
-## El bot tira los dados: en línea se envía al anfitrión con su butaca.
+## El bot tira los dados: en línea, el anfitrión tira físicamente (todos
+## ven la animación) y al detenerse _finish_roll envía el resultado con la
+## butaca del bot.
 func _bot_roll(seat: int) -> void:
+	if online and net_table.is_host():
+		_roll_actor = seat
+		_roll()
+		_help("J%d tira los dados." % (seat + 1))
+		return
 	var a := randi_range(1, 6)
 	var b := randi_range(1, 6)
 	if online:
@@ -1680,9 +1794,13 @@ func _finish_roll() -> void:
 	manually_thrown = [false, false]
 	for die in dice:
 		die._awaiting_result = false
+	# Si el tirador fue un bot (host), usar su butaca.
+	var seat := _roll_actor if _roll_actor >= 0 else Net.local_seat()
+	_roll_actor = -1
 	if online:
 		var sent := submit_change(
-			{"type": "roll", "a": roll_results[0], "b": roll_results[1], "seat": Net.local_seat()}
+			{"type": "roll", "a": roll_results[0], "b": roll_results[1], "seat": seat},
+			seat
 		)
 		if sent:
 			_help("Dados enviados: %d + %d." % [roll_results[0], roll_results[1]])
@@ -1698,6 +1816,7 @@ func _cancel_roll() -> void:
 		return
 	waiting_roll = false
 	manual_roll = false
+	_roll_actor = -1
 	manually_thrown = [false, false]
 	for die in dice:
 		die._awaiting_result = false

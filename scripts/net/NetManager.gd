@@ -39,6 +39,10 @@ var room_started: bool = false
 var room_code := ""
 var singleplayer_room := false  # sala offline creada sin App ID (testing)
 
+## Butacas que son bots (solo el host puede marcarlas antes de empezar).
+var room_bots: Array[bool] = [false, false, false, false]
+signal bots_changed()
+
 
 func _ready() -> void:
 	if not is_available():
@@ -99,6 +103,7 @@ func create_room(game_id: String, seats: int) -> void:
 	room_game = game_id
 	room_seats = seats
 	room_started = false
+	room_bots = [false, false, false, false]
 	room_code = _room_code()
 	var options := FusionRoomOptions.new()
 	options.max_players = SEATS_MAX
@@ -181,7 +186,8 @@ func send_room_info_to(player_id: int) -> void:
 			room_game,
 			room_seats,
 			room_started,
-			start_scene
+			start_scene,
+			room_bots
 		)
 
 
@@ -194,16 +200,18 @@ func _rpc_room_info_request() -> void:
 			room_game,
 			room_seats,
 			room_started,
-			start_scene
+			start_scene,
+			room_bots
 		)
 
 
 @rpc("any_peer", "call_remote")
-func _rpc_room_info(game: String, seats: int, started: bool, scene: String) -> void:
+func _rpc_room_info(game: String, seats: int, started: bool, scene: String, bots: Array) -> void:
 	room_game = game
 	room_seats = seats
 	room_started = started
 	start_scene = scene
+	room_bots = bots
 	room_info_received.emit()
 
 

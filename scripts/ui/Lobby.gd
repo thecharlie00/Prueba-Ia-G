@@ -13,6 +13,7 @@ var _username: LineEdit
 var _code: LineEdit
 var _status: Label
 var _seats: VBoxContainer
+var _bots: VBoxContainer
 var _chat_log: TextEdit
 var _chat_input: LineEdit
 var _game: OptionButton
@@ -131,6 +132,14 @@ func _build() -> void:
 	_seats.name = "Seats"
 	_seats.add_theme_constant_override("separation", 4)
 	column.add_child(_seats)
+	var bots_label := Label.new()
+	bots_label.text = "Bots (host)"
+	bots_label.add_theme_font_size_override("font_size", 16)
+	column.add_child(bots_label)
+	_bots = VBoxContainer.new()
+	_bots.name = "Bots"
+	_bots.add_theme_constant_override("separation", 4)
+	column.add_child(_bots)
 	var chat_label := Label.new()
 	chat_label.text = "Chat"
 	chat_label.add_theme_font_size_override("font_size", 16)
@@ -269,6 +278,9 @@ func _show_lobby() -> void:
 	_code_label.text = "Código: %s" % Net.room_code
 	_start_button.visible = is_host and not in_room_started()
 	_start_button.disabled = _start_button.visible and not _can_start()
+	# Bots: solo el host puede marcar butacas como bots antes de empezar.
+	_bots.visible = is_host and not in_room_started() and not Net.room_game.is_empty()
+	_refresh_bots()
 	_refresh_seats()
 
 
@@ -308,6 +320,26 @@ func _refresh() -> void:
 
 func _set_status(message: String) -> void:
 	_status.text = message
+
+
+func _refresh_bots() -> void:
+	for child in _bots.get_children():
+		_bots.remove_child(child)
+		child.queue_free()
+	var seats := int(Net.room_seats) if Net.room_seats > 0 else 4
+	for player in range(seats):
+		var toggle := CheckBox.new()
+		toggle.name = "Bot%d" % (player + 1)
+		toggle.text = "J%d" % (player + 1)
+		toggle.set_pressed_no_signal(player < Net.room_bots.size() and Net.room_bots[player])
+		toggle.toggled.connect(_on_bot_toggled.bind(player))
+		_bots.add_child(toggle)
+
+
+func _on_bot_toggled(player: int, enabled: bool) -> void:
+	if player < Net.room_bots.size():
+		Net.room_bots[player] = enabled
+		Net.bots_changed.emit()
 
 
 func _refresh_seats() -> void:
@@ -425,7 +457,7 @@ func _start() -> void:
 	Net.room_game = entry["id"]
 	Net.room_seats = int(entry["seats"])
 	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
-		Fusion.rpc(_rpc_start_announced, entry["scene"], int(entry["seats"]))
+		Fusion.rpc(_rpc_start_announced, entry["scene"], int(entry["seats"]), Net.room_bots)
 	Net.start_game(entry["scene"], int(entry["seats"]))
 
 
@@ -473,7 +505,7 @@ func _rpc_chat(text: String) -> void:
 
 
 @rpc("any_peer", "call_remote")
-func _rpc_start_announced(scene: String, seats: int) -> void:
+func _rpc_start_announced(scene: String, seats: int, bots: Array) -> void:
 	# El host ya llamó Net.start_game() localmente; Fusion.rpc() reenvía
 	# el broadcast al host también, así que se salta para evitar doble cambio
 	# de escena.
@@ -482,6 +514,7 @@ func _rpc_start_announced(scene: String, seats: int) -> void:
 	Net.start_scene = scene
 	Net.start_seats = seats
 	Net.room_started = true
+	Net.room_bots = bots
 	Net.start_announced.emit(scene, seats)
 
 
