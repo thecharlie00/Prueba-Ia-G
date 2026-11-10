@@ -293,13 +293,13 @@ static func island_action(rules: IslandRules, level: Difficulty = Difficulty.NOR
 			var spot := _island_first_vertex(rules) if level == Difficulty.FACIL else _island_best_vertex(rules, false, level)
 			if spot >= 0:
 				return {"kind": "settlement", "id": spot}
-			var road := _island_first_road(rules) if level == Difficulty.FACIL else _island_best_road(rules, level)
-			if road >= 0:
-				return {"kind": "road", "id": road}
-			if level != Difficulty.FACIL:
-				var trade := _island_trade(rules)
-				if not trade.is_empty():
-					return trade
+			if _island_needs_road(rules):
+				var road := _island_first_road(rules) if level == Difficulty.FACIL else _island_best_road(rules, level)
+				if road >= 0:
+					return {"kind": "road", "id": road}
+			var trade := _island_trade(rules)
+			if not trade.is_empty():
+				return trade
 			return {"kind": "end"}
 	return {}
 
@@ -378,22 +378,47 @@ static func _island_best_road(rules: IslandRules, level: Difficulty) -> int:
 	return best
 
 
+static func _island_has_open_site(rules: IslandRules, player: int) -> bool:
+	if rules._piece_count(player, 1) >= 5:
+		return false
+	for vertex in rules.building_owner.size():
+		if rules.building_owner[vertex] != -1 or not rules._clear_neighbors(vertex):
+			continue
+		for edge_id in rules.board.vertex_edges[vertex]:
+			if rules.road_owner[edge_id] == player:
+				return true
+	return false
+
+
+static func _island_needs_road(rules: IslandRules) -> bool:
+	var hand: Array = rules.resources[rules.turn]
+	if not _island_has_open_site(rules, rules.turn) and rules._piece_count(rules.turn, 1) < 5:
+		return true
+	return int(hand[0]) >= 2 and int(hand[1]) >= 2
+
+
 static func _island_trade(rules: IslandRules) -> Dictionary:
 	var hand: Array = rules.resources[rules.turn]
-	# Lo que más falta para un pueblo o una ciudad.
-	var want := -1
-	for cost in [IslandRules.CITY_COST, IslandRules.SETTLEMENT_COST, IslandRules.ROAD_COST]:
+	var targets: Array = []
+	if rules._piece_count(rules.turn, 1) > 0 and rules._piece_count(rules.turn, 2) < 4:
+		targets.append(IslandRules.CITY_COST)
+	if _island_has_open_site(rules, rules.turn):
+		targets.append(IslandRules.SETTLEMENT_COST)
+	elif rules._piece_count(rules.turn, 1) < 5 and rules._road_count(rules.turn) < 15:
+		targets.append(IslandRules.ROAD_COST)
+	for cost: Array in targets:
+		var want := -1
 		for resource in 5:
 			if int(cost[resource]) > int(hand[resource]) and rules.bank[resource] > 0:
 				want = resource
 				break
-		if want >= 0:
-			break
-	if want < 0:
+		if want < 0:
+			continue
+		for give in 5:
+			var rate := rules.bank_rate(rules.turn, give)
+			if give != want and int(hand[give]) >= int(cost[give]) + rate:
+				return {"kind": "trade", "give": give, "take": want}
 		return {}
-	for give in 5:
-		if give != want and int(hand[give]) >= rules.bank_rate(rules.turn, give) + 1:
-			return {"kind": "trade", "give": give, "take": want}
 	return {}
 
 
