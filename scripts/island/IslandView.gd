@@ -29,6 +29,9 @@ var manually_thrown: Array[bool] = [false, false]
 var settled_time := 0.0
 var stuck_times: Array[float] = [0.0, 0.0]
 var nudge_counts: Array[int] = [0, 0]
+var _remote_roll_expected: Array[int] = [0, 0]
+var _remote_roll_seat: int = -1
+var _roll_should_submit: bool = true
 var selection_mode := ""
 var homes: Dictionary = {}
 var road_rotations: Dictionary = {}
@@ -162,7 +165,36 @@ func _apply_change_effects(change: Dictionary) -> void:
 		"roll":
 			var a := int(change.get("a", 0))
 			var b := int(change.get("b", 0))
+			var seat := int(change.get("seat", -1))
+			_animate_remote_roll(a, b, seat)
+
+
+## Tirar físicamente los dados para una tirada remota (o bot en host).
+## Los dados se launchean físicamente y al detenerse se snapean al valor correcto.
+func _animate_remote_roll(a: int, b: int, seat: int = -1) -> void:
+	if dice.size() != 2:
+		if seat >= 0:
+			_help("J%d tira %d + %d." % [seat + 1, a, b])
+		else:
 			_help("Dados: %d + %d." % [a, b])
+		return
+	_remote_roll_expected = [a, b]
+	_remote_roll_seat = seat
+	_roll_should_submit = false
+	waiting_roll = true
+	manually_thrown = [false, false]
+	settled_time = 0.0
+	stuck_times = [0.0, 0.0]
+	nudge_counts = [0, 0]
+	roll_results = [0, 0]
+	tabs.current_tab = 0
+	for die in dice:
+		die.roll(0.55)
+	if seat >= 0:
+		_help("J%d tira los dados..." % [seat + 1])
+	else:
+		_help("Tirada en curso...")
+	_refresh()
 
 
 func _place_building_piece(id: int, kind: String) -> void:
@@ -353,13 +385,14 @@ func _bot_step() -> void:
 			_help("El bot no encontró acción válida; espera al siguiente turno.")
 
 
-## El bot tira los dados: en línea se envía al anfitrión con su butaca.
+## El bot tira los dados: en línea se animan físicamente en el host y se envía el resultado.
 func _bot_roll(seat: int) -> void:
 	var a := randi_range(1, 6)
 	var b := randi_range(1, 6)
 	if online:
-		submit_change({"type": "roll", "a": a, "b": b, "seat": seat}, seat)
-		_help("J%d tira %d + %d." % [seat + 1, a, b])
+		# Animar físicamente los dados, luego enviar al terminar.
+		_animate_remote_roll(a, b, seat)
+		_roll_should_submit = true
 	else:
 		rules.roll(a, b)
 		_help("Dados aceptados: %d + %d." % [a, b])
@@ -1674,22 +1707,39 @@ func _on_die_result(value: int, index: int) -> void:
 
 
 func _finish_roll() -> void:
+	# Snapear dados a la cara correcta si fue una tirada remota
+	if _remote_roll_expected[0] > 0:
+		dice[0].set_top_face(_remote_roll_expected[0])
+	if _remote_roll_expected[1] > 0:
+		dice[1].set_top_face(_remote_roll_expected[1])
 	# Releer simultáneamente: el segundo dado podría haber movido al primero.
 	roll_results = [dice[0].top_face(), dice[1].top_face()]
+	var was_remote := _remote_roll_expected[0] > 0
+	var remote_seat := _remote_roll_seat
+	_remote_roll_expected = [0, 0]
+	_remote_roll_seat = -1
 	waiting_roll = false
 	manually_thrown = [false, false]
 	for die in dice:
 		die._awaiting_result = false
 	if online:
-		var sent := submit_change(
-			{"type": "roll", "a": roll_results[0], "b": roll_results[1], "seat": Net.local_seat()}
-		)
-		if sent:
-			_help("Dados enviados: %d + %d." % [roll_results[0], roll_results[1]])
+		if _roll_should_submit:
+			var roll_seat := remote_seat if remote_seat >= 0 else Net.local_seat()
+			var sent := submit_change(
+				{"type": "roll", "a": roll_results[0], "b": roll_results[1], "seat": roll_seat}
+			)
+			if sent:
+				_help("Dados enviados: %d + %d." % [roll_results[0], roll_results[1]])
+			else:
+				_help("La tirada no fue aceptada: otra butaca tiene el turno.")
 		else:
-			_help("La tirada no fue aceptada: otra butaca tiene el turno.")
+			if remote_seat >= 0:
+				_help("J%d tira %d + %d." % [remote_seat + 1, roll_results[0], roll_results[1]])
+			else:
+				_help("Dados: %d + %d." % [roll_results[0], roll_results[1]])
 	elif rules.roll(roll_results[0], roll_results[1]):
 		_help("Dados aceptados: %d + %d." % [roll_results[0], roll_results[1]])
+	_roll_should_submit = true
 	_refresh()
 
 
