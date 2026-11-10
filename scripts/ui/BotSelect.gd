@@ -1,89 +1,118 @@
 extends Control
+## Selección para jugar en solitario contra bots:
+## - Selector visual de las tres dificultades (`Difficulty0..2`) con indicadores de nivel.
+## - Cuadrícula desplazable de las 9 mesas con IA disponible (`ScrollContainer` + `GridContainer`),
+##   evitando cualquier desbordamiento vertical en 1280×720 y mostrando el emblema y número de
+##   jugadores de cada juego.
 
-## Selección para jugar contra bots: elige la dificultad (tres niveles) y la mesa;
-## la máquina controla al resto de jugadores. La dificultad y el modo solitario se
-## guardan en TableBots para que los juegos los usen al abrirse. Se accede desde el
-## menú principal («Jugar»).
-
-const BUTTON_STYLE := Color("fff8ec")
-const ACCENT := Color("ffc83d")
-const MUTED := Color("c9c5ef")
-const INK := Color("1d1a3a")
-
-## Mesas con bot disponible: identificador, título, escena y nota.
 const GAMES := [
 	{
 		"id": "IslandTwo",
 		"title": "Isla de recursos · 2 jugadores",
 		"scene": "res://scenes/IslandTwo.tscn",
-		"note": "Contra un bot · duelo rápido",
+		"note": "Contra 1 bot · duelo rápido",
+		"badge": "2J · IA",
+		"theme": "island",
+		"primary": false,
 	},
 	{
 		"id": "Island",
-		"title": "Isla de recursos · Catan",
+		"title": "Isla de recursos · 3 jugadores",
 		"scene": "res://scenes/Island.tscn",
-		"note": "Contra dos bots · 3 jugadores · 1 humano",
+		"note": "Contra 2 bots · equilibrio clásico",
+		"badge": "3J · IA",
+		"theme": "island",
+		"primary": true,
 	},
 	{
 		"id": "IslandFour",
 		"title": "Isla de recursos · 4 jugadores",
 		"scene": "res://scenes/IslandFour.tscn",
-		"note": "Contra tres bots · 4 jugadores · 1 humano",
+		"note": "Contra 3 bots · isla completa",
+		"badge": "4J · IA",
+		"theme": "island",
+		"primary": false,
 	},
 	{
 		"id": "Parchis",
 		"title": "Parchís · 4 jugadores",
 		"scene": "res://scenes/Parchis.tscn",
-		"note": "Contra tres bots · reglas españolas",
+		"note": "Contra 3 bots · reglas españolas",
+		"badge": "4J · IA",
+		"theme": "parchis",
+		"primary": true,
 	},
 	{
 		"id": "Parchis2",
 		"title": "Parchís · 2 jugadores",
 		"scene": "res://scenes/Parchis2.tscn",
-		"note": "Contra un bot · reglas españolas",
+		"note": "Contra 1 bot · duelo de barreras",
+		"badge": "2J · IA",
+		"theme": "parchis",
+		"primary": false,
 	},
 	{
-		"id": "Ludo",
-		"title": "Ludo · 2 jugadores",
-		"scene": "res://scenes/Ludo.tscn",
-		"note": "Contra un bot",
+		"id": "Brisca",
+		"title": "Brisca",
+		"scene": "res://scenes/Brisca.tscn",
+		"note": "Contra el bot · baraja española",
+		"badge": "2J · IA",
+		"theme": "brisca",
+		"primary": true,
 	},
 	{
 		"id": "Checkers",
 		"title": "Damas físicas",
 		"scene": "res://scenes/GuidedPhysicalCheckers.tscn",
-		"note": "Contra el bot de las oscuras",
+		"note": "Contra el bot de las fichas oscuras",
+		"badge": "2J · IA",
+		"theme": "checkers",
+		"primary": false,
 	},
 	{
 		"id": "Domino",
 		"title": "Dominó físico",
 		"scene": "res://scenes/GuidedDomino.tscn",
 		"note": "Contra el bot del jugador 2",
+		"badge": "2J · IA",
+		"theme": "domino",
+		"primary": false,
 	},
 	{
-		"id": "Brisca",
-		"title": "Brisca",
-		"scene": "res://scenes/Brisca.tscn",
-		"note": "Contra el bot · 2 jugadores",
+		"id": "Ludo",
+		"title": "Ludo · 2 jugadores",
+		"scene": "res://scenes/Ludo.tscn",
+		"note": "Contra 1 bot · carrera rápida",
+		"badge": "2J · IA",
+		"theme": "ludo",
+		"primary": false,
 	},
 ]
 
-## Las tres dificultades: etiqueta, descripción y valor de TableBots.Difficulty.
 const DIFFICULTIES := [
 	{
 		"label": "Fácil",
+		"stars": "★☆☆",
+		"short": "Relajado · jugadas variadas",
 		"desc": "Se equivoca a propósito · 0,35 s por jugada",
 		"level": TableBots.Difficulty.FACIL,
+		"accent": Palette.MINT,
 	},
 	{
 		"label": "Normal",
+		"stars": "★★☆",
+		"short": "Equilibrado · sentido común",
 		"desc": "Juega con sentido común · 0,8 s por jugada",
 		"level": TableBots.Difficulty.NORMAL,
+		"accent": Palette.SUN,
 	},
 	{
 		"label": "Difícil",
+		"stars": "★★★",
+		"short": "Estratega · busca ventaja",
 		"desc": "Busca ventaja · 1,4 s por jugada",
 		"level": TableBots.Difficulty.DIFICIL,
+		"accent": Palette.CORAL,
 	},
 ]
 
@@ -96,74 +125,213 @@ func _ready() -> void:
 	_build()
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
+		get_viewport().set_input_as_handled()
+
+
 func _build() -> void:
-	var background := ColorRect.new()
-	background.color = Color("2a2552")
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
+	MenuStyle.add_backdrop(self, Palette.SUN)
+
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 38)
-	margin.add_theme_constant_override("margin_top", 30)
-	margin.add_theme_constant_override("margin_right", 38)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_left", 28)
+	margin.add_theme_constant_override("margin_right", 28)
+	margin.add_theme_constant_override("margin_top", 22)
+	margin.add_theme_constant_override("margin_bottom", 20)
 	add_child(margin)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 14)
-	margin.add_child(column)
-	column.add_child(_label("TABLERAMA  /  JUGAR CON BOTS", 13, ACCENT))
-	column.add_child(_label("Elige la dificultad", 36, Color("f3ead9")))
-	var subtitle := _label(
-		"Juegas solo: la máquina controla al resto de jugadores. "
-		+ "La dificultad se aplica a todos los bots de la mesa.",
-		15,
-		MUTED
+
+	var page := VBoxContainer.new()
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_theme_constant_override("separation", 14)
+	margin.add_child(page)
+
+	# 1. Cabecera con botón Back (requerido por tests) y acceso al catálogo local
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 14)
+	page.add_child(header)
+
+	var back := Button.new()
+	back.name = "Back"
+	back.text = "← Volver"
+	back.custom_minimum_size = Vector2(132, 44)
+	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	MenuStyle.style_secondary(back, 12, 6)
+	back.pressed.connect(
+		func() -> void: get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
 	)
-	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(subtitle)
-	var diff_label := _label("Dificultad", 14, ACCENT)
+	header.add_child(back)
+
+	var title_col := VBoxContainer.new()
+	title_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_col.add_theme_constant_override("separation", 1)
+	header.add_child(title_col)
+
+	title_col.add_child(MenuStyle.make_eyebrow("TABLERAMA  /  JUGAR CON BOTS", Palette.SUN))
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 12)
+	title_col.add_child(title_row)
+	title_row.add_child(MenuStyle.make_title("Solitario contra la IA", 32))
+	var subtitle := MenuStyle.make_muted(
+		"Juegas en el asiento 1 y la máquina controla al resto de jugadores.", 13
+	)
+	subtitle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	subtitle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	title_row.add_child(subtitle)
+
+	var local_shortcut := Button.new()
+	local_shortcut.name = "LocalCatalog"
+	local_shortcut.text = "Catálogo local  →"
+	local_shortcut.custom_minimum_size = Vector2(164, 44)
+	local_shortcut.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	MenuStyle.style_secondary(local_shortcut, 12, 6)
+	local_shortcut.pressed.connect(
+		func() -> void: get_tree().change_scene_to_file("res://scenes/Menu.tscn")
+	)
+	header.add_child(local_shortcut)
+
+	# 2. Tarjeta de selección de dificultad
+	var diff_card := MenuStyle.make_card_panel(
+		"DifficultyCard", Palette.PANEL, Palette.INK, 18, 14, 18, 5
+	)
+	page.add_child(diff_card)
+
+	var diff_col := VBoxContainer.new()
+	diff_col.add_theme_constant_override("separation", 10)
+	diff_card.add_child(diff_col)
+
+	var diff_head := HBoxContainer.new()
+	diff_head.add_theme_constant_override("separation", 12)
+	diff_col.add_child(diff_head)
+
+	var diff_label := MenuStyle.make_eyebrow("DIFICULTAD DEL BOT", Palette.SUN)
 	diff_label.name = "Dificultad"
-	column.add_child(diff_label)
+	diff_head.add_child(diff_label)
+
+	_diff_note = MenuStyle.make_muted(DIFFICULTIES[1]["desc"], 13, HORIZONTAL_ALIGNMENT_RIGHT)
+	_diff_note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	diff_head.add_child(_diff_note)
+
 	var diff_row := HBoxContainer.new()
-	diff_row.add_theme_constant_override("separation", 10)
-	column.add_child(diff_row)
+	diff_row.add_theme_constant_override("separation", 12)
+	diff_col.add_child(diff_row)
+
 	for index in DIFFICULTIES.size():
+		var info: Dictionary = DIFFICULTIES[index]
 		var button := Button.new()
 		button.name = "Difficulty%d" % index
-		button.text = DIFFICULTIES[index]["label"]
-		button.custom_minimum_size = Vector2(0, 40)
-		button.add_theme_font_size_override("font_size", 15)
+		button.text = ""
+		button.clip_contents = true
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size = Vector2(200, 62)
 		button.pressed.connect(_select_difficulty.bind(index))
-		_style_button(button, BUTTON_STYLE)
+
+		var inner := MarginContainer.new()
+		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_theme_constant_override("margin_left", 14)
+		inner.add_theme_constant_override("margin_right", 14)
+		inner.add_theme_constant_override("margin_top", 7)
+		inner.add_theme_constant_override("margin_bottom", 10)
+		button.add_child(inner)
+
+		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_theme_constant_override("separation", 10)
+		inner.add_child(row)
+
+		var stars := Label.new()
+		stars.text = str(info["stars"])
+		stars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stars.add_theme_font_size_override("font_size", 18)
+		stars.add_theme_color_override("font_color", Palette.INK)
+		stars.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(stars)
+
+		var tcol := VBoxContainer.new()
+		tcol.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tcol.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tcol.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tcol.add_theme_constant_override("separation", 0)
+		row.add_child(tcol)
+
+		var main_lbl := Label.new()
+		main_lbl.text = str(info["label"])
+		main_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		main_lbl.add_theme_font_override("font", MenuStyle.DISPLAY_FONT)
+		main_lbl.add_theme_font_size_override("font_size", 18)
+		main_lbl.add_theme_color_override("font_color", Palette.INK)
+		tcol.add_child(main_lbl)
+
+		var sub_lbl := Label.new()
+		sub_lbl.text = str(info["short"])
+		sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sub_lbl.add_theme_font_size_override("font_size", 12)
+		sub_lbl.add_theme_color_override("font_color", Palette.INK.lightened(0.2))
+		tcol.add_child(sub_lbl)
+
 		diff_row.add_child(button)
 		_diff_buttons.append(button)
-	_diff_note = _label(DIFFICULTIES[1]["desc"], 12, MUTED)
-	column.add_child(_diff_note)
+
 	var initial := 1
 	for i in DIFFICULTIES.size():
 		if int(DIFFICULTIES[i]["level"]) == TableBots.difficulty:
 			initial = i
 			break
 	_select_difficulty(initial)
-	_group(
-		column,
-		"MESAS CON BOT",
-		"Cada mesa empieza contra bots; el humano siempre es el jugador 1."
+
+	# 3. Tarjeta de cuadrícula de mesas con bot (en ScrollContainer para 720p y panorámico)
+	var tables_card := MenuStyle.make_card_panel(
+		"BotTablesCard", Palette.PANEL, Palette.INK, 18, 14, 20, 6
 	)
-	var list := VBoxContainer.new()
-	list.add_theme_constant_override("separation", 10)
-	column.add_child(list)
+	tables_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tables_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(tables_card)
+
+	var tables_col := VBoxContainer.new()
+	tables_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tables_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tables_col.add_theme_constant_override("separation", 10)
+	tables_card.add_child(tables_col)
+
+	var group_head := HBoxContainer.new()
+	group_head.add_theme_constant_override("separation", 12)
+	tables_col.add_child(group_head)
+
+	var group_label := MenuStyle.make_eyebrow("MESAS CON BOT", Palette.SUN)
+	group_label.name = "MESAS CON BOT"
+	group_head.add_child(group_label)
+
+	var group_desc := MenuStyle.make_muted(
+		"Elige una mesa: se abrirá directamente en modo solitario con la dificultad seleccionada.",
+		13,
+		HORIZONTAL_ALIGNMENT_RIGHT
+	)
+	group_desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	group_head.add_child(group_desc)
+
+	var scroll := ScrollContainer.new()
+	scroll.name = "BotGamesScroll"
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	tables_col.add_child(scroll)
+
+	var grid := GridContainer.new()
+	grid.name = "BotGamesGrid"
+	grid.columns = 3
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	scroll.add_child(grid)
+
 	for game in GAMES:
-		_game(list, game)
-	var back := Button.new()
-	back.name = "Back"
-	back.text = "Volver al menú"
-	back.custom_minimum_size.y = 36
-	back.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
-	)
-	column.add_child(back)
-	_diff_buttons[1].grab_focus()
+		_add_bot_game(grid, game)
+
+	_diff_buttons[initial].grab_focus.call_deferred()
 
 
 func _select_difficulty(index: int) -> void:
@@ -171,88 +339,38 @@ func _select_difficulty(index: int) -> void:
 		return
 	_level = int(DIFFICULTIES[index]["level"])
 	TableBots.difficulty = _level
-	_diff_note.text = DIFFICULTIES[index]["desc"]
+	_diff_note.text = tr(str(DIFFICULTIES[index]["desc"]))
 	for i in _diff_buttons.size():
-		_style_button(_diff_buttons[i], ACCENT if i == index else BUTTON_STYLE)
+		var btn := _diff_buttons[i]
+		if i == index:
+			var accent: Color = DIFFICULTIES[i]["accent"]
+			MenuStyle.style_button(btn, accent, accent.lightened(0.14), Palette.INK, 14, 6, 14, 7)
+		else:
+			MenuStyle.style_secondary(btn, 14, 6)
 
 
-## Un juego contra bots: guarda la dificultad, marca el modo solitario y abre la mesa.
 func _start(game: Dictionary) -> void:
 	TableBots.difficulty = _level
 	TableBots.solo = true
-	get_tree().change_scene_to_file(game["scene"])
+	get_tree().change_scene_to_file(str(game["scene"]))
 
 
-func _game(parent: VBoxContainer, game: Dictionary) -> void:
-	var button := Button.new()
-	button.name = game["id"]
-	button.text = game["title"] + "   →"
-	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	button.custom_minimum_size = Vector2(0, 42)
-	button.add_theme_font_size_override("font_size", 16)
-	button.pressed.connect(_start.bind(game))
-	_style_button(button, BUTTON_STYLE)
-	button.tooltip_text = game["note"]
+func _add_bot_game(parent: Control, game: Dictionary) -> void:
+	var scene := str(game["scene"])
 	var edition := get_node_or_null("/root/Edition")
-	if edition != null and not edition.allows(game["scene"]):
-		# Demo: la mesa se ve, pero se abre en el juego completo.
-		button.disabled = true
-		button.tooltip_text = "Incluida en el juego completo"
-		button.add_theme_stylebox_override("disabled", _style(Color("8f8aa8")))
-		button.add_theme_color_override("font_disabled_color", Color("3b3760"))
+	var locked: bool = edition != null and edition.call("allows", scene) != true
+	var button := MenuStyle.make_game_card_button(
+		str(game["id"]),
+		str(game["title"]),
+		str(game["note"]),
+		str(game["badge"]),
+		str(game["theme"]),
+		game.get("primary") == true,
+		locked,
+		74.0
+	)
+	button.tooltip_text = (
+		"Incluida en el juego completo" if locked else str(game["note"])
+	)
+	button.pressed.connect(_start.bind(game))
 	parent.add_child(button)
-
-
-func _group(parent: VBoxContainer, title: String, description: String) -> void:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
-	parent.add_child(box)
-	var group_label := _label(title, 14, ACCENT)
-	group_label.name = title
-	box.add_child(group_label)
-	var detail := _label(description, 13, MUTED)
-	detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(detail)
-
-
-func _style_button(button: Button, color: Color) -> void:
-	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		button.add_theme_color_override(state, INK)
-	button.add_theme_stylebox_override("normal", _style(color))
-	button.add_theme_stylebox_override("hover", _style(Color("ffd96e")))
-	button.add_theme_stylebox_override("pressed", _style(ACCENT, true))
-	button.add_theme_stylebox_override("focus", _focus_style())
-
-
-func _label(text: String, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", font_size)
-	label.add_theme_color_override("font_color", color)
-	return label
-
-
-func _style(color: Color, pressed := false) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.border_color = INK
-	style.set_border_width_all(3)
-	style.border_width_bottom = 3 if pressed else 6
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 9 if pressed else 6
-	style.set_corner_radius_all(12)
-	return style
-
-
-func _focus_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.draw_center = false
-	style.border_color = ACCENT
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(14)
-	style.expand_margin_left = 4
-	style.expand_margin_right = 4
-	style.expand_margin_top = 4
-	style.expand_margin_bottom = 4
-	return style

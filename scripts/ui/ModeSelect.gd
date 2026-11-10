@@ -1,127 +1,230 @@
 extends Control
-
-## Selección de modo: «Jugar en local» (lista de juegos existentes) o
-## «Jugar con bots» (dificultad + mesas). Se llega desde el menú principal
-## (Jugar) y vuelve allí con «Volver».
-
-const BUTTON_STYLE := Color("fff8ec")
-const ACCENT := Color("ffc83d")
-const INK := Color("1d1a3a")
+## Selector de modo de juego: presenta de un vistazo las tres experiencias principales
+## (Mesa local, Solitario contra bots y Salas online) en tarjetas ilustradas con emblemas,
+## resumen de características y navegación directa con ratón, teclado o mando.
 
 
 func _ready() -> void:
-	_build()
+	MenuStyle.add_backdrop(self, Palette.MINT)
 
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	add_child(scroll)
 
-func _build() -> void:
-	var background := ColorRect.new()
-	background.color = Color("2a2552")
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 20)
-	add_child(column)
-	# Colocación centrada (los contenedores no admiten asignar anchors por propiedad;
-	# se usa el método, válido para cualquier Control).
-	column.set_anchor(SIDE_LEFT, 0.5)
-	column.set_anchor(SIDE_RIGHT, 0.5)
-	column.set_anchor(SIDE_TOP, 0.5)
-	column.set_anchor(SIDE_BOTTOM, 0.5)
-	column.set_offset(SIDE_LEFT, -160.0)
-	column.set_offset(SIDE_RIGHT, 160.0)
-	column.set_offset(SIDE_TOP, -160.0)
-	column.set_offset(SIDE_BOTTOM, 160.0)
-	var title := Label.new()
+	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_theme_constant_override("margin_left", 36)
+	margin.add_theme_constant_override("margin_right", 36)
+	margin.add_theme_constant_override("margin_top", 26)
+	margin.add_theme_constant_override("margin_bottom", 26)
+	scroll.add_child(margin)
+
+	var page := VBoxContainer.new()
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_theme_constant_override("separation", 20)
+	margin.add_child(page)
+
+	# 1. Cabecera con botón Volver a la izquierda y título centrado
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 16)
+	page.add_child(header)
+
+	var back_holder := VBoxContainer.new()
+	back_holder.custom_minimum_size.x = 148
+	back_holder.alignment = BoxContainer.ALIGNMENT_BEGIN
+	header.add_child(back_holder)
+
+	var back_btn := Button.new()
+	back_btn.name = "Back"
+	back_btn.text = "← Volver"
+	back_btn.custom_minimum_size = Vector2(140, 44)
+	MenuStyle.style_secondary(back_btn, 12, 6)
+	back_btn.pressed.connect(_go_back)
+	back_holder.add_child(back_btn)
+
+	var title_box := VBoxContainer.new()
+	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_box.add_theme_constant_override("separation", 4)
+	header.add_child(title_box)
+
+	title_box.add_child(
+		MenuStyle.make_eyebrow(
+			"TABLERAMA  ·  SELECCIÓN DE MODO", Palette.SUN, HORIZONTAL_ALIGNMENT_CENTER
+		)
+	)
+
+	var title := MenuStyle.make_title("Elige cómo jugar", 40, HORIZONTAL_ALIGNMENT_CENTER)
 	title.name = "Title"
-	title.text = "Tablerama"
-	title.add_theme_font_size_override("font_size", 56)
-	title.add_theme_color_override("font_color", Color("f3ead9"))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(title)
-	var subtitle := Label.new()
+	title_box.add_child(title)
+
+	var subtitle := MenuStyle.make_muted(
+		"Comparte mesa en este equipo, juega en solitario contra bots o conéctate a una sala online.",
+		15,
+		HORIZONTAL_ALIGNMENT_CENTER
+	)
 	subtitle.name = "Subtitle"
-	subtitle.text = "Elige cómo jugar"
-	subtitle.add_theme_font_size_override("font_size", 20)
-	subtitle.add_theme_color_override("font_color", Color("c9c5ef"))
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(subtitle)
-	var local := Button.new()
-	local.name = "Local"
-	local.text = "Jugar en local"
-	local.custom_minimum_size = Vector2(300, 62)
-	local.add_theme_font_size_override("font_size", 18)
-	local.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	local.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/Menu.tscn")
+	title_box.add_child(subtitle)
+
+	var right_spacer := Control.new()
+	right_spacer.custom_minimum_size.x = 148
+	header.add_child(right_spacer)
+
+	# 2. Tres tarjetas panorámicas de modo
+	var center := CenterContainer.new()
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(center)
+
+	var cards_row := HBoxContainer.new()
+	cards_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	cards_row.add_theme_constant_override("separation", 22)
+	center.add_child(cards_row)
+
+	var local_btn := _add_mode_card(
+		cards_row,
+		"Local",
+		"Jugar en local",
+		"Mesa en este equipo",
+		"1–4 jugadores",
+		Palette.MINT,
+		["sandbox", "chess"],
+		"18 mesas listas para compartir pantalla o experimentar libremente con dados, cartas y fichas físicas.",
+		[
+			"Reglas guiadas o física manual",
+			"Incluye el tutorial paso a paso",
+			"Guardado local y rebobinado",
+		],
+		"res://scenes/Menu.tscn"
 	)
-	column.add_child(local)
-	var bots := Button.new()
-	bots.name = "Bots"
-	bots.text = "Jugar con bots"
-	bots.custom_minimum_size = Vector2(300, 62)
-	bots.add_theme_font_size_override("font_size", 18)
-	bots.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bots.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/BotSelect.tscn")
+
+	var bots_btn := _add_mode_card(
+		cards_row,
+		"Bots",
+		"Jugar con bots",
+		"Solitario contra IA",
+		"1 jugador · 3 niveles",
+		Palette.SUN,
+		["parchis", "brisca"],
+		"Entra directo a una partida individual contra rivales automáticos y elige cuánto calculan.",
+		[
+			"Dificultad Fácil, Normal o Difícil",
+			"9 mesas preparadas con bots",
+			"Isla, Parchís, Brisca, Damas y más",
+		],
+		"res://scenes/BotSelect.tscn"
 	)
-	column.add_child(bots)
-	var online := Button.new()
-	online.name = "Online"
-	online.text = "Jugar online"
-	online.custom_minimum_size = Vector2(300, 62)
-	online.add_theme_font_size_override("font_size", 18)
-	online.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	online.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/Lobby.tscn")
+
+	var online_btn := _add_mode_card(
+		cards_row,
+		"Online",
+		"Jugar online",
+		"Salas multijugador",
+		"2–4 en red",
+		Color("7cc6fe"),
+		["island", "ludo"],
+		"Crea una sala pública o privada con contraseña, comparte el código o únete desde el buscador.",
+		[
+			"Buscador de salas públicas en vivo",
+			"Clave opcional con hash seguro",
+			"Butacas con bots, chat y «Listo»",
+		],
+		"res://scenes/Lobby.tscn"
 	)
-	column.add_child(online)
-	var back := Button.new()
-	back.name = "Back"
-	back.text = "Volver"
-	back.custom_minimum_size = Vector2(300, 48)
-	back.add_theme_font_size_override("font_size", 16)
-	back.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	back.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/BotMenu.tscn")
+
+	# Vecinos de foco explícitos para mando y cursores
+	local_btn.focus_neighbor_right = local_btn.get_path_to(bots_btn)
+	bots_btn.focus_neighbor_left = bots_btn.get_path_to(local_btn)
+	bots_btn.focus_neighbor_right = bots_btn.get_path_to(online_btn)
+	online_btn.focus_neighbor_left = online_btn.get_path_to(bots_btn)
+
+	local_btn.grab_focus.call_deferred()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_go_back()
+		get_viewport().set_input_as_handled()
+
+
+func _go_back() -> void:
+	get_tree().change_scene_to_file("res://scenes/BotMenu.tscn")
+
+
+func _add_mode_card(
+	parent: Control,
+	button_name: String,
+	cta_text: String,
+	heading_text: String,
+	badge_text: String,
+	accent: Color,
+	emblems: Array,
+	description: String,
+	bullets: Array,
+	scene_path: String
+) -> Button:
+	var card := MenuStyle.make_card_panel(
+		button_name + "Card", Palette.PANEL, Palette.INK, 22, 20, 20, 6
 	)
-	column.add_child(back)
-	_style_button(local, BUTTON_STYLE)
-	_style_button(bots, ACCENT)
-	_style_button(online, BUTTON_STYLE)
-	_style_button(back, BUTTON_STYLE)
-	local.grab_focus()
+	card.custom_minimum_size = Vector2(356, 396)
+	parent.add_child(card)
 
+	var col := VBoxContainer.new()
+	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 12)
+	card.add_child(col)
 
-func _style_button(button: Button, color: Color) -> void:
-	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		button.add_theme_color_override(state, INK)
-	button.add_theme_stylebox_override("normal", _style(color))
-	button.add_theme_stylebox_override("hover", _style(Color("ffd96e")))
-	button.add_theme_stylebox_override("pressed", _style(ACCENT, true))
-	button.add_theme_stylebox_override("focus", _focus_style())
+	# Fila superior: emblemas dobles + insignia de modo
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 8)
+	col.add_child(top)
+	for key in emblems:
+		top.add_child(MenuStyle.make_emblem_badge(str(key), 30.0, MenuStyle.CARD_WELL))
+	var top_spacer := Control.new()
+	top_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(top_spacer)
+	var fg := Palette.INK if accent.get_luminance() > 0.42 else Palette.PAPER
+	var pill := MenuStyle.make_pill(badge_text, accent, fg, 12, 11, 4)
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(pill)
 
+	# Título y resumen de la experiencia
+	var card_title := MenuStyle.make_title(heading_text, 26, HORIZONTAL_ALIGNMENT_LEFT)
+	col.add_child(card_title)
 
-func _style(color: Color, pressed := false) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.border_color = INK
-	style.set_border_width_all(3)
-	style.border_width_bottom = 3 if pressed else 6
-	style.content_margin_left = 16
-	style.content_margin_right = 16
-	style.content_margin_top = 9 if pressed else 6
-	style.set_corner_radius_all(12)
-	return style
+	var desc := MenuStyle.make_muted(description, 14)
+	col.add_child(desc)
 
+	# Recuadro interior de puntos clave
+	var well := MenuStyle.make_card_panel(
+		"", MenuStyle.CARD_WELL, Palette.INK, 14, 10, 14, 0
+	)
+	well.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(well)
 
-func _focus_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.draw_center = false
-	style.border_color = ACCENT
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(14)
-	style.expand_margin_left = 4
-	style.expand_margin_right = 4
-	style.expand_margin_top = 4
-	style.expand_margin_bottom = 4
-	return style
+	var bullet_col := VBoxContainer.new()
+	bullet_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	bullet_col.add_theme_constant_override("separation", 5)
+	well.add_child(bullet_col)
+
+	for item in bullets:
+		var item_lbl := Label.new()
+		item_lbl.text = "✦  " + tr(str(item))
+		item_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		item_lbl.add_theme_font_size_override("font_size", 13)
+		item_lbl.add_theme_color_override("font_color", Palette.PAPER)
+		bullet_col.add_child(item_lbl)
+
+	# Botón principal de acción (conserva el nombre exacto de nodo esperado por los tests)
+	var btn := Button.new()
+	btn.name = button_name
+	btn.text = cta_text
+	btn.custom_minimum_size = Vector2(0, 52)
+	btn.add_theme_font_override("font", MenuStyle.DISPLAY_FONT)
+	btn.add_theme_font_size_override("font_size", 20)
+	MenuStyle.style_primary(btn, 14, 6)
+	btn.pressed.connect(func() -> void: get_tree().change_scene_to_file(scene_path))
+	col.add_child(btn)
+	return btn
