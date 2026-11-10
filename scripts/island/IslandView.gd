@@ -33,6 +33,10 @@ var _remote_roll_expected: Array[int] = [0, 0]
 var _remote_roll_seat: int = -1
 var _roll_should_submit: bool = true
 var _suppress_roll_anim: bool = false
+var _awaiting_roll_ack: bool = false
+
+const DICE_REST_A := Vector3(2.97, 1.052, -0.58)
+const DICE_REST_B := Vector3(2.97, 1.052, 0.58)
 var selection_mode := ""
 var homes: Dictionary = {}
 var road_rotations: Dictionary = {}
@@ -151,11 +155,43 @@ func is_local_turn() -> bool:
 	return rules.turn == seat
 
 
+func _finish_forced_dice() -> void:
+	if dice.size() == 2:
+		if dice[0].is_forced_rolling() or dice[1].is_forced_rolling():
+			dice[0].finish_forced_roll(true)
+			dice[1].finish_forced_roll(true)
+		elif waiting_roll and not _roll_should_submit:
+			if _remote_roll_expected[0] >= 1:
+				dice[0].global_position = DICE_REST_A
+				dice[0].set_top_face(_remote_roll_expected[0])
+				dice[0].ensure_celebrated(_remote_roll_expected[0])
+			if _remote_roll_expected[1] >= 1:
+				dice[1].global_position = DICE_REST_B
+				dice[1].set_top_face(_remote_roll_expected[1])
+				dice[1].ensure_celebrated(_remote_roll_expected[1])
+	if not _roll_should_submit:
+		_remote_roll_expected = [0, 0]
+		_remote_roll_seat = -1
+		_roll_should_submit = true
+		waiting_roll = false
+		for die in dice:
+			die._awaiting_result = false
+
+
 ## Cambio validado por el anfitrión (o recibido por red). Se aplica por el
 ## mismo camino que el replay del registro para que todos coincidan.
 func apply_change(change: Dictionary) -> bool:
+	_finish_forced_dice()
+	var is_roll := str(change.get("type", "")) == "roll"
+	var seat := int(change.get("seat", -1))
 	if not IslandRules._apply_saved_event(rules, change):
+		if is_roll and seat == _local_seat():
+			_awaiting_roll_ack = false
 		return false
+	if is_roll and seat == _local_seat():
+		_awaiting_roll_ack = false
+	if net_table != null:
+		net_table.island = rules
 	_apply_change_effects(change)
 	_refresh()
 	return true
@@ -184,16 +220,23 @@ func _apply_change_effects(change: Dictionary) -> void:
 			var a := int(change.get("a", 0))
 			var b := int(change.get("b", 0))
 			var seat := int(change.get("seat", -1))
-			if _suppress_roll_anim:
-				return
-			if online and seat == _local_seat() and (seat < 0 or seat >= bots.size() or not bots[seat]):
+			var manual := bool(change.get("manual", false))
+			var skip_local_manual := (
+				online
+				and manual
+				and seat == _local_seat()
+				and (seat < 0 or seat >= bots.size() or not bots[seat])
+			)
+			if _suppress_roll_anim or skip_local_manual:
+				if dice.size() == 2 and a >= 1 and a <= 6 and b >= 1 and b <= 6:
+					dice[0].set_top_face(a)
+					dice[1].set_top_face(b)
 				_help("Dados aceptados: %d + %d." % [a, b])
 				return
 			_animate_remote_roll(a, b, seat)
 
 
-## Tirar físicamente los dados para una tirada remota (o bot en host).
-## Los dados se launchean físicamente y al detenerse se snapean al valor correcto.
+## Tirar los dados con animación 3D determinista hacia las caras exactas recibidas por red.
 func _animate_remote_roll(a: int, b: int, seat: int = -1) -> void:
 	if dice.size() != 2:
 		if seat >= 0:
@@ -205,14 +248,15 @@ func _animate_remote_roll(a: int, b: int, seat: int = -1) -> void:
 	_remote_roll_seat = seat
 	_roll_should_submit = false
 	waiting_roll = true
+	manual_roll = false
 	manually_thrown = [false, false]
 	settled_time = 0.0
 	stuck_times = [0.0, 0.0]
 	nudge_counts = [0, 0]
 	roll_results = [0, 0]
 	tabs.current_tab = 0
-	for die in dice:
-		die.roll(0.55)
+	dice[0].roll_to_value(a, DICE_REST_A, 0.58)
+	dice[1].roll_to_value(b, DICE_REST_B, 0.66)
 	if seat >= 0:
 		_help("J%d tira los dados..." % [seat + 1])
 	else:
@@ -273,6 +317,7 @@ func _ready() -> void:
 	_apply_solo_bots()
 	_make_seats()
 	grabber.dice_shortcuts_enabled = false
+	grabber.grab_started.connect(_on_grab_started)
 	grabber.grab_finished.connect(_on_physical_release)
 	grabber.placement_message.connect(_placement_message)
 	_refresh()
@@ -281,31 +326,45 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	if waiting_roll and dice.size() == 2:
-		var stable := true
-		for index in range(dice.size()):
-			var die := dice[index]
-			if (
-				die.global_position.x < -3.4
-				or die.global_position.x > 4.0
-				or absf(die.global_position.z) > 2.3
-				or die.global_position.y < 0.75
-			):
-				stable = false
-				_help("Un dado está fuera de la mesa. Usa Recolocar dados y vuelve a tirar.")
-			var basis := die.global_basis.orthonormalized()
-			var upright := maxf(absf(basis.x.dot(Vector3.UP)), absf(basis.y.dot(Vector3.UP)))
-			upright = maxf(upright, absf(basis.z.dot(Vector3.UP)))
-			_unstick_die(die, index, upright, delta)
-			if (
-				die.is_grabbed
-				or die.linear_velocity.length() > 0.07
-				or die.angular_velocity.length() > 0.16
-				or upright < 0.96
-			):
-				stable = false
-		settled_time = settled_time + delta if stable else 0.0
-		if settled_time >= 1.0:
-			_finish_roll()
+		if not _roll_should_submit:
+			if not dice[0].is_forced_rolling() and not dice[1].is_forced_rolling():
+				roll_results = [dice[0].top_face(), dice[1].top_face()]
+				var remote_seat := _remote_roll_seat
+				_remote_roll_expected = [0, 0]
+				_remote_roll_seat = -1
+				_roll_should_submit = true
+				waiting_roll = false
+				if remote_seat >= 0:
+					_help("J%d tira %d + %d." % [remote_seat + 1, roll_results[0], roll_results[1]])
+				else:
+					_help("Dados: %d + %d." % [roll_results[0], roll_results[1]])
+				_refresh()
+		else:
+			var stable := true
+			for index in range(dice.size()):
+				var die := dice[index]
+				if (
+					die.global_position.x < -3.4
+					or die.global_position.x > 4.0
+					or absf(die.global_position.z) > 2.3
+					or die.global_position.y < 0.75
+				):
+					stable = false
+					_help("Un dado está fuera de la mesa. Usa Recolocar dados y vuelve a tirar.")
+				var basis := die.global_basis.orthonormalized()
+				var upright := maxf(absf(basis.x.dot(Vector3.UP)), absf(basis.y.dot(Vector3.UP)))
+				upright = maxf(upright, absf(basis.z.dot(Vector3.UP)))
+				_unstick_die(die, index, upright, delta)
+				if (
+					die.is_grabbed
+					or die.linear_velocity.length() > 0.07
+					or die.angular_velocity.length() > 0.16
+					or upright < 0.96
+				):
+					stable = false
+			settled_time = settled_time + delta if stable else 0.0
+			if settled_time >= 1.0:
+				_finish_roll()
 
 	for key in homes:
 		var piece := key as IslandPiece3D
@@ -410,14 +469,12 @@ func _bot_step() -> void:
 			_help("El bot no encontró acción válida; espera al siguiente turno.")
 
 
-## El bot tira los dados: en línea se animan físicamente en el host y se envía el resultado.
+## El bot tira los dados: en línea difunde el resultado para animarlo a la vez en toda la sala.
 func _bot_roll(seat: int) -> void:
 	var a := randi_range(1, 6)
 	var b := randi_range(1, 6)
 	if online:
-		# Animar físicamente los dados, luego enviar al terminar.
-		_animate_remote_roll(a, b, seat)
-		_roll_should_submit = true
+		submit_change({"type": "roll", "a": a, "b": b, "seat": seat}, seat)
 	else:
 		rules.roll(a, b)
 		_help("Dados aceptados: %d + %d." % [a, b])
@@ -1386,9 +1443,21 @@ func _refresh() -> void:
 	buttons["roll"].disabled = (
 		rules.phase != IslandRules.ROLL
 		or waiting_roll
+		or _awaiting_roll_ack
 		or (online and not is_local_turn())
 	)
-	var can_cancel_roll := (waiting_roll and _roll_should_submit) or manual_roll
+	if buttons.has("reset_dice"):
+		buttons["reset_dice"].disabled = (
+			rules.phase != IslandRules.ROLL
+			or _awaiting_roll_ack
+			or (waiting_roll and not _roll_should_submit)
+			or (online and not is_local_turn())
+		)
+	var can_cancel_roll := (
+		((waiting_roll and _roll_should_submit) or manual_roll)
+		and not _awaiting_roll_ack
+		and (not online or is_local_turn())
+	)
 	buttons["cancel_roll"].visible = can_cancel_roll
 	buttons["cancel_roll"].disabled = not can_cancel_roll
 	var action := (
@@ -1668,7 +1737,10 @@ func _cancel_selection() -> void:
 
 
 func _roll() -> void:
-	if rules.phase != IslandRules.ROLL or waiting_roll:
+	if rules.phase != IslandRules.ROLL or waiting_roll or _awaiting_roll_ack:
+		return
+	if online and not is_local_turn():
+		_help("Espera tu turno para lanzar los dados.")
 		return
 	if grabber.held != null:
 		_help("Suelta el objeto antes de tirar.")
@@ -1676,6 +1748,15 @@ func _roll() -> void:
 	tabs.current_tab = 0
 	manual_roll = false
 	manually_thrown = [false, false]
+	if online:
+		var seat := _local_seat()
+		var a := randi_range(1, 6)
+		var b := randi_range(1, 6)
+		if net_table != null and not net_table.is_host():
+			_awaiting_roll_ack = true
+			_refresh()
+		submit_change({"type": "roll", "a": a, "b": b, "seat": seat}, seat)
+		return
 	waiting_roll = true
 	settled_time = 0.0
 	stuck_times = [0.0, 0.0]
@@ -1693,9 +1774,14 @@ func _roll() -> void:
 
 
 func _reset_dice() -> void:
-	if rules.phase != IslandRules.ROLL or grabber.held != null:
+	if rules.phase != IslandRules.ROLL or grabber.held != null or _awaiting_roll_ack:
 		_help("Suelta cualquier objeto antes de recolocar los dados.")
 		return
+	if online and (not is_local_turn() or not _roll_should_submit):
+		return
+	for die in dice:
+		if die.is_forced_rolling():
+			return
 	_cancel_roll()
 	for i in range(dice.size()):
 		dice[i].global_position = Vector3(2.97, 1.2, -0.8 + i * 1.6)
@@ -1706,8 +1792,27 @@ func _reset_dice() -> void:
 	_help("Dados recolocados en la bandeja. La tirada no se ha resuelto.")
 
 
+func _on_grab_started(object: InteractiveTableObject) -> void:
+	if not online:
+		return
+	if not is_local_turn() or _awaiting_roll_ack or (waiting_roll and not _roll_should_submit):
+		grabber.call_deferred("_release", "cancelled")
+		_help("Espera el turno de la otra butaca.")
+		return
+	if object in dice and (rules.phase != IslandRules.ROLL or waiting_roll):
+		grabber.call_deferred("_release", "cancelled")
+		return
+
+
 func _on_physical_release(object: InteractiveTableObject, _target: Vector3, reason: String) -> void:
-	if rules.phase != IslandRules.ROLL or waiting_roll or reason != "released":
+	if (
+		rules.phase != IslandRules.ROLL
+		or waiting_roll
+		or _awaiting_roll_ack
+		or reason != "released"
+	):
+		return
+	if online and not is_local_turn():
 		return
 	var index := dice.find(object)
 	if index < 0:
@@ -1743,6 +1848,8 @@ func _finish_roll() -> void:
 		dice[1].set_top_face(_remote_roll_expected[1])
 	# Releer simultáneamente: el segundo dado podría haber movido al primero.
 	roll_results = [dice[0].top_face(), dice[1].top_face()]
+	dice[0].ensure_celebrated(roll_results[0])
+	dice[1].ensure_celebrated(roll_results[1])
 	var remote_seat := _remote_roll_seat
 	_remote_roll_expected = [0, 0]
 	_remote_roll_seat = -1
@@ -1753,18 +1860,25 @@ func _finish_roll() -> void:
 	if online:
 		if _roll_should_submit:
 			var roll_seat := remote_seat if remote_seat >= 0 else _local_seat()
-			_suppress_roll_anim = true
+			if net_table != null and not net_table.is_host():
+				_awaiting_roll_ack = true
 			var sent := submit_change(
-				{"type": "roll", "a": roll_results[0], "b": roll_results[1], "seat": roll_seat},
+				{
+					"type": "roll",
+					"a": roll_results[0],
+					"b": roll_results[1],
+					"seat": roll_seat,
+					"manual": true
+				},
 				roll_seat
 			)
-			_suppress_roll_anim = false
 			if sent:
 				if remote_seat >= 0:
 					_help("J%d tira %d + %d." % [remote_seat + 1, roll_results[0], roll_results[1]])
 				else:
 					_help("Dados enviados: %d + %d." % [roll_results[0], roll_results[1]])
 			else:
+				_awaiting_roll_ack = false
 				_help("La tirada no fue aceptada: otra butaca tiene el turno.")
 		else:
 			if remote_seat >= 0:
@@ -1780,6 +1894,11 @@ func _finish_roll() -> void:
 func _cancel_roll() -> void:
 	if not waiting_roll and not manual_roll:
 		return
+	if online and (not is_local_turn() or not _roll_should_submit):
+		return
+	for die in dice:
+		if die.is_forced_rolling():
+			return
 	_remote_roll_expected = [0, 0]
 	_remote_roll_seat = -1
 	_roll_should_submit = true
@@ -1942,6 +2061,21 @@ func _rebuild_loaded_board() -> void:
 	var destination := _tile_position(rules.robber_tile)
 	robber_node = _spawn_piece("robber", Palette.PANEL, destination + Vector3.UP * 0.12)
 	homes[robber_node] = destination
+	for die in dice:
+		if die.is_forced_rolling():
+			die.cancel_forced_roll()
+		die._awaiting_result = false
+	waiting_roll = false
+	manual_roll = false
+	_awaiting_roll_ack = false
+	_roll_should_submit = true
+	_remote_roll_expected = [0, 0]
+	_remote_roll_seat = -1
+	if dice.size() == 2 and rules.last_dice.x >= 1 and rules.last_dice.y >= 1:
+		dice[0].global_position = DICE_REST_A
+		dice[0].set_top_face(rules.last_dice.x)
+		dice[1].global_position = DICE_REST_B
+		dice[1].set_top_face(rules.last_dice.y)
 
 
 func _new_game() -> void:

@@ -18,8 +18,8 @@ signal chat_received(sender_id: int, text: String)
 signal sync_received()
 
 ## Intentos de resync antes de darse por vencido.
-const SYNC_TRIES := 10
-const SYNC_INTERVAL := 2.0
+const SYNC_TRIES := 12
+const SYNC_INTERVAL := 1.0
 
 var _sync_tries := 0
 var _sync_timer: Timer
@@ -32,6 +32,7 @@ func _enter_tree() -> void:
 		_sync_timer = Timer.new()
 		_sync_timer.wait_time = SYNC_INTERVAL
 		_sync_timer.one_shot = false
+		_sync_timer.autostart = true
 		_sync_timer.timeout.connect(_request_sync)
 		add_child(_sync_timer)
 		_request_sync()

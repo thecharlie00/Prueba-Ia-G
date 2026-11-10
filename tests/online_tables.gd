@@ -235,6 +235,137 @@ func _run() -> void:
 			"Brisca online sincroniza semilla y bazas jugadas"
 		)
 
+	# 7. Sincronización exacta de dados 3D y DicePop entre jugadores (Parchís e Isla)
+	var parchis_packed := load("res://scenes/Parchis2.tscn") as PackedScene
+	var host_ludo := parchis_packed.instantiate() as LudoView
+	var guest_ludo := parchis_packed.instantiate() as LudoView
+	root.add_child(host_ludo)
+	root.add_child(guest_ludo)
+	await _frames()
+	host_ludo.online = true
+	guest_ludo.online = true
+	host_ludo._suppress_roll_anim = false
+	guest_ludo._suppress_roll_anim = false
+	var roll_event := {"type": "roll", "value": 5, "seat": 0}
+	_check(
+		host_ludo.apply_change(roll_event) and guest_ludo.apply_change(roll_event),
+		"Parchís online aplica evento de tirada animada en ambos clientes"
+	)
+	for step in 12:
+		host_ludo.die._process(0.08)
+		guest_ludo.die._process(0.08)
+		host_ludo._physics_process(0.05)
+		guest_ludo._physics_process(0.05)
+	await physics_frame
+	await process_frame
+	_check(
+		host_ludo.die.top_face() == 5 and guest_ludo.die.top_face() == 5,
+		"Parchís online muestra la misma cara 5 en el dado 3D de ambos jugadores"
+	)
+	_check(
+		is_instance_valid(host_ludo.die._pop)
+		and is_instance_valid(guest_ludo.die._pop)
+		and host_ludo.die._pop.text_value == 5
+		and guest_ludo.die._pop.text_value == 5,
+		"Parchís online muestra el mismo número 5 en DicePop para ambos jugadores"
+	)
+	# Fast-forward si llega un movimiento antes de que termine la caída del dado
+	_check(
+		host_ludo.apply_change({"type": "move", "token": 0, "seat": 0})
+		and guest_ludo.apply_change({"type": "move", "token": 0, "seat": 0}),
+		"Parchís online saca ficha tras tirada sincronizada"
+	)
+	var second_roll := {"type": "roll", "value": 4, "seat": 1}
+	_check(
+		host_ludo.apply_change(second_roll) and guest_ludo.apply_change(second_roll),
+		"Parchís online inicia segunda tirada animada (4)"
+	)
+	guest_ludo.die._process(0.12)
+	guest_ludo._finish_forced_die()
+	await physics_frame
+	await process_frame
+	_check(
+		guest_ludo.die.top_face() == 4
+		and is_instance_valid(guest_ludo.die._pop)
+		and guest_ludo.die._pop.text_value == 4,
+		"Parchís online completa en bandeja una tirada interrumpida conservando la cara 4"
+	)
+	host_ludo.queue_free()
+	guest_ludo.queue_free()
+	await _frames()
+
+	var island_packed := load("res://scenes/IslandTwo.tscn") as PackedScene
+	var host_island := island_packed.instantiate() as IslandView
+	var guest_island := island_packed.instantiate() as IslandView
+	root.add_child(host_island)
+	root.add_child(guest_island)
+	await _frames()
+	host_island.online = true
+	guest_island.online = true
+	host_island._suppress_roll_anim = false
+	guest_island._suppress_roll_anim = false
+	var host_inet := IslandNetTable.new()
+	host_inet.view_node = host_island
+	host_inet.island = host_island.rules
+	host_island.net_table = host_inet
+	host_island.add_child(host_inet)
+	var guest_inet := IslandNetTable.new()
+	guest_inet.view_node = guest_island
+	guest_inet.island = guest_island.rules
+	guest_island.net_table = guest_inet
+	guest_island.add_child(guest_inet)
+	# Completar colocación inicial en host y sincronizar invitado
+	for step in range(4):
+		for v in range(host_island.rules.board.vertices.size()):
+			if host_island.rules.can_settlement(v):
+				host_island.rules.place_settlement(v)
+				break
+		for e in range(host_island.rules.board.edges.size()):
+			if host_island.rules.can_road(e):
+				host_island.rules.place_road(e)
+				break
+	guest_inet._on_sync(host_inet.snapshot())
+	_check(
+		host_island.rules.initial_seed == guest_island.rules.initial_seed
+		and guest_island.rules.phase == IslandRules.ROLL,
+		"Isla online sincroniza semilla de tablero y fase ROLL en invitado"
+	)
+	var island_roll := {"type": "roll", "a": 2, "b": 6, "seat": 0}
+	_check(
+		host_island.apply_change(island_roll) and guest_island.apply_change(island_roll),
+		"Isla online aplica tirada 2 + 6 en ambos jugadores"
+	)
+	for step in 12:
+		for d in host_island.dice:
+			d._process(0.08)
+		for d in guest_island.dice:
+			d._process(0.08)
+		host_island._physics_process(0.05)
+		guest_island._physics_process(0.05)
+	await physics_frame
+	await process_frame
+	_check(
+		host_island.dice[0].top_face() == 2
+		and host_island.dice[1].top_face() == 6
+		and guest_island.dice[0].top_face() == 2
+		and guest_island.dice[1].top_face() == 6,
+		"Isla online muestra exactamente 2 y 6 en los dados 3D de ambos jugadores"
+	)
+	_check(
+		is_instance_valid(host_island.dice[0]._pop)
+		and is_instance_valid(host_island.dice[1]._pop)
+		and is_instance_valid(guest_island.dice[0]._pop)
+		and is_instance_valid(guest_island.dice[1]._pop)
+		and host_island.dice[0]._pop.text_value == 2
+		and host_island.dice[1]._pop.text_value == 6
+		and guest_island.dice[0]._pop.text_value == 2
+		and guest_island.dice[1]._pop.text_value == 6,
+		"Isla online muestra 2 y 6 en DicePop para ambos jugadores"
+	)
+	host_island.queue_free()
+	guest_island.queue_free()
+	await _frames()
+
 	if failures > 0:
 		printerr("Online tables tests: %d errores" % failures)
 		quit(1)

@@ -57,6 +57,10 @@ var _remote_roll_expected := 0
 var _remote_roll_seat := -1
 var _roll_should_submit := true
 var _suppress_roll_anim := false
+var _awaiting_roll_ack := false
+var _last_roll_note := ""
+
+const TRAY_REST := Vector3(2.66, 1.052, 0.0)
 
 @onready var objects: Node3D = $Objects
 @onready var grabber: PhysicsGrabber3D = $PhysicsGrabber3D
@@ -134,27 +138,51 @@ func submit_change(action: Dictionary, acting_seat: int = -1) -> bool:
 	return net_table.submit(action, acting_seat)
 
 
+func _finish_forced_die() -> void:
+	if die != null and die.is_forced_rolling():
+		die.finish_forced_roll(true)
+	elif waiting_roll and not _roll_should_submit and _remote_roll_expected >= 1:
+		die.global_position = TRAY_REST
+		die.set_top_face(_remote_roll_expected)
+		die.ensure_celebrated(_remote_roll_expected)
+	if not _roll_should_submit:
+		_remote_roll_expected = 0
+		_remote_roll_seat = -1
+		_roll_should_submit = true
+		waiting_roll = false
+		if die != null:
+			die._awaiting_result = false
+
+
 func apply_change(change: Dictionary) -> bool:
 	var kind := str(change.get("type", ""))
 	if kind == "roll":
+		_finish_forced_die()
 		var val := int(change.get("value", 0))
 		var seat := int(change.get("seat", rules.turn))
+		var manual := bool(change.get("manual", false))
 		if not rules.apply_roll(val):
+			if seat == _local_seat():
+				_awaiting_roll_ack = false
 			return false
+		if seat == _local_seat():
+			_awaiting_roll_ack = false
 		if net_table != null:
 			net_table.ludo = rules
-		if not _suppress_roll_anim and not (seat == _local_seat() and (seat < 0 or seat >= bots.size() or not bots[seat])):
+		_last_roll_note = "Última tirada: J%d sacó %d" % [seat + 1, val]
+		var skip_local_manual := (
+			manual
+			and seat == _local_seat()
+			and (seat < 0 or seat >= bots.size() or not bots[seat])
+		)
+		if not _suppress_roll_anim and not skip_local_manual:
 			_animate_remote_roll(val, seat)
+		elif die != null and val >= 1 and val <= 6:
+			die.set_top_face(val)
 		_refresh()
 		return true
 	if kind == "move":
-		if waiting_roll and not _roll_should_submit:
-			if _remote_roll_expected >= 1:
-				die.set_top_face(_remote_roll_expected)
-			_remote_roll_expected = 0
-			_remote_roll_seat = -1
-			waiting_roll = false
-			die._awaiting_result = false
+		_finish_forced_die()
 		var tok := int(change.get("token", -1))
 		var previous := rules.positions.duplicate(true)
 		if not rules.move(tok):
@@ -178,14 +206,21 @@ func _animate_remote_roll(value: int, seat: int) -> void:
 	stable_time = 0.0
 	stuck_time = 0.0
 	nudges = 0
-	die.roll(0.55)
+	die.roll_to_value(value, TRAY_REST)
 
 
 func sync_from_rules() -> void:
 	in_transit.clear()
+	if die != null and die.is_forced_rolling():
+		die.cancel_forced_roll()
 	waiting_roll = false
+	_awaiting_roll_ack = false
+	_roll_should_submit = true
 	_remote_roll_expected = 0
 	_remote_roll_seat = -1
+	if die != null and rules != null and rules.die >= 1 and rules.die <= 6:
+		die.global_position = TRAY_REST
+		die.set_top_face(rules.die)
 	_update_token_activity()
 	for player in range(rules.players):
 		for index in range(4):
@@ -599,11 +634,20 @@ func _refresh() -> void:
 		status.text += " · dado %d" % rules.die
 		if rules.steps() != rules.die:
 			status.text += " (cuenta %d)" % rules.steps()
-	elif waiting_roll:
+	elif waiting_roll or _awaiting_roll_ack:
 		status.text += " · esperando el dado…"
+	elif not _last_roll_note.is_empty():
+		status.text += "\n" + _last_roll_note
 	var can_act := is_local_turn()
-	roll_button.disabled = rules.phase != LudoRules.ROLL or waiting_roll or not can_act
-	reset_button.disabled = rules.phase != LudoRules.ROLL or not can_act
+	roll_button.disabled = (
+		rules.phase != LudoRules.ROLL or waiting_roll or _awaiting_roll_ack or not can_act
+	)
+	reset_button.disabled = (
+		rules.phase != LudoRules.ROLL
+		or _awaiting_roll_ack
+		or (waiting_roll and not _roll_should_submit)
+		or not can_act
+	)
 	var legal := rules.legal_tokens()
 	for index in range(4):
 		token_buttons[index].disabled = (index not in legal) or not can_act
@@ -708,6 +752,14 @@ func _finish_transit(token: Token3D) -> void:
 
 
 func _update_die(delta: float) -> void:
+	if not _roll_should_submit:
+		if not die.is_forced_rolling():
+			_remote_roll_expected = 0
+			_remote_roll_seat = -1
+			_roll_should_submit = true
+			waiting_roll = false
+			_refresh()
+		return
 	if (
 		absf(die.global_position.x) > 3.4
 		or absf(die.global_position.z) > 2.3
@@ -737,8 +789,6 @@ func _update_die(delta: float) -> void:
 	stable_time = stable_time + delta if not die.is_grabbed and slow and upright >= 0.96 else 0.0
 	if stable_time >= 1.0:
 		if online:
-			if _remote_roll_expected >= 1:
-				die.set_top_face(_remote_roll_expected)
 			var val := die.top_face()
 			var rseat := _remote_roll_seat
 			var should_sub := _roll_should_submit
@@ -747,16 +797,22 @@ func _update_die(delta: float) -> void:
 			_roll_should_submit = true
 			waiting_roll = false
 			die._awaiting_result = false
+			die.ensure_celebrated(val)
 			if should_sub:
 				var submit_seat := rseat if rseat >= 0 else _local_seat()
-				_suppress_roll_anim = true
-				submit_change({"type": "roll", "value": val, "seat": submit_seat}, submit_seat)
-				_suppress_roll_anim = false
+				if net_table != null and not net_table.is_host():
+					_awaiting_roll_ack = true
+				submit_change(
+					{"type": "roll", "value": val, "seat": submit_seat, "manual": true},
+					submit_seat
+				)
 			_refresh()
 			return
 		var value := die.top_face()
 		waiting_roll = false
 		die._awaiting_result = false
+		die.ensure_celebrated(value)
+		_last_roll_note = "Última tirada: J%d sacó %d" % [rules.turn + 1, value]
 		rules.apply_roll(value)
 		_refresh()
 		if rules.phase == LudoRules.ROLL:
@@ -780,9 +836,22 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _roll(actor_seat: int = -1) -> void:
-	if rules.phase != LudoRules.ROLL or waiting_roll or grabber.held != null:
+	if (
+		rules.phase != LudoRules.ROLL
+		or waiting_roll
+		or _awaiting_roll_ack
+		or grabber.held != null
+	):
 		return
 	if online and actor_seat < 0 and not is_local_turn():
+		return
+	if online:
+		var submit_seat := actor_seat if actor_seat >= 0 else _local_seat()
+		var val := randi_range(1, 6)
+		if net_table != null and not net_table.is_host():
+			_awaiting_roll_ack = true
+			_refresh()
+		submit_change({"type": "roll", "value": val, "seat": submit_seat}, submit_seat)
 		return
 	_remote_roll_expected = 0
 	_remote_roll_seat = actor_seat
@@ -800,9 +869,11 @@ func _begin_roll() -> void:
 
 
 func _reset_die() -> void:
-	if rules.phase != LudoRules.ROLL or grabber.held != null:
+	if rules.phase != LudoRules.ROLL or grabber.held != null or _awaiting_roll_ack:
 		return
-	if online and not is_local_turn():
+	if online and (not is_local_turn() or not _roll_should_submit):
+		return
+	if die != null and die.is_forced_rolling():
 		return
 	waiting_roll = false
 	die._awaiting_result = false
@@ -817,10 +888,10 @@ func _reset_die() -> void:
 func _on_grab_started(object: InteractiveTableObject) -> void:
 	if not online:
 		return
-	if not is_local_turn():
+	if not is_local_turn() or _awaiting_roll_ack or (waiting_roll and not _roll_should_submit):
 		grabber.call_deferred("_release", "cancelled")
 		return
-	if object == die and rules.phase != LudoRules.ROLL:
+	if object == die and (rules.phase != LudoRules.ROLL or waiting_roll):
 		grabber.call_deferred("_release", "cancelled")
 		return
 	for player in range(rules.players):
@@ -831,7 +902,12 @@ func _on_grab_started(object: InteractiveTableObject) -> void:
 
 func _on_release(object: InteractiveTableObject, target: Vector3, reason: String) -> void:
 	if object == die:
-		if reason == "released" and rules.phase == LudoRules.ROLL and not waiting_roll:
+		if (
+			reason == "released"
+			and rules.phase == LudoRules.ROLL
+			and not waiting_roll
+			and not _awaiting_roll_ack
+		):
 			if online and not is_local_turn():
 				return
 			_remote_roll_expected = 0
