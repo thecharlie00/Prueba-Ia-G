@@ -71,6 +71,12 @@ static func attach(
 	return overlay
 
 
+func _exit_tree() -> void:
+	if _toast_tween != null and _toast_tween.is_valid():
+		_toast_tween.kill()
+	_toast_tween = null
+
+
 func _ready() -> void:
 	_build_pointers()
 	_build_ui()

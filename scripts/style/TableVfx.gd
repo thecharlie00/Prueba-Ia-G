@@ -1,22 +1,16 @@
 class_name TableVfx
 extends Node3D
 ## Pool reutilizable de efectos visuales táctiles («juice») y materiales compartidos para mesas 3D.
-## Diseñado para gl_compatibility sin tirones de memoria ni compilación tardía de shaders:
-## - Pre-aloja anillos cartoon y CPUParticles3D de impacto (cero instantiate/queue_free en juego).
-## - Comparte una única textura procedural suave para las sombras de contacto dinámicas.
-## - Precalienta los shaders de borde Fresnel y flexión de carta durante la carga de la escena.
+## Todos los recursos compartidos se alojan en metadatos del nodo autoload `/root/ToonStyle`
+## (nunca en `static var` de clases globales) para que Godot libere sus RIDs antes de cerrar
+## RenderingServer al salir en modo headless o escritorio.
 
-const RIM_SHADER: Shader = preload("res://shaders/interactive_rim_overlay.gdshader")
-const CARD_FLEX_SHADER: Shader = preload("res://shaders/card_flex.gdshader")
+const RIM_SHADER_PATH := "res://shaders/interactive_rim_overlay.gdshader"
+const CARD_FLEX_SHADER_PATH := "res://shaders/card_flex.gdshader"
 const DONE_META := &"toon_style_applied"
+const CACHE_META := &"tablerama_art_cache"
 const DROP_POOL_SIZE := 8
 const HERO_POOL_SIZE := 4
-
-static var _shadow_mat: StandardMaterial3D
-static var _puff_mat: StandardMaterial3D
-static var _puff_mesh: QuadMesh
-static var _ring_mesh: TorusMesh
-static var _star_mesh: BoxMesh
 
 var _drop_rings: Array[MeshInstance3D] = []
 var _drop_particles: Array[CPUParticles3D] = []
@@ -24,8 +18,100 @@ var _drop_cursor := 0
 
 var _hero_roots: Array[Node3D] = []
 var _hero_cursor := 0
+var _active_tweens: Array[Tween] = []
 var _warmup_frames := 0
 var _warmup_node: Node3D
+
+
+## Devuelve el diccionario de caché ligado al ciclo de vida del SceneTree (vía /root/ToonStyle).
+static func shared_cache(context: Node = null) -> Dictionary:
+	var tree: SceneTree = null
+	if context != null and context.is_inside_tree():
+		tree = context.get_tree()
+	elif Engine.get_main_loop() is SceneTree:
+		tree = Engine.get_main_loop() as SceneTree
+	if tree == null or tree.root == null:
+		return {}
+	var holder: Node = tree.root.get_node_or_null("ToonStyle")
+	if holder == null:
+		holder = tree.root
+	if holder.has_meta(CACHE_META):
+		var cached: Variant = holder.get_meta(CACHE_META)
+		if cached is Dictionary:
+			return cached as Dictionary
+	var fresh: Dictionary = {}
+	holder.set_meta(CACHE_META, fresh)
+	return fresh
+
+
+static func rim_shader(context: Node = null) -> Shader:
+	var cache := shared_cache(context)
+	if cache.has("rim_shader"):
+		return cache["rim_shader"] as Shader
+	var sh := load(RIM_SHADER_PATH) as Shader
+	cache["rim_shader"] = sh
+	return sh
+
+
+static func card_flex_shader(context: Node = null) -> Shader:
+	var cache := shared_cache(context)
+	if cache.has("card_flex_shader"):
+		return cache["card_flex_shader"] as Shader
+	var sh := load(CARD_FLEX_SHADER_PATH) as Shader
+	cache["card_flex_shader"] = sh
+	return sh
+
+
+static func shared_card_quad(context: Node = null) -> QuadMesh:
+	var cache := shared_cache(context)
+	if cache.has("card_quad"):
+		return cache["card_quad"] as QuadMesh
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.68, 0.96)
+	qm.subdivide_width = 8
+	qm.subdivide_depth = 12
+	cache["card_quad"] = qm
+	return qm
+
+
+static func shared_shadow_material(context: Node = null) -> StandardMaterial3D:
+	var cache := shared_cache(context)
+	if cache.has("shadow_mat"):
+		return cache["shadow_mat"] as StandardMaterial3D
+	var size := 64
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var half := float(size) * 0.5
+	for y in size:
+		for x in size:
+			var dx := (float(x) + 0.5 - half) / half
+			var dy := (float(y) + 0.5 - half) / half
+			var d := sqrt(dx * dx + dy * dy)
+			var alpha := clampf(1.0 - smoothstep(0.22, 0.96, d), 0.0, 1.0) * 0.42
+			img.set_pixel(x, y, Color(0.07, 0.06, 0.16, alpha))
+	var tex := ImageTexture.create_from_image(img)
+	var mat := StandardMaterial3D.new()
+	mat.set_meta(DONE_META, true)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_texture = tex
+	mat.albedo_color = Color(1.0, 1.0, 1.0, 0.85)
+	cache["shadow_mat"] = mat
+	return mat
+
+
+static func make_rim_material(tint: Color = Palette.SUN_LIGHT, context: Node = null) -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.set_meta(DONE_META, true)
+	mat.shader = rim_shader(context)
+	mat.set_shader_parameter("rim_color", tint)
+	mat.set_shader_parameter("rim_power", 2.6)
+	mat.set_shader_parameter("fill_alpha", 0.04)
+	mat.set_shader_parameter("rim_alpha", 0.78)
+	mat.set_shader_parameter("pulse_speed", 3.6)
+	mat.set_shader_parameter("pulse_amount", 0.12)
+	return mat
 
 
 static func _scene_root_3d(context: Node) -> Node3D:
@@ -60,45 +146,6 @@ static func is_reduce_motion(context: Node) -> bool:
 		return false
 	var style: Node = context.get_node_or_null("/root/ToonStyle")
 	return style != null and style.get("reduce_motion") == true
-
-
-static func shared_shadow_material() -> StandardMaterial3D:
-	if _shadow_mat != null:
-		return _shadow_mat
-	var size := 64
-	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
-	var half := float(size) * 0.5
-	for y in size:
-		for x in size:
-			var dx := (float(x) + 0.5 - half) / half
-			var dy := (float(y) + 0.5 - half) / half
-			var d := sqrt(dx * dx + dy * dy)
-			var alpha := clampf(1.0 - smoothstep(0.22, 0.96, d), 0.0, 1.0) * 0.42
-			img.set_pixel(x, y, Color(0.07, 0.06, 0.16, alpha))
-	var tex := ImageTexture.create_from_image(img)
-	var mat := StandardMaterial3D.new()
-	mat.set_meta(DONE_META, true)
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.albedo_texture = tex
-	mat.albedo_color = Color(1.0, 1.0, 1.0, 0.85)
-	_shadow_mat = mat
-	return _shadow_mat
-
-
-static func make_rim_material(tint: Color = Palette.SUN_LIGHT) -> ShaderMaterial:
-	var mat := ShaderMaterial.new()
-	mat.set_meta(DONE_META, true)
-	mat.shader = RIM_SHADER
-	mat.set_shader_parameter("rim_color", tint)
-	mat.set_shader_parameter("rim_power", 2.6)
-	mat.set_shader_parameter("fill_alpha", 0.04)
-	mat.set_shader_parameter("rim_alpha", 0.78)
-	mat.set_shader_parameter("pulse_speed", 3.6)
-	mat.set_shader_parameter("pulse_amount", 0.12)
-	return mat
 
 
 static func spawn_drop(
@@ -136,10 +183,17 @@ static func spawn_hero_impact(
 
 
 func _ready() -> void:
-	_ensure_shared_meshes()
-	_build_drop_pool()
-	_build_hero_pool()
+	var meshes := _ensure_shared_meshes()
+	_build_drop_pool(meshes)
+	_build_hero_pool(meshes)
 	_build_shader_warmup()
+
+
+func _exit_tree() -> void:
+	for tw in _active_tweens:
+		if tw != null and tw.is_valid():
+			tw.kill()
+	_active_tweens.clear()
 
 
 func _process(_delta: float) -> void:
@@ -151,8 +205,9 @@ func _process(_delta: float) -> void:
 			set_process(false)
 
 
-static func _ensure_shared_meshes() -> void:
-	if _puff_mat == null:
+func _ensure_shared_meshes() -> Dictionary:
+	var cache := shared_cache(self)
+	if not cache.has("puff_mesh"):
 		var size := 32
 		var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
 		var half := float(size) * 0.5
@@ -172,27 +227,31 @@ static func _ensure_shared_meshes() -> void:
 		mat.billboard_keep_scale = true
 		mat.vertex_color_use_as_albedo = true
 		mat.albedo_texture = tex
-		_puff_mat = mat
-	if _puff_mesh == null:
-		_puff_mesh = QuadMesh.new()
-		_puff_mesh.size = Vector2(0.085, 0.085)
-		_puff_mesh.material = _puff_mat
-	if _ring_mesh == null:
-		_ring_mesh = TorusMesh.new()
-		_ring_mesh.inner_radius = 0.16
-		_ring_mesh.outer_radius = 0.21
-		_ring_mesh.rings = 20
-		_ring_mesh.ring_segments = 8
-	if _star_mesh == null:
-		_star_mesh = BoxMesh.new()
-		_star_mesh.size = Vector3(0.065, 0.016, 0.16)
+		var puff_mesh := QuadMesh.new()
+		puff_mesh.size = Vector2(0.085, 0.085)
+		puff_mesh.material = mat
+		cache["puff_mesh"] = puff_mesh
+	if not cache.has("ring_mesh"):
+		var ring_mesh := TorusMesh.new()
+		ring_mesh.inner_radius = 0.16
+		ring_mesh.outer_radius = 0.21
+		ring_mesh.rings = 20
+		ring_mesh.ring_segments = 8
+		cache["ring_mesh"] = ring_mesh
+	if not cache.has("star_mesh"):
+		var star_mesh := BoxMesh.new()
+		star_mesh.size = Vector3(0.065, 0.016, 0.16)
+		cache["star_mesh"] = star_mesh
+	return cache
 
 
-func _build_drop_pool() -> void:
+func _build_drop_pool(meshes: Dictionary) -> void:
+	var ring_mesh: TorusMesh = meshes["ring_mesh"] as TorusMesh
+	var puff_mesh: QuadMesh = meshes["puff_mesh"] as QuadMesh
 	for i in DROP_POOL_SIZE:
 		var ring := MeshInstance3D.new()
 		ring.name = "DropRing%d" % i
-		ring.mesh = _ring_mesh
+		ring.mesh = ring_mesh
 		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var ring_mat := StandardMaterial3D.new()
 		ring_mat.set_meta(DONE_META, true)
@@ -212,7 +271,7 @@ func _build_drop_pool() -> void:
 		puffs.amount = 6
 		puffs.lifetime = 0.34
 		puffs.explosiveness = 0.94
-		puffs.mesh = _puff_mesh
+		puffs.mesh = puff_mesh
 		puffs.direction = Vector3.UP
 		puffs.spread = 82.0
 		puffs.gravity = Vector3(0.0, -2.4, 0.0)
@@ -230,7 +289,8 @@ func _build_drop_pool() -> void:
 		_drop_particles.append(puffs)
 
 
-func _build_hero_pool() -> void:
+func _build_hero_pool(meshes: Dictionary) -> void:
+	var star_mesh: BoxMesh = meshes["star_mesh"] as BoxMesh
 	for i in HERO_POOL_SIZE:
 		var root := Node3D.new()
 		root.name = "HeroBurst%d" % i
@@ -241,7 +301,7 @@ func _build_hero_pool() -> void:
 		mat.albedo_color = Palette.SUN
 		for s in 4:
 			var ray := MeshInstance3D.new()
-			ray.mesh = _star_mesh
+			ray.mesh = star_mesh
 			ray.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			ray.material_override = mat
 			var angle := float(s) * PI * 0.5 + PI * 0.25
@@ -260,21 +320,32 @@ func _build_shader_warmup() -> void:
 	quad.size = Vector2(0.002, 0.002)
 	var rim_warm := MeshInstance3D.new()
 	rim_warm.mesh = quad
-	rim_warm.material_override = make_rim_material()
+	rim_warm.material_override = make_rim_material(Palette.SUN_LIGHT, self)
 	_warmup_node.add_child(rim_warm)
 	var card_warm := MeshInstance3D.new()
 	card_warm.mesh = quad
 	var flex_mat := ShaderMaterial.new()
 	flex_mat.set_meta(DONE_META, true)
-	flex_mat.shader = CARD_FLEX_SHADER
+	flex_mat.shader = card_flex_shader(self)
 	flex_mat.set_shader_parameter("card_tex", CardArt.texture("back"))
 	card_warm.material_override = flex_mat
 	_warmup_node.add_child(card_warm)
 	add_child(_warmup_node)
 
 
+func _track_tween() -> Tween:
+	var kept: Array[Tween] = []
+	for existing in _active_tweens:
+		if existing != null and existing.is_valid() and existing.is_running():
+			kept.append(existing)
+	_active_tweens = kept
+	var tw := create_tween()
+	_active_tweens.append(tw)
+	return tw
+
+
 func _emit_drop(world_pos: Vector3, intensity: float, tint: Color) -> void:
-	if _drop_rings.is_empty():
+	if _drop_rings.is_empty() or not is_inside_tree():
 		return
 	var idx := _drop_cursor
 	_drop_cursor = (_drop_cursor + 1) % DROP_POOL_SIZE
@@ -286,14 +357,17 @@ func _emit_drop(world_pos: Vector3, intensity: float, tint: Color) -> void:
 	var ring_mat := ring.material_override as StandardMaterial3D
 	if ring_mat != null:
 		ring_mat.albedo_color = Color(tint.r, tint.g, tint.b, 0.72)
-	var tw := create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(ring, "scale", Vector3(1.55 * intensity, 0.2, 1.55 * intensity), 0.22).set_trans(
+	var tw := _track_tween()
+	tw.tween_property(ring, "scale", Vector3(1.45 * intensity, 0.25, 1.45 * intensity), 0.14).set_trans(
 		Tween.TRANS_QUAD
 	).set_ease(Tween.EASE_OUT)
-	if ring_mat != null:
-		tw.tween_property(ring_mat, "albedo_color:a", 0.0, 0.22)
-	tw.chain().tween_callback(func() -> void: ring.visible = false)
+	tw.tween_property(ring, "scale", Vector3.ZERO, 0.09).set_trans(Tween.TRANS_QUAD).set_ease(
+		Tween.EASE_IN
+	)
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(ring):
+			ring.visible = false
+	)
 
 	var puffs := _drop_particles[idx]
 	puffs.global_position = ground + Vector3(0.0, 0.02, 0.0)
@@ -304,7 +378,7 @@ func _emit_drop(world_pos: Vector3, intensity: float, tint: Color) -> void:
 
 func _emit_hero(world_pos: Vector3, tint: Color) -> void:
 	_emit_drop(world_pos, 1.45, tint)
-	if _hero_roots.is_empty():
+	if _hero_roots.is_empty() or not is_inside_tree():
 		return
 	var idx := _hero_cursor
 	_hero_cursor = (_hero_cursor + 1) % HERO_POOL_SIZE
@@ -316,11 +390,14 @@ func _emit_hero(world_pos: Vector3, tint: Color) -> void:
 	for child in root.get_children():
 		if child is MeshInstance3D and (child as MeshInstance3D).material_override is StandardMaterial3D:
 			((child as MeshInstance3D).material_override as StandardMaterial3D).albedo_color = tint
-	var tw := create_tween()
+	var tw := _track_tween()
 	tw.tween_property(root, "scale", Vector3(1.35, 1.0, 1.35), 0.16).set_trans(Tween.TRANS_BACK).set_ease(
 		Tween.EASE_OUT
 	)
 	tw.tween_property(root, "scale", Vector3.ZERO, 0.14).set_trans(Tween.TRANS_QUAD).set_ease(
 		Tween.EASE_IN
 	)
-	tw.tween_callback(func() -> void: root.visible = false)
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(root):
+			root.visible = false
+	)

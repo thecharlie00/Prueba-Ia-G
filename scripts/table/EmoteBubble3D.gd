@@ -1,8 +1,8 @@
 class_name EmoteBubble3D
 extends Node3D
 ## Bocadillo de reacción estilo cómic sobre la cabeza de cada jugador (TableSeats).
-## Usa una textura procedural cacheada de globo con cola + borde de tinta grueso y texto
-## en Lilita One, compatible con modo headless y renderizador gl_compatibility.
+## Usa una textura procedural cacheada en el SceneTree de globo con cola + borde de tinta
+## grueso y texto en Lilita One, compatible con modo headless y gl_compatibility.
 
 const DONE_META := &"toon_style_applied"
 const EMOTES := {
@@ -14,8 +14,6 @@ const EMOTES := {
 	"oops": {"label": "¡UPS!", "accent": Color("8a7fd6"), "glyph": "…"},
 }
 const EMOTE_ORDER := ["victory", "shock", "laugh", "hurry", "clap", "oops"]
-
-static var _bubble_tex: ImageTexture
 
 var current_emote := ""
 var _sprite: Sprite3D
@@ -31,9 +29,10 @@ static func emote_ids() -> Array:
 	return EMOTE_ORDER
 
 
-static func _shared_bubble_texture() -> ImageTexture:
-	if _bubble_tex != null:
-		return _bubble_tex
+static func _shared_bubble_texture(context: Node = null) -> ImageTexture:
+	var cache := TableVfx.shared_cache(context)
+	if cache.has("emote_bubble_tex"):
+		return cache["emote_bubble_tex"] as ImageTexture
 	var w := 192
 	var h := 128
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
@@ -42,12 +41,16 @@ static func _shared_bubble_texture() -> ImageTexture:
 	var paper := Palette.PAPER
 	var shadow := Color(ink.r, ink.g, ink.b, 0.45)
 
-	# 1. Sombra dura desplazada (+4, +5) + cuerpo redondeado con borde de tinta (6 px).
-	_draw_speech_shape(img, Rect2(14.0, 13.0, 168.0, 82.0), 26.0, Vector2(98.0, 118.0), shadow, shadow, 0.0)
-	_draw_speech_shape(img, Rect2(10.0, 8.0, 168.0, 82.0), 26.0, Vector2(94.0, 113.0), paper, ink, 5.5)
+	_draw_speech_shape(
+		img, Rect2(14.0, 13.0, 168.0, 82.0), 26.0, Vector2(98.0, 118.0), shadow, shadow, 0.0
+	)
+	_draw_speech_shape(
+		img, Rect2(10.0, 8.0, 168.0, 82.0), 26.0, Vector2(94.0, 113.0), paper, ink, 5.5
+	)
 
-	_bubble_tex = ImageTexture.create_from_image(img)
-	return _bubble_tex
+	var tex := ImageTexture.create_from_image(img)
+	cache["emote_bubble_tex"] = tex
+	return tex
 
 
 static func _draw_speech_shape(
@@ -111,7 +114,7 @@ func _ready() -> void:
 	_sprite = Sprite3D.new()
 	_sprite.name = "BubbleSprite"
 	_sprite.set_meta(DONE_META, true)
-	_sprite.texture = _shared_bubble_texture()
+	_sprite.texture = _shared_bubble_texture(self)
 	_sprite.pixel_size = 0.0046
 	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_sprite.no_depth_test = true
@@ -169,6 +172,12 @@ func show_emote(emote_id: String, duration: float = 2.15) -> void:
 		Tween.TRANS_QUAD
 	).set_ease(Tween.EASE_IN)
 	_tween.tween_callback(_hide_bubble)
+
+
+func _exit_tree() -> void:
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	_tween = null
 
 
 func _hide_bubble() -> void:

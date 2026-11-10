@@ -17,6 +17,7 @@ var _highlight: StandardMaterial3D
 var _rim_glow: MeshInstance3D
 var _rim_mat: ShaderMaterial
 var _contact_shadow: MeshInstance3D
+var _juice_driver: _VisualJuiceDriver
 var _juice_tween: Tween
 var _juice_base := Vector3.ONE
 var _visual_base_pos := Vector3.ZERO
@@ -24,6 +25,23 @@ var _visual_base_rot := Vector3.ZERO
 var _invalid_timer := 0.0
 var _wobble_timer := 0.0
 var _wobble_strength := 0.0
+
+
+class _VisualJuiceDriver:
+	extends Node
+	var target: InteractiveTableObject
+
+	func _process(delta: float) -> void:
+		if target == null or not is_instance_valid(target):
+			set_process(false)
+			return
+		target._tick_visual_juice(delta)
+
+
+func _exit_tree() -> void:
+	if _juice_tween != null and _juice_tween.is_valid():
+		_juice_tween.kill()
+	_juice_tween = null
 
 
 func _ready() -> void:
@@ -36,9 +54,13 @@ func _ready() -> void:
 	_highlight.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_highlight.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	_highlight.albedo_color = Color(highlight_color.r, highlight_color.g, highlight_color.b, 0.16)
+	_juice_driver = _VisualJuiceDriver.new()
+	_juice_driver.name = "VisualJuiceDriver"
+	_juice_driver.target = self
+	_juice_driver.set_process(false)
+	add_child(_juice_driver)
 	_setup_contact_shadow()
 	_update_highlight()
-	set_process(false)
 
 
 func _setup_contact_shadow() -> void:
@@ -51,7 +73,7 @@ func _setup_contact_shadow() -> void:
 	quad.size = Vector2(0.62, 0.62)
 	_contact_shadow.mesh = quad
 	_contact_shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_contact_shadow.material_override = TableVfx.shared_shadow_material()
+	_contact_shadow.material_override = TableVfx.shared_shadow_material(self)
 	_contact_shadow.visible = false
 	add_child(_contact_shadow)
 
@@ -64,7 +86,7 @@ func _ensure_rim_glow(visual: MeshInstance3D) -> void:
 		_rim_glow.name = "RimGlow"
 		_rim_glow.set_meta(DONE_META, true)
 		_rim_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_rim_mat = TableVfx.make_rim_material(Palette.SUN_LIGHT)
+		_rim_mat = TableVfx.make_rim_material(Palette.SUN_LIGHT, self)
 		_rim_glow.material_override = _rim_mat
 		_rim_glow.visible = false
 		visual.add_child(_rim_glow)
@@ -131,8 +153,12 @@ func _is_reduce_motion() -> bool:
 
 
 func _wake_visual_process() -> void:
-	if is_inside_tree():
-		set_process(true)
+	if _juice_driver != null and is_instance_valid(_juice_driver):
+		_juice_driver.set_process(true)
+
+
+func _has_extra_visual_motion() -> bool:
+	return false
 
 
 func _state_tint() -> Color:
@@ -162,7 +188,7 @@ func _update_highlight() -> void:
 				)
 
 
-func _process(delta: float) -> void:
+func _tick_visual_juice(delta: float) -> void:
 	var reduce := _is_reduce_motion()
 	if _invalid_timer > 0.0:
 		_invalid_timer = maxf(_invalid_timer - delta, 0.0)
@@ -215,13 +241,15 @@ func _process(delta: float) -> void:
 		and _invalid_timer <= 0.0
 		and _wobble_timer <= 0.0
 		and at_rest
+		and not _has_extra_visual_motion()
 	):
 		if visual != null:
 			visual.position = _visual_base_pos
 			visual.rotation = _visual_base_rot
 		if _contact_shadow != null:
 			_contact_shadow.visible = false
-		set_process(false)
+		if _juice_driver != null:
+			_juice_driver.set_process(false)
 
 
 func _update_contact_shadow() -> void:

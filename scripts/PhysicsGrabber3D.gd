@@ -681,12 +681,18 @@ func ping(at: Vector3, tint: Color = Palette.SUN, notify: bool = true) -> Node3D
 	if sfx != null:
 		sfx.play("pop")
 	var tween := marker.create_tween()
-	tween.tween_property(ring, "scale", Vector3.ONE * 2.6, 1.1).from(Vector3.ONE * 0.3).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(material, "albedo_color:a", 0.0, 1.1).from(1.0)
+	tween.tween_property(ring, "scale", Vector3.ONE * 2.6, 0.9).from(Vector3.ONE * 0.3).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring, "scale", Vector3.ZERO, 0.2).set_ease(Tween.EASE_IN)
 	var bounce := arrow.create_tween().set_loops(3)
 	bounce.tween_property(arrow, "position:y", 0.45, 0.18).set_trans(Tween.TRANS_SINE)
 	bounce.tween_property(arrow, "position:y", 0.75, 0.18).set_trans(Tween.TRANS_SINE)
 	tween.tween_callback(marker.queue_free)
+	marker.tree_exiting.connect(func() -> void:
+		if tween != null and tween.is_valid():
+			tween.kill()
+		if bounce != null and bounce.is_valid():
+			bounce.kill()
+	)
 	if notify:
 		pinged.emit(at)
 	return marker

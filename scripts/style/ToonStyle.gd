@@ -68,6 +68,14 @@ func _ready() -> void:
 		_on_node_added(node)
 
 
+func _exit_tree() -> void:
+	if has_meta(&"tablerama_art_cache"):
+		var cached: Variant = get_meta(&"tablerama_art_cache")
+		if cached is Dictionary:
+			(cached as Dictionary).clear()
+		remove_meta(&"tablerama_art_cache")
+
+
 func _on_node_added(node: Node) -> void:
 	if node is StaticBody3D and node.name == "Floor":
 		_add_room.call_deferred(node)

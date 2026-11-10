@@ -1,20 +1,14 @@
 class_name RivalHandFan3D
 extends Node3D
-## Abanico 3D en tiempo real para representar las cartas (o fichas privadas) de un oponente.
-## Seguridad de red y privacidad garantizada:
+## Abanico 3D en tiempo real para representar las cartas de un oponente.
 ## - Solo recibe el entero público `card_count` (jamás etiquetas ni valores de cartas).
 ## - Ambas caras usan exclusivamente la textura de reverso (`CardArt.texture("back")`).
 ## - Sin cuerpos físicos ni colisionadores (cero impacto en Jolt Physics ni en raycasts).
-## - Pool fijo de mallas reutilizadas para evitar reservas de memoria durante la partida.
+## - Recursos compartidos ligados al ciclo de vida del SceneTree para limpieza exacta al salir.
 
 const MAX_VISIBLE_CARDS := 10
 const CARD_SIZE := Vector3(0.27, 0.018, 0.39)
 const DONE_META := &"toon_style_applied"
-
-static var _slab_mesh: ArrayMesh
-static var _back_quad: QuadMesh
-static var _back_mat: StandardMaterial3D
-static var _edge_mat: StandardMaterial3D
 
 var card_count := 0
 var seat_index := 0
@@ -29,10 +23,10 @@ var _pop_timer := 0.0
 
 
 func _ready() -> void:
-	_ensure_shared_resources()
+	var shared := _ensure_shared_resources()
 	_fidget_timer = 3.5 + float(seat_index % 4) * 1.65
 	for i in MAX_VISIBLE_CARDS:
-		var slot := _make_card_slot(i)
+		var slot := _make_card_slot(i, shared)
 		slot.visible = false
 		add_child(slot)
 		_slots.append(slot)
@@ -56,40 +50,49 @@ func _ready() -> void:
 	set_process(false)
 
 
-static func _ensure_shared_resources() -> void:
-	if _slab_mesh == null:
-		_slab_mesh = PieceKit.rounded_slab(CARD_SIZE, 0.036, 0.008, 4)
-	if _back_quad == null:
-		_back_quad = QuadMesh.new()
-		_back_quad.size = Vector2(CARD_SIZE.x * 0.96, CARD_SIZE.z * 0.96)
-	if _edge_mat == null:
-		_edge_mat = StandardMaterial3D.new()
-		_edge_mat.albedo_color = Palette.PAPER
-		_edge_mat.roughness = 0.48
-	if _back_mat == null:
-		_back_mat = StandardMaterial3D.new()
-		_back_mat.set_meta(DONE_META, true)
-		_back_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_back_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-		_back_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-		_back_mat.albedo_texture = CardArt.texture("back")
+func _ensure_shared_resources() -> Dictionary:
+	var cache := TableVfx.shared_cache(self)
+	if not cache.has("rival_slab_mesh"):
+		cache["rival_slab_mesh"] = PieceKit.rounded_slab(CARD_SIZE, 0.036, 0.008, 4)
+	if not cache.has("rival_back_quad"):
+		var qm := QuadMesh.new()
+		qm.size = Vector2(CARD_SIZE.x * 0.96, CARD_SIZE.z * 0.96)
+		cache["rival_back_quad"] = qm
+	if not cache.has("rival_edge_mat"):
+		var edge_mat := StandardMaterial3D.new()
+		edge_mat.albedo_color = Palette.PAPER
+		edge_mat.roughness = 0.48
+		cache["rival_edge_mat"] = edge_mat
+	if not cache.has("rival_back_mat"):
+		var back_mat := StandardMaterial3D.new()
+		back_mat.set_meta(DONE_META, true)
+		back_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		back_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		back_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		back_mat.albedo_texture = CardArt.texture("back")
+		cache["rival_back_mat"] = back_mat
+	return cache
 
 
-func _make_card_slot(idx: int) -> Node3D:
+func _make_card_slot(idx: int, shared: Dictionary) -> Node3D:
+	var slab_mesh := shared["rival_slab_mesh"] as ArrayMesh
+	var back_quad := shared["rival_back_quad"] as QuadMesh
+	var edge_mat := shared["rival_edge_mat"] as StandardMaterial3D
+	var back_mat := shared["rival_back_mat"] as StandardMaterial3D
+
 	var holder := Node3D.new()
 	holder.name = "RivalCard%d" % idx
 	var body := MeshInstance3D.new()
-	body.mesh = _slab_mesh
-	body.material_override = _edge_mat
+	body.mesh = slab_mesh
+	body.material_override = edge_mat
 	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	holder.add_child(body)
-	# Ambas caras llevan únicamente el reverso para blindar la privacidad desde cualquier ángulo.
 	for side_sign in [-1.0, 1.0]:
 		var face := MeshInstance3D.new()
-		face.mesh = _back_quad
+		face.mesh = back_quad
 		face.rotation_degrees.x = -90.0 if side_sign > 0.0 else 90.0
 		face.position.y = side_sign * (CARD_SIZE.y * 0.5 + 0.002)
-		face.material_override = _back_mat
+		face.material_override = back_mat
 		face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(face)
 	return holder
@@ -127,7 +130,6 @@ func _recompute_targets(animate_new: bool) -> void:
 		var center_offset := float(i) - float(shown - 1) * 0.5
 		var norm := center_offset / maxf(float(shown - 1) * 0.5, 1.0) if shown > 1 else 0.0
 		var roll := deg_to_rad(-norm * spread_deg * 0.5)
-		# Las cartas se levantan casi verticales mirando hacia el centro de la mesa (-Z).
 		var tilt := Basis(Vector3.FORWARD, roll) * Basis(Vector3.RIGHT, deg_to_rad(68.0))
 		var pos := Vector3(
 			center_offset * step_x,
