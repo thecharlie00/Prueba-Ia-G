@@ -64,7 +64,7 @@ var _rng := RandomNumberGenerator.new()
 
 
 func _init(seed_value: int = -1, player_count: int = 3) -> void:
-	players = clampi(player_count, 3, 4)
+	players = clampi(player_count, 2, 4)
 	for player in range(players):
 		setup_order.append(player)
 	for player in range(players - 1, -1, -1):
@@ -660,7 +660,7 @@ static func from_record(data: Variant) -> IslandRules:
 	if not saved is Array or saved.size() > MAX_EVENTS:
 		return null
 	var player_count: Variant = data.get("players", 3)
-	if not _valid_integer(player_count, 3, 4):
+	if not _valid_integer(player_count, 2, 4):
 		return null
 	var game := IslandRules.new(int(data["seed"]), int(player_count))
 	for event in saved:

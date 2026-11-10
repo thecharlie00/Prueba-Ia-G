@@ -16,7 +16,7 @@ const MAX_SAVE_BYTES := 2000000
 const PLAYER_COLORS := [Palette.PLAYER_ORANGE, Palette.PLAYER_BLUE, Palette.PLAYER_RED, Palette.PLAYER_WHITE]
 const PORT_NAMES := ["Mad", "Lad", "Lan", "Tri", "Min"]
 
-@export_range(3, 4) var player_count := 3
+@export_range(2, 4) var player_count := 3
 
 var confirm_action: ConfirmAction
 var rules := IslandRules.new()

@@ -21,6 +21,7 @@ const SEATS_MAX := 4
 
 ## Mesas disponibles para jugar online: identificador y escena.
 const ONLINE_GAMES := [
+	{"id": "IslandTwo", "title": "Isla de recursos · 2 jugadores", "scene": "res://scenes/IslandTwo.tscn", "seats": 2},
 	{"id": "Island", "title": "Isla de recursos · 3 jugadores", "scene": "res://scenes/Island.tscn", "seats": 3},
 	{"id": "IslandFour", "title": "Isla de recursos · 4 jugadores", "scene": "res://scenes/IslandFour.tscn", "seats": 4},
 ]
