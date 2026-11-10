@@ -1,17 +1,11 @@
 extends Control
+## Lobby online completo con estética cartoon-tabletop:
+## - Cabecera integrada con retorno a modos, estado de conexión e identidad del jugador.
+## - Crear sala (pública o privada con código, título, emblema dinámico de mesa y clave opcional).
+## - Unirse con código directo.
+## - Buscador de salas públicas en tiempo real con filtros y tarjetas ilustradas por juego.
+## - Sala de espera en dos columnas: butacas coloreadas con bots/«Listo»/expulsión + chat de sala.
 
-## Lobby online completo:
-## - Crear sala (pública en lista o privada por código, título y contraseña opcional con hash SHA-256 + salt)
-## - Unirse por código directo
-## - Buscador de salas públicas en tiempo real con filtros (texto, jugadores, huecos libres, sin clave)
-## - Sala de espera con butacas, bots online, estado «Listo» por jugador, expulsión y chat.
-
-const INK := Color("1d1a3a")
-const ACCENT := Color("ffc83d")
-const PANEL := Color("2a2552")
-const CARD_BG := Color("342e63")
-const PAPER := Color("f3ead9")
-const MUTED := Color("c9c5ef")
 const READY_COLOR := Color("6ee7a8")
 const WARN_COLOR := Color("ffd96e")
 const REFRESH_COOLDOWN_MS := 2000
@@ -23,11 +17,17 @@ var _room_password_input: LineEdit
 var _code: LineEdit
 var _join_password_input: LineEdit
 var _status: Label
-var _name_row: HBoxContainer
+var _conn_pill_holder: HBoxContainer
+var _name_row: Control
 var _pre_room_row: HBoxContainer
+var _create_card: PanelContainer
 var _create_box: VBoxContainer
+var _create_emblem_slot: HBoxContainer
+var _join_card: PanelContainer
 var _join_box: VBoxContainer
+var _browser_card: PanelContainer
 var _browser_box: VBoxContainer
+var _room_card: PanelContainer
 var _room_box: VBoxContainer
 var _game_row: HBoxContainer
 var _seats: VBoxContainer
@@ -41,6 +41,7 @@ var _filter_game: OptionButton
 var _filter_open: CheckBox
 var _filter_no_pass: CheckBox
 var _refresh_list_button: Button
+var _room_count_slot: HBoxContainer
 var _room_list_box: VBoxContainer
 
 var _create_button: Button
@@ -49,6 +50,7 @@ var _enter_running_button: Button
 var _ready_button: Button
 var _start_button: Button
 var _leave_button: Button
+var _copy_code_button: Button
 var _send_button: Button
 var _code_label: Label
 
@@ -100,58 +102,76 @@ func _exit_tree() -> void:
 		Fusion.unregister_broadcast_receiver(self)
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		if _pw_dialog != null and _pw_dialog.visible:
+			return
+		var focus := get_viewport().gui_get_focus_owner()
+		if focus is LineEdit or focus is TextEdit:
+			return
+		_leave()
+		get_viewport().set_input_as_handled()
+
+
 func _build() -> void:
-	var background := ColorRect.new()
-	background.color = PANEL
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(background)
+	MenuStyle.add_backdrop(self, Color("7cc6fe"))
 
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
 
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(center)
-
 	var margin := MarginContainer.new()
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 28)
 	margin.add_theme_constant_override("margin_top", 20)
 	margin.add_theme_constant_override("margin_right", 28)
 	margin.add_theme_constant_override("margin_bottom", 20)
-	center.add_child(margin)
+	scroll.add_child(margin)
 
 	var column := VBoxContainer.new()
-	column.custom_minimum_size.x = 880
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 12)
 	margin.add_child(column)
 
-	var title := Label.new()
+	# 1. Cabecera superior: botón Leave/Volver + Título + Tu nombre + Estado de red
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 14)
+	column.add_child(header)
+
+	_leave_button = _button(header, "← Modos", "Leave", _leave)
+	_leave_button.custom_minimum_size = Vector2(138, 44)
+	_leave_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	MenuStyle.style_secondary(_leave_button, 12, 6)
+
+	var title_col := VBoxContainer.new()
+	title_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_col.add_theme_constant_override("separation", 1)
+	header.add_child(title_col)
+
+	title_col.add_child(
+		MenuStyle.make_eyebrow("TABLERAMA  /  MULTIJUGADOR EN RED", Color("7cc6fe"))
+	)
+	var title := MenuStyle.make_title("Tablerama · Online", 32)
 	title.name = "Title"
-	title.text = "Tablerama · Online"
-	title.add_theme_font_size_override("font_size", 36)
-	title.add_theme_color_override("font_color", PAPER)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(title)
+	title_col.add_child(title)
 
-	_status = Label.new()
-	_status.name = "Status"
-	_status.text = ""
-	_status.add_theme_font_size_override("font_size", 14)
-	_status.add_theme_color_override("font_color", WARN_COLOR)
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(_status)
+	var name_panel := MenuStyle.make_card_panel(
+		"IdentityCard", Palette.PANEL, Palette.INK, 12, 8, 14, 3
+	)
+	name_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_name_row = name_panel
+	header.add_child(name_panel)
 
-	_name_row = _row()
-	_name_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var name_label := _label(_name_row, "Tu nombre")
-	name_label.custom_minimum_size.x = 90
+	var name_inner := _row()
+	name_panel.add_child(name_inner)
+	var name_lbl := _label(name_inner, "Jugador")
+	name_lbl.add_theme_font_size_override("font_size", 13)
 	_username = LineEdit.new()
 	_username.name = "Username"
-	_username.custom_minimum_size.x = 260
+	_username.custom_minimum_size = Vector2(190, 34)
 	var default_user := (
 		Net.local_name
 		if not Net.local_name.is_empty()
@@ -164,29 +184,60 @@ func _build() -> void:
 			if not cleaned.is_empty():
 				Net.local_name = cleaned
 	)
-	_name_row.add_child(_username)
-	column.add_child(_name_row)
+	name_inner.add_child(_username)
 
-	# Vista previa a entrar en sala: columna izquierda (Crear + Código) y columna derecha (Buscador público)
+	_conn_pill_holder = HBoxContainer.new()
+	_conn_pill_holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	header.add_child(_conn_pill_holder)
+
+	# 2. Cintillo de estado
+	var status_bar := MenuStyle.make_card_panel(
+		"StatusBar", MenuStyle.CARD_WELL, Palette.INK, 14, 7, 12, 0
+	)
+	column.add_child(status_bar)
+	_status = Label.new()
+	_status.name = "Status"
+	_status.text = ""
+	_status.add_theme_font_size_override("font_size", 13)
+	_status.add_theme_color_override("font_color", WARN_COLOR)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	status_bar.add_child(_status)
+
+	# 3. Vista previa a entrar en sala: columna izquierda (Crear + Código) y columna derecha (Buscador)
 	_pre_room_row = HBoxContainer.new()
 	_pre_room_row.name = "PreRoomLayout"
-	_pre_room_row.add_theme_constant_override("separation", 20)
+	_pre_room_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pre_room_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_pre_room_row.add_theme_constant_override("separation", 18)
 	column.add_child(_pre_room_row)
 
 	var left_col := VBoxContainer.new()
 	left_col.name = "ActionColumn"
-	left_col.custom_minimum_size.x = 360
+	left_col.custom_minimum_size.x = 390
 	left_col.add_theme_constant_override("separation", 14)
 	_pre_room_row.add_child(left_col)
 
-	# 1. Crear sala (sale primero en ActionColumn)
-	_create_box = _card_box("CreateSection")
-	left_col.add_child(_create_box)
-	_create_box.add_child(_section_label("CREAR SALA"))
+	# 3a. Crear sala (índice 0 dentro de ActionColumn)
+	_create_card = MenuStyle.make_card_panel(
+		"CreateSection", Palette.PANEL, Palette.INK, 18, 14, 18, 5
+	)
+	left_col.add_child(_create_card)
+	_create_box = VBoxContainer.new()
+	_create_box.add_theme_constant_override("separation", 9)
+	_create_card.add_child(_create_box)
+
+	var create_head := _row()
+	var create_sec_lbl := _section_label("CREAR SALA")
+	create_sec_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	create_head.add_child(create_sec_lbl)
+	_create_emblem_slot = HBoxContainer.new()
+	create_head.add_child(_create_emblem_slot)
+	_create_box.add_child(create_head)
 
 	var title_row := _row()
 	var title_lbl := _label(title_row, "Sala")
-	title_lbl.custom_minimum_size.x = 76
+	title_lbl.custom_minimum_size.x = 68
 	_room_title_input = LineEdit.new()
 	_room_title_input.name = "RoomTitle"
 	_room_title_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -196,7 +247,7 @@ func _build() -> void:
 
 	_game_row = _row()
 	var game_label := _label(_game_row, "Mesa")
-	game_label.custom_minimum_size.x = 76
+	game_label.custom_minimum_size.x = 68
 	_game = OptionButton.new()
 	_game.name = "Game"
 	var default_game_idx := 0
@@ -208,19 +259,22 @@ func _build() -> void:
 	if _game.item_count > 0:
 		_game.select(default_game_idx)
 	_game.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	MenuStyle.style_secondary(_game, 10, 5)
+	_game.item_selected.connect(func(_idx: int) -> void: _refresh_create_emblem())
 	_game_row.add_child(_game)
 	_create_box.add_child(_game_row)
+	_refresh_create_emblem()
 
 	_public_toggle = CheckBox.new()
 	_public_toggle.name = "PublicToggle"
 	_public_toggle.text = "Sala pública (visible en el buscador)"
 	_public_toggle.button_pressed = true
-	_public_toggle.add_theme_color_override("font_color", PAPER)
+	_public_toggle.add_theme_color_override("font_color", Palette.PAPER)
 	_create_box.add_child(_public_toggle)
 
 	var pw_row := _row()
 	var pw_lbl := _label(pw_row, "Clave")
-	pw_lbl.custom_minimum_size.x = 76
+	pw_lbl.custom_minimum_size.x = 68
 	_room_password_input = LineEdit.new()
 	_room_password_input.name = "RoomPassword"
 	_room_password_input.secret = true
@@ -230,16 +284,22 @@ func _build() -> void:
 	_create_box.add_child(pw_row)
 
 	_create_button = _button(_create_box, "Crear sala", "Create", _create_room)
-	_create_button.custom_minimum_size = Vector2(240, 48)
+	_create_button.custom_minimum_size = Vector2(0, 48)
+	MenuStyle.style_primary(_create_button, 13, 6)
 
-	# 2. Unirse con código directo (sale justo debajo de Crear sala)
-	_join_box = _card_box("JoinSection")
-	left_col.add_child(_join_box)
+	# 3b. Unirse con código directo (índice 1 dentro de ActionColumn)
+	_join_card = MenuStyle.make_card_panel(
+		"JoinSection", Palette.PANEL, Palette.INK, 18, 14, 18, 5
+	)
+	left_col.add_child(_join_card)
+	_join_box = VBoxContainer.new()
+	_join_box.add_theme_constant_override("separation", 9)
+	_join_card.add_child(_join_box)
 	_join_box.add_child(_section_label("UNIRSE CON CÓDIGO"))
 
 	var code_row := _row()
 	var code_label := _label(code_row, "Código")
-	code_label.custom_minimum_size.x = 76
+	code_label.custom_minimum_size.x = 68
 	_code = LineEdit.new()
 	_code.name = "Code"
 	_code.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -250,7 +310,7 @@ func _build() -> void:
 
 	var join_pw_row := _row()
 	var join_pw_lbl := _label(join_pw_row, "Clave")
-	join_pw_lbl.custom_minimum_size.x = 76
+	join_pw_lbl.custom_minimum_size.x = 68
 	_join_password_input = LineEdit.new()
 	_join_password_input.name = "JoinPassword"
 	_join_password_input.secret = true
@@ -261,23 +321,48 @@ func _build() -> void:
 	_join_box.add_child(join_pw_row)
 
 	_enter_button = _button(_join_box, "Entrar a sala", "Join", _enter_button_pressed)
-	_enter_button.custom_minimum_size = Vector2(240, 48)
+	_enter_button.custom_minimum_size = Vector2(0, 46)
+	MenuStyle.style_secondary(_enter_button, 13, 6)
 
-	# 3. Buscador de salas públicas con filtros (columna derecha)
-	_browser_box = _card_box("BrowserSection")
+	# 3c. Buscador de salas públicas con filtros (columna derecha)
+	_browser_card = MenuStyle.make_card_panel(
+		"BrowserSection", Palette.PANEL, Palette.INK, 18, 14, 18, 5
+	)
+	_browser_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_browser_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_browser_card.custom_minimum_size = Vector2(480, 380)
+	_pre_room_row.add_child(_browser_card)
+
+	_browser_box = VBoxContainer.new()
 	_browser_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_browser_box.custom_minimum_size = Vector2(480, 380)
-	_pre_room_row.add_child(_browser_box)
+	_browser_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_browser_box.add_theme_constant_override("separation", 10)
+	_browser_card.add_child(_browser_box)
 
 	var browser_header := _row()
 	var browser_title := _section_label("SALAS PÚBLICAS")
-	browser_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	browser_header.add_child(browser_title)
+	_room_count_slot = HBoxContainer.new()
+	_room_count_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	browser_header.add_child(_room_count_slot)
+	var bspacer := Control.new()
+	bspacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	browser_header.add_child(bspacer)
 	_refresh_list_button = _button(
-		browser_header, "Actualizar", "RefreshRooms", _request_list_refresh
+		browser_header, "↻ Actualizar", "RefreshRooms", _request_list_refresh
 	)
-	_refresh_list_button.custom_minimum_size = Vector2(110, 36)
+	_refresh_list_button.custom_minimum_size = Vector2(128, 38)
+	MenuStyle.style_secondary(_refresh_list_button, 12, 5)
 	_browser_box.add_child(browser_header)
+
+	var filter_well := MenuStyle.make_card_panel(
+		"", MenuStyle.CARD_WELL, Palette.INK, 12, 10, 14, 0
+	)
+	_browser_box.add_child(filter_well)
+
+	var filter_col := VBoxContainer.new()
+	filter_col.add_theme_constant_override("separation", 8)
+	filter_well.add_child(filter_col)
 
 	var filter_top := _row()
 	_filter_search = LineEdit.new()
@@ -292,16 +377,17 @@ func _build() -> void:
 	_filter_game.add_item("Todas las mesas")
 	for entry in Net.ONLINE_GAMES:
 		_filter_game.add_item(str(entry["title"]))
+	MenuStyle.style_secondary(_filter_game, 10, 5)
 	_filter_game.item_selected.connect(func(_idx: int) -> void: _render_room_list())
 	filter_top.add_child(_filter_game)
-	_browser_box.add_child(filter_top)
+	filter_col.add_child(filter_top)
 
 	var filter_checks := _row()
 	_filter_open = CheckBox.new()
 	_filter_open.name = "FilterOpen"
 	_filter_open.text = "Solo con hueco"
 	_filter_open.button_pressed = true
-	_filter_open.add_theme_color_override("font_color", PAPER)
+	_filter_open.add_theme_color_override("font_color", Palette.PAPER)
 	_filter_open.toggled.connect(func(_v: bool) -> void: _render_room_list())
 	filter_checks.add_child(_filter_open)
 
@@ -309,10 +395,10 @@ func _build() -> void:
 	_filter_no_pass.name = "FilterNoPass"
 	_filter_no_pass.text = "Sin contraseña"
 	_filter_no_pass.button_pressed = false
-	_filter_no_pass.add_theme_color_override("font_color", PAPER)
+	_filter_no_pass.add_theme_color_override("font_color", Palette.PAPER)
 	_filter_no_pass.toggled.connect(func(_v: bool) -> void: _render_room_list())
 	filter_checks.add_child(_filter_no_pass)
-	_browser_box.add_child(filter_checks)
+	filter_col.add_child(filter_checks)
 
 	var list_scroll := ScrollContainer.new()
 	list_scroll.name = "RoomListScroll"
@@ -328,55 +414,101 @@ func _build() -> void:
 	list_scroll.add_child(_room_list_box)
 
 	# 4. Vista dentro de la sala (oculta hasta crear o entrar)
-	_room_box = _card_box("RoomSection")
-	column.add_child(_room_box)
+	_room_card = MenuStyle.make_card_panel(
+		"RoomSection", Palette.PANEL, Palette.INK, 20, 16, 20, 6
+	)
+	_room_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_room_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(_room_card)
+
+	_room_box = VBoxContainer.new()
+	_room_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_room_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_room_box.add_theme_constant_override("separation", 12)
+	_room_card.add_child(_room_box)
+
+	# Cintillo de código y datos de sala
+	var room_banner := MenuStyle.make_card_panel(
+		"", MenuStyle.CARD_SURFACE, Palette.INK, 14, 10, 14, 0
+	)
+	_room_box.add_child(room_banner)
+	var room_banner_row := _row()
+	room_banner.add_child(room_banner_row)
 
 	_code_label = Label.new()
 	_code_label.name = "RoomCode"
-	_code_label.add_theme_font_size_override("font_size", 18)
+	_code_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_code_label.add_theme_font_override("font", MenuStyle.DISPLAY_FONT)
+	_code_label.add_theme_font_size_override("font_size", 20)
 	_code_label.add_theme_color_override("font_color", WARN_COLOR)
-	_code_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_code_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_room_box.add_child(_code_label)
+	room_banner_row.add_child(_code_label)
 
-	_room_box.add_child(_section_label("BUTACAS Y ESTADO «LISTO»"))
+	_copy_code_button = _button(room_banner_row, "Copiar código", "CopyCode", _copy_room_code)
+	_copy_code_button.custom_minimum_size = Vector2(138, 38)
+	MenuStyle.style_secondary(_copy_code_button, 12, 5)
+
+	# División panorámica dentro de la sala: Butacas (izquierda) + Chat (derecha)
+	var room_split := HBoxContainer.new()
+	room_split.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	room_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	room_split.add_theme_constant_override("separation", 18)
+	_room_box.add_child(room_split)
+
+	var seats_col := VBoxContainer.new()
+	seats_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	seats_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	seats_col.add_theme_constant_override("separation", 10)
+	room_split.add_child(seats_col)
+
+	seats_col.add_child(_section_label("BUTACAS Y ESTADO «LISTO»"))
 
 	_seats = VBoxContainer.new()
 	_seats.name = "Seats"
-	_seats.add_theme_constant_override("separation", 6)
-	_room_box.add_child(_seats)
+	_seats.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_seats.add_theme_constant_override("separation", 8)
+	seats_col.add_child(_seats)
 
-	_ready_hint = Label.new()
+	_ready_hint = MenuStyle.make_muted("", 13)
 	_ready_hint.name = "ReadyHint"
-	_ready_hint.add_theme_font_size_override("font_size", 13)
-	_ready_hint.add_theme_color_override("font_color", MUTED)
-	_ready_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_room_box.add_child(_ready_hint)
+	seats_col.add_child(_ready_hint)
 
 	var room_actions := _row()
 	_ready_button = _button(room_actions, "Estoy listo", "ReadyToggle", _toggle_ready)
-	_ready_button.custom_minimum_size = Vector2(220, 50)
+	_ready_button.custom_minimum_size = Vector2(200, 50)
 	_ready_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	MenuStyle.style_primary(_ready_button, 13, 6)
 
 	_start_button = _button(room_actions, "Empezar partida", "Start", _start)
-	_start_button.custom_minimum_size = Vector2(240, 52)
+	_start_button.custom_minimum_size = Vector2(220, 52)
 	_start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	MenuStyle.style_primary(_start_button, 13, 6)
 
 	_enter_running_button = _button(
 		room_actions, "Entrar a la partida", "EnterRunning", _enter_running
 	)
-	_enter_running_button.custom_minimum_size = Vector2(240, 50)
+	_enter_running_button.custom_minimum_size = Vector2(220, 50)
 	_enter_running_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_room_box.add_child(room_actions)
+	MenuStyle.style_primary(_enter_running_button, 13, 6)
+	seats_col.add_child(room_actions)
 
-	_room_box.add_child(_section_label("CHAT DE SALA"))
+	var chat_col := VBoxContainer.new()
+	chat_col.custom_minimum_size.x = 390
+	chat_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	chat_col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	chat_col.add_theme_constant_override("separation", 10)
+	room_split.add_child(chat_col)
+
+	chat_col.add_child(_section_label("CHAT DE SALA"))
 
 	_chat_log = TextEdit.new()
 	_chat_log.name = "ChatLog"
-	_chat_log.custom_minimum_size = Vector2(400, 100)
+	_chat_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_chat_log.custom_minimum_size = Vector2(340, 170)
 	_chat_log.editable = false
 	_chat_log.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
-	_room_box.add_child(_chat_log)
+	MenuStyle.style_text_well(_chat_log)
+	chat_col.add_child(_chat_log)
 
 	var chat_row := _row()
 	_chat_input = LineEdit.new()
@@ -386,15 +518,11 @@ func _build() -> void:
 	_chat_input.text_submitted.connect(func(_t: String) -> void: _send_chat())
 	chat_row.add_child(_chat_input)
 	_send_button = _button(chat_row, "Enviar", "Send", _send_chat)
-	_room_box.add_child(chat_row)
+	_send_button.custom_minimum_size = Vector2(96, 40)
+	MenuStyle.style_secondary(_send_button, 12, 5)
+	chat_col.add_child(chat_row)
 
-	var footer_row := _row()
-	footer_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_leave_button = _button(footer_row, "Volver", "Leave", _leave)
-	_leave_button.custom_minimum_size = Vector2(240, 46)
-	column.add_child(footer_row)
-
-	# Diálogo modal para salas públicas protegidas con contraseña
+	# 5. Diálogo modal para salas públicas protegidas con contraseña
 	_pw_dialog = ConfirmationDialog.new()
 	_pw_dialog.name = "PasswordDialog"
 	_pw_dialog.title = "Sala protegida con contraseña"
@@ -419,22 +547,6 @@ func _build() -> void:
 	_pw_dialog.confirmed.connect(_confirm_password_dialog)
 	add_child(_pw_dialog)
 
-	_style_button(_create_button, ACCENT)
-	_style_button(_enter_button, Color("fff8ec"))
-	_style_button(_refresh_list_button, Color("fff8ec"))
-	_style_button(_ready_button, ACCENT)
-	_style_button(_start_button, ACCENT)
-	_style_button(_enter_running_button, ACCENT)
-	_style_button(_leave_button, Color("fff8ec"))
-	_style_button(_send_button, Color("fff8ec"))
-
-
-func _card_box(node_name: String) -> VBoxContainer:
-	var box := VBoxContainer.new()
-	box.name = node_name
-	box.add_theme_constant_override("separation", 8)
-	return box
-
 
 func _row() -> HBoxContainer:
 	var box := HBoxContainer.new()
@@ -445,17 +557,13 @@ func _row() -> HBoxContainer:
 func _label(parent: Node, text: String) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_color_override("font_color", PAPER)
+	label.add_theme_color_override("font_color", Palette.PAPER)
 	parent.add_child(label)
 	return label
 
 
 func _section_label(text: String) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", 13)
-	label.add_theme_color_override("font_color", ACCENT)
-	return label
+	return MenuStyle.make_eyebrow(text, Palette.SUN)
 
 
 func _button(parent: Node, text: String, node_name: String, callback: Callable) -> Button:
@@ -467,52 +575,75 @@ func _button(parent: Node, text: String, node_name: String, callback: Callable) 
 	return button
 
 
-func _style_button(button: Button, color: Color) -> void:
-	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
-		button.add_theme_color_override(state, INK)
-	button.add_theme_stylebox_override("normal", _style(color))
-	button.add_theme_stylebox_override("hover", _style(Color("ffd96e")))
-	button.add_theme_stylebox_override("pressed", _style(ACCENT, true))
-	button.add_theme_stylebox_override("focus", _focus_style())
+func _theme_key_for_game(game_id: String) -> String:
+	var low := game_id.to_lower()
+	if low.begins_with("island"):
+		return "island"
+	if low.begins_with("parchis"):
+		return "parchis"
+	if low.begins_with("ludo"):
+		return "ludo"
+	if "chess" in low:
+		return "chess"
+	if "checkers" in low:
+		return "checkers"
+	if "domino" in low:
+		return "domino"
+	if low.begins_with("brisca"):
+		return "brisca"
+	if low.begins_with("card"):
+		return "cards"
+	return "sandbox"
 
 
-func _style(color: Color, pressed := false) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color
-	style.border_color = INK
-	style.set_border_width_all(3)
-	style.border_width_bottom = 3 if pressed else 6
-	style.content_margin_left = 14
-	style.content_margin_right = 14
-	style.content_margin_top = 8 if pressed else 5
-	style.set_corner_radius_all(12)
-	return style
+func _refresh_create_emblem() -> void:
+	if _create_emblem_slot == null:
+		return
+	for child in _create_emblem_slot.get_children():
+		_create_emblem_slot.remove_child(child)
+		child.queue_free()
+	var entry := _selected_entry()
+	var gid := str(entry.get("id", "Island"))
+	var seats_n := int(entry.get("seats", 3))
+	_create_emblem_slot.add_child(
+		MenuStyle.make_pill("%dJ" % seats_n, MenuStyle.CARD_ELEVATED, Palette.PAPER, 11, 9, 2)
+	)
+	_create_emblem_slot.add_child(
+		MenuStyle.make_emblem_badge(_theme_key_for_game(gid), 22.0, MenuStyle.CARD_WELL)
+	)
 
 
-func _room_item_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = CARD_BG
-	style.border_color = INK
-	style.set_border_width_all(2)
-	style.set_corner_radius_all(10)
-	style.content_margin_left = 12
-	style.content_margin_right = 12
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
-	return style
+func _refresh_connection_pill() -> void:
+	if _conn_pill_holder == null:
+		return
+	for child in _conn_pill_holder.get_children():
+		_conn_pill_holder.remove_child(child)
+		child.queue_free()
+	var in_room: bool = Engine.has_singleton("Fusion") and Fusion.is_in_room()
+	var connected: bool = Engine.has_singleton("Fusion") and Fusion.is_connected_to_photon()
+	if in_room:
+		_conn_pill_holder.add_child(
+			MenuStyle.make_pill("● En sala", READY_COLOR, Palette.INK, 12, 11, 4)
+		)
+	elif connected:
+		_conn_pill_holder.add_child(
+			MenuStyle.make_pill("● Photon conectado", Color("7cc6fe"), Palette.INK, 12, 11, 4)
+		)
+	elif Net.is_available():
+		_conn_pill_holder.add_child(
+			MenuStyle.make_pill("◌ Red lista", MenuStyle.CARD_SURFACE, Palette.PAPER, 12, 11, 4)
+		)
+	else:
+		_conn_pill_holder.add_child(
+			MenuStyle.make_pill("◌ Sin SDK online", MenuStyle.CARD_SURFACE, Palette.MUTED, 12, 11, 4)
+		)
 
 
-func _focus_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.draw_center = false
-	style.border_color = ACCENT
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(14)
-	style.expand_margin_left = 4
-	style.expand_margin_right = 4
-	style.expand_margin_top = 4
-	style.expand_margin_bottom = 4
-	return style
+func _copy_room_code() -> void:
+	if Net.room_code.is_empty():
+		return
+	DisplayServer.clipboard_set(Net.room_code)
+	_set_status("Código «%s» copiado al portapapeles." % Net.room_code)
 
 
 #region Buscador de salas públicas y filtros
@@ -538,67 +669,109 @@ func _render_room_list(source_rooms: Variant = null) -> void:
 		_filter_no_pass.button_pressed
 	)
 
+	if _room_count_slot != null:
+		for child in _room_count_slot.get_children():
+			_room_count_slot.remove_child(child)
+			child.queue_free()
+		_room_count_slot.add_child(
+			MenuStyle.make_pill(
+				"%d" % filtered.size(),
+				MenuStyle.CARD_ELEVATED,
+				Palette.SUN_LIGHT,
+				11,
+				9,
+				2
+			)
+		)
+
 	if filtered.is_empty():
+		var empty_card := MenuStyle.make_card_panel(
+			"EmptyRoomsCard", MenuStyle.CARD_SURFACE, Palette.INK, 16, 16, 14, 0
+		)
 		var empty := Label.new()
 		empty.name = "EmptyRoomsLabel"
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		empty.add_theme_color_override("font_color", MUTED)
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty.add_theme_color_override("font_color", Palette.MUTED)
 		if not Net.is_available():
 			empty.text = "SDK Photon Fusion no disponible en este entorno."
 		elif not (Engine.has_singleton("Fusion") and Fusion.is_connected_to_photon()) and raw_rooms.is_empty():
-			empty.text = "Pulsa «Actualizar» para conectar y consultar las salas públicas activas."
+			empty.text = "Pulsa «↻ Actualizar» para conectar y consultar las salas públicas activas."
 		elif raw_rooms.is_empty():
 			empty.text = "No hay salas públicas abiertas ahora mismo. ¡Crea una sala a la izquierda!"
 		else:
 			empty.text = "Ninguna sala coincide con los filtros actuales."
-		_room_list_box.add_child(empty)
+		empty_card.add_child(empty)
+		_room_list_box.add_child(empty_card)
 		return
 
-	for info in filtered:
-		var panel := PanelContainer.new()
-		panel.name = "RoomCard_%s" % str(info.get("code", ""))
-		panel.add_theme_stylebox_override("panel", _room_item_style())
+	for item in filtered:
+		var info: Dictionary = item
+		var code_str := str(info.get("code", ""))
+		var game_id := str(info.get("game", "Island"))
+		var panel := MenuStyle.make_card_panel(
+			"RoomCard_%s" % code_str, MenuStyle.CARD_SURFACE, Palette.INK, 12, 10, 14, 3
+		)
 		var row := _row()
 		panel.add_child(row)
 
+		row.add_child(
+			MenuStyle.make_emblem_badge(_theme_key_for_game(game_id), 28.0, MenuStyle.CARD_WELL)
+		)
+
 		var details := VBoxContainer.new()
 		details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		details.add_theme_constant_override("separation", 2)
+		details.add_theme_constant_override("separation", 3)
 		row.add_child(details)
 
-		var locked := bool(info.get("locked", false))
-		var badge := "[Clave] " if locked else ""
+		var locked: bool = info.get("locked") == true
+		var title_line := _row()
+		details.add_child(title_line)
+
 		var room_title := Label.new()
-		room_title.text = "%s%s" % [badge, str(info.get("title", "Sala"))]
+		room_title.text = str(info.get("title", "Sala"))
 		room_title.add_theme_font_size_override("font_size", 15)
-		room_title.add_theme_color_override("font_color", WARN_COLOR if locked else PAPER)
-		details.add_child(room_title)
+		room_title.add_theme_color_override("font_color", WARN_COLOR if locked else Palette.PAPER)
+		title_line.add_child(room_title)
+
+		if locked:
+			title_line.add_child(
+				MenuStyle.make_pill("Clave", WARN_COLOR, Palette.INK, 10, 8, 1)
+			)
 
 		var subtitle := Label.new()
 		var host_str := str(info.get("host", ""))
 		var host_part := ("Anfitrión: %s · " % host_str) if not host_str.is_empty() else ""
-		var state_str := "En partida" if bool(info.get("started", false)) else "Esperando"
+		var state_str := "En partida" if info.get("started") == true else "Esperando"
 		subtitle.text = "%s%s · %d/%d jugadores · %s" % [
 			host_part,
-			Net.game_title_for(str(info.get("game", "Island"))),
+			Net.game_title_for(game_id),
 			int(info.get("players", 1)),
 			int(info.get("max_players", 3)),
 			state_str,
 		]
 		subtitle.add_theme_font_size_override("font_size", 12)
-		subtitle.add_theme_color_override("font_color", MUTED)
+		subtitle.add_theme_color_override("font_color", Palette.MUTED)
 		details.add_child(subtitle)
 
-		var can_join := bool(info.get("is_open", true)) and not bool(info.get("started", false)) and int(info.get("players", 0)) < int(info.get("max_players", 4))
+		var can_join: bool = (
+			info.get("is_open") != false
+			and info.get("started") != true
+			and int(info.get("players", 0)) < int(info.get("max_players", 4))
+		)
 		var join_btn := _button(
 			row,
 			"Unirse",
-			"JoinRoom_%s" % str(info.get("code", "")),
+			"JoinRoom_%s" % code_str,
 			_on_public_room_clicked.bind(info)
 		)
-		join_btn.custom_minimum_size = Vector2(96, 38)
+		join_btn.custom_minimum_size = Vector2(102, 40)
+		join_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		join_btn.disabled = not can_join or not _pending_action.is_empty()
-		_style_button(join_btn, ACCENT if can_join else Color("8f8aa8"))
+		if can_join:
+			MenuStyle.style_primary(join_btn, 12, 5)
+		else:
+			MenuStyle.style_secondary(join_btn, 12, 5)
 		_room_list_box.add_child(panel)
 
 
@@ -630,7 +803,7 @@ func _on_public_room_clicked(info: Dictionary) -> void:
 	var user_name := _ensure_name()
 	if user_name.is_empty():
 		return
-	if bool(info.get("locked", false)):
+	if info.get("locked") == true:
 		_pw_dialog_room = info
 		_pw_dialog_input.text = ""
 		_pw_dialog.popup_centered(Vector2i(360, 150))
@@ -664,12 +837,12 @@ func _show_pre_room() -> void:
 	var busy := not _pending_action.is_empty()
 	_name_row.visible = true
 	_pre_room_row.visible = true
-	_create_box.visible = not Edition.demo
+	_create_card.visible = not Edition.demo
 	_create_button.visible = true
-	_join_box.visible = true
-	_browser_box.visible = true
-	_room_box.visible = false
-	_leave_button.text = "Volver"
+	_join_card.visible = true
+	_browser_card.visible = true
+	_room_card.visible = false
+	_leave_button.text = "← Modos"
 	_create_button.disabled = not available or busy or Edition.demo or _game.selected < 0
 	_enter_button.disabled = not available or busy
 	_refresh_list_button.disabled = not available or busy
@@ -680,6 +853,7 @@ func _show_pre_room() -> void:
 			_set_status("Edición demo: únete desde el buscador de salas públicas o con un código.")
 		else:
 			_set_status("Crea una sala, entra con código o elige una sala pública a la derecha.")
+	_refresh_connection_pill()
 	_refresh_seats()
 
 
@@ -689,11 +863,11 @@ func _show_lobby() -> void:
 	var is_host := in_room and (offline or Net.is_host())
 	_name_row.visible = false
 	_pre_room_row.visible = is_host and Net.room_game.is_empty()
-	_create_box.visible = is_host and Net.room_game.is_empty()
+	_create_card.visible = is_host and Net.room_game.is_empty()
 	_create_button.visible = false
-	_join_box.visible = false
-	_browser_box.visible = false
-	_room_box.visible = true
+	_join_card.visible = false
+	_browser_card.visible = false
+	_room_card.visible = true
 	_leave_button.text = "Salir de la sala"
 
 	var entry := _game_entry()
@@ -710,12 +884,16 @@ func _show_lobby() -> void:
 		header_lines.append(game_title)
 	_code_label.text = "  ·  ".join(header_lines)
 	_code_label.visible = not header_lines.is_empty()
+	_copy_code_button.visible = not Net.room_code.is_empty()
 
 	var my_seat := Net.local_seat()
 	var my_ready := Net.is_seat_ready(my_seat)
 	_ready_button.visible = not is_host and not in_room_started()
 	_ready_button.text = "Cancelar «Listo»" if my_ready else "Estoy listo"
-	_style_button(_ready_button, Color("fff8ec") if my_ready else ACCENT)
+	if my_ready:
+		MenuStyle.style_secondary(_ready_button, 13, 6)
+	else:
+		MenuStyle.style_primary(_ready_button, 13, 6)
 
 	var all_ready := Net.are_all_guests_ready()
 	_start_button.visible = is_host and not in_room_started()
@@ -736,6 +914,7 @@ func _show_lobby() -> void:
 			if my_ready
 			else "Pulsa «Estoy listo» cuando estés preparado para jugar."
 		)
+	_refresh_connection_pill()
 	_refresh_seats()
 
 
@@ -796,11 +975,26 @@ func _refresh_seats() -> void:
 
 	for seat in range(seat_count):
 		var pid := seat + 1
+		var seat_card := MenuStyle.make_card_panel(
+			"SeatCard%d" % pid, MenuStyle.CARD_SURFACE, Palette.INK, 12, 9, 12, 2
+		)
 		var row := _row()
+		seat_card.add_child(row)
+
+		var seat_colors: Array[Color] = [
+			Palette.PLAYER_RED,
+			Palette.PLAYER_BLUE,
+			Palette.PLAYER_ORANGE,
+			Palette.PLAYER_GREEN,
+		]
+		var seat_col: Color = seat_colors[seat % seat_colors.size()]
+		var seat_fg := Palette.INK if seat_col.get_luminance() > 0.42 else Palette.PAPER
+		var badge := MenuStyle.make_pill("J%d" % pid, seat_col, seat_fg, 12, 9, 2)
+		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(badge)
+
 		var seat_label := Label.new()
 		seat_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var state_label := Label.new()
-		state_label.add_theme_font_size_override("font_size", 13)
 
 		var is_occupied_self := (pid == local_id)
 		var is_occupied_peer := Net.players.has(pid)
@@ -812,54 +1006,56 @@ func _refresh_seats() -> void:
 				else str(Net.players[pid])
 			)
 			var peer_is_host := (is_host and is_occupied_self) or (not offline and pid == master_id)
-			seat_label.text = "J%d · %s%s" % [
-				pid,
+			seat_label.text = "%s%s" % [
 				p_name,
-				" (anfitrión)" if peer_is_host else "",
+				"  (tú)" if is_occupied_self else "",
 			]
-			seat_label.add_theme_color_override("font_color", PAPER)
+			seat_label.add_theme_color_override("font_color", Palette.PAPER)
 			row.add_child(seat_label)
 
 			if peer_is_host:
-				state_label.text = "★ Anfitrión"
-				state_label.add_theme_color_override("font_color", WARN_COLOR)
-			elif is_host and Net.room_locked and not bool(Net.authenticated_peers.get(pid, false)):
-				state_label.text = "Verificando clave…"
-				state_label.add_theme_color_override("font_color", WARN_COLOR)
+				row.add_child(
+					MenuStyle.make_pill("★ Anfitrión", WARN_COLOR, Palette.INK, 11, 9, 2)
+				)
+			elif is_host and Net.room_locked and Net.authenticated_peers.get(pid, false) != true:
+				row.add_child(
+					MenuStyle.make_pill("Verificando…", WARN_COLOR, Palette.INK, 11, 9, 2)
+				)
 			elif Net.is_seat_ready(seat):
-				state_label.text = "✓ Listo"
-				state_label.add_theme_color_override("font_color", READY_COLOR)
+				row.add_child(
+					MenuStyle.make_pill("✓ Listo", READY_COLOR, Palette.INK, 11, 9, 2)
+				)
 			else:
-				state_label.text = "Esperando…"
-				state_label.add_theme_color_override("font_color", MUTED)
-			row.add_child(state_label)
+				row.add_child(
+					MenuStyle.make_pill("Esperando…", MenuStyle.CARD_WELL, Palette.MUTED, 11, 9, 2)
+				)
 
 			if is_host and not is_occupied_self and not in_room_started():
 				var kick_btn := _button(
 					row, "Expulsar", "KickSeat%d" % pid, _on_kick_pressed.bind(pid)
 				)
-				kick_btn.custom_minimum_size = Vector2(88, 32)
-				_style_button(kick_btn, Color("fff8ec"))
+				kick_btn.custom_minimum_size = Vector2(90, 34)
+				MenuStyle.style_secondary(kick_btn, 10, 4)
 		else:
-			var is_bot := seat < Net.room_bots.size() and Net.room_bots[seat]
-			seat_label.text = "J%d · %s" % [pid, "Bot" if is_bot else "Libre"]
-			seat_label.add_theme_color_override("font_color", WARN_COLOR if is_bot else MUTED)
+			var is_bot: bool = seat < Net.room_bots.size() and Net.room_bots[seat]
+			seat_label.text = "Bot automático" if is_bot else "Asiento libre"
+			seat_label.add_theme_color_override("font_color", WARN_COLOR if is_bot else Palette.MUTED)
 			row.add_child(seat_label)
 
 			if is_bot:
-				state_label.text = "✓ Listo"
-				state_label.add_theme_color_override("font_color", READY_COLOR)
-				row.add_child(state_label)
+				row.add_child(
+					MenuStyle.make_pill("✓ IA Lista", READY_COLOR, Palette.INK, 11, 9, 2)
+				)
 
 			if is_host and not in_room_started():
 				var bot_check := CheckBox.new()
 				bot_check.name = "SeatBot%d" % pid
 				bot_check.text = "Bot"
-				bot_check.add_theme_color_override("font_color", PAPER)
+				bot_check.add_theme_color_override("font_color", Palette.PAPER)
 				bot_check.set_pressed_no_signal(is_bot)
 				bot_check.toggled.connect(_on_seat_bot_toggled.bind(seat))
 				row.add_child(bot_check)
-		_seats.add_child(row)
+		_seats.add_child(seat_card)
 
 
 func _on_seat_bot_toggled(enabled: bool, seat: int) -> void:
@@ -1006,9 +1202,8 @@ func _join_room() -> void:
 		_set_status("Escribe el código de la sala o pulsa «Unirse» en una sala pública.")
 		return
 	var typed_pw := _join_password_input.text.strip_edges()
-	# Si la sala está en la lista pública y tiene hash conocido, verificamos antes de entrar.
 	var listed := Net.find_listed_room(code)
-	if not listed.is_empty() and bool(listed.get("locked", false)):
+	if not listed.is_empty() and listed.get("locked") == true:
 		var salt := str(listed.get("salt", ""))
 		var expected_hash := str(listed.get("pw_hash", ""))
 		if not expected_hash.is_empty() and not Net.verify_password(typed_pw, salt, expected_hash):
@@ -1090,7 +1285,7 @@ func _leave() -> void:
 	Net.room_game = ""
 	Net.room_started = false
 	Net.start_scene = ""
-	get_tree().change_scene_to_file("res://scenes/BotMenu.tscn")
+	get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
 
 #endregion
 

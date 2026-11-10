@@ -37,6 +37,8 @@ var _initial_elevation: float
 var _bookmarks: Dictionary = {}
 var _view_notice: Label
 var _notice_until := 0
+var _trauma := 0.0
+var _trauma_phase := 0.0
 @onready var camera: Camera3D = $Camera3D
 
 
@@ -258,9 +260,24 @@ func _notice(message: String) -> void:
 	_notice_until = Time.get_ticks_msec() + 2500
 
 
+func add_trauma(amount: float) -> void:
+	var style := get_node_or_null("/root/ToonStyle")
+	if style != null and style.reduce_motion:
+		_trauma = 0.0
+		return
+	_trauma = clampf(_trauma + maxf(amount, 0.0), 0.0, 1.0)
+
+
 func _process(delta: float) -> void:
 	if _view_notice.visible and Time.get_ticks_msec() >= _notice_until:
 		_view_notice.visible = false
+	if _trauma > 0.0:
+		var style := get_node_or_null("/root/ToonStyle")
+		if style != null and style.reduce_motion:
+			_trauma = 0.0
+		else:
+			_trauma_phase += delta * 46.0
+			_trauma = maxf(_trauma - delta * 4.8, 0.0)
 	distance = lerpf(distance, _target_distance, 1.0 - exp(-smoothing * delta))
 	_update_camera()
 
@@ -270,5 +287,13 @@ func _update_camera() -> void:
 		Vector3(sin(_yaw) * cos(_elevation), sin(_elevation), cos(_yaw) * cos(_elevation))
 		* distance
 	)
-	camera.global_position = focus + offset
-	camera.look_at(focus, Vector3.UP)
+	var shake := Vector3.ZERO
+	if _trauma > 0.001:
+		var power := _trauma * _trauma
+		shake = Vector3(
+			sin(_trauma_phase * 1.3) * 0.024 * power,
+			cos(_trauma_phase * 1.9) * 0.036 * power,
+			sin(_trauma_phase * 1.1) * 0.018 * power
+		)
+	camera.global_position = focus + offset + shake
+	camera.look_at(focus + shake * 0.65, Vector3.UP)

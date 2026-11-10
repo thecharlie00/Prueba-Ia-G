@@ -282,6 +282,7 @@ func _make_seats() -> void:
 	add_child(seats)
 	seats.setup(list)
 	seats.center = CENTER
+	SocialOverlay3D.attach(self, seats, net_table)
 	_update_seats()
 
 

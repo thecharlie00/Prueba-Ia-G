@@ -6,6 +6,7 @@ signal grab_started(object: InteractiveTableObject)
 signal grab_finished(object: InteractiveTableObject, target: Vector3, reason: String)
 signal snap_status_changed(enabled: bool)
 signal placement_message(message: String)
+signal pinged(world_pos: Vector3)
 @export var camera: Camera3D
 @export var snap_grid: SnapGrid3D
 @export_flags_3d_physics var ray_mask := 3
@@ -649,7 +650,7 @@ func _pointer_point() -> Vector3:
 
 
 ## Señal visible para todos en un punto de la mesa: aro que se expande y flecha que bota.
-func ping(at: Vector3) -> Node3D:
+func ping(at: Vector3, tint: Color = Palette.SUN, notify: bool = true) -> Node3D:
 	var marker := Node3D.new()
 	marker.name = "Ping"
 	get_parent().add_child(marker)
@@ -657,7 +658,7 @@ func ping(at: Vector3) -> Node3D:
 	var material := StandardMaterial3D.new()
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_color = Palette.SUN
+	material.albedo_color = tint
 	var ring := MeshInstance3D.new()
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.34
@@ -673,19 +674,27 @@ func ping(at: Vector3) -> Node3D:
 	arrow.mesh = cone
 	arrow.position.y = 0.75
 	var arrow_material := StandardMaterial3D.new()
-	arrow_material.albedo_color = Palette.SUN
+	arrow_material.albedo_color = tint
 	arrow.material_override = arrow_material
 	marker.add_child(arrow)
 	var sfx := get_node_or_null("/root/Sfx")
 	if sfx != null:
 		sfx.play("pop")
 	var tween := marker.create_tween()
-	tween.tween_property(ring, "scale", Vector3.ONE * 2.6, 1.1).from(Vector3.ONE * 0.3).set_ease(Tween.EASE_OUT)
-	tween.parallel().tween_property(material, "albedo_color:a", 0.0, 1.1).from(1.0)
+	tween.tween_property(ring, "scale", Vector3.ONE * 2.6, 0.9).from(Vector3.ONE * 0.3).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring, "scale", Vector3.ZERO, 0.2).set_ease(Tween.EASE_IN)
 	var bounce := arrow.create_tween().set_loops(3)
 	bounce.tween_property(arrow, "position:y", 0.45, 0.18).set_trans(Tween.TRANS_SINE)
 	bounce.tween_property(arrow, "position:y", 0.75, 0.18).set_trans(Tween.TRANS_SINE)
 	tween.tween_callback(marker.queue_free)
+	marker.tree_exiting.connect(func() -> void:
+		if tween != null and tween.is_valid():
+			tween.kill()
+		if bounce != null and bounce.is_valid():
+			bounce.kill()
+	)
+	if notify:
+		pinged.emit(at)
 	return marker
 
 

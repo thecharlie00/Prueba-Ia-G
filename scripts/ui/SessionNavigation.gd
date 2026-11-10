@@ -18,6 +18,9 @@ var settings_path := "user://diceon_controls.cfg"
 var click_to_grab := false
 var controls_status: Label
 var grab_option: CheckButton
+var _sound_option: CheckButton
+var _motion_option: CheckButton
+var _emblem_slot: HBoxContainer
 var menu_button: Button
 var help_button: Button
 var undo_button: Button
@@ -45,26 +48,31 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load_controls()
 	layer = 100
+
 	menu_button = Button.new()
 	menu_button.name = "OpenMenu"
 	menu_button.text = "Menú  ·  Esc"
 	menu_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	menu_button.offset_left = -152
 	menu_button.offset_right = -20
-	menu_button.offset_top = 20
-	menu_button.offset_bottom = 56
+	menu_button.offset_top = 16
+	menu_button.offset_bottom = 54
+	MenuStyle.style_secondary(menu_button, 12, 5)
 	menu_button.pressed.connect(_toggle)
 	add_child(menu_button)
+
 	help_button = Button.new()
 	help_button.name = "ControlsHelp"
 	help_button.text = "Ayuda · F1"
 	help_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	help_button.offset_left = -290
 	help_button.offset_right = -164
-	help_button.offset_top = 20
-	help_button.offset_bottom = 56
+	help_button.offset_top = 16
+	help_button.offset_bottom = 54
+	MenuStyle.style_secondary(help_button, 12, 5)
 	help_button.pressed.connect(_toggle_help)
 	add_child(help_button)
+
 	undo_button = Button.new()
 	undo_button.name = "UndoPhysical"
 	undo_button.text = "Deshacer pieza"
@@ -72,10 +80,12 @@ func _ready() -> void:
 	undo_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	undo_button.offset_left = -456
 	undo_button.offset_right = -302
-	undo_button.offset_top = 20
-	undo_button.offset_bottom = 56
+	undo_button.offset_top = 16
+	undo_button.offset_bottom = 54
+	MenuStyle.style_secondary(undo_button, 12, 5)
 	undo_button.pressed.connect(_request_movement_undo)
 	add_child(undo_button)
+
 	controls_dialog = AcceptDialog.new()
 	controls_dialog.name = "ControlsGuide"
 	controls_dialog.title = "Controles de mesa"
@@ -83,106 +93,204 @@ func _ready() -> void:
 	controls_dialog.exclusive = true
 	add_child(controls_dialog)
 	controls_dialog.get_ok_button().text = "Entendido"
+
 	overlay = Control.new()
 	overlay.name = "PauseOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.visible = false
 	add_child(overlay)
+
 	var background := ColorRect.new()
-	background.color = Color(0.02, 0.04, 0.03, 0.8)
+	background.color = Color(0.08, 0.06, 0.17, 0.80)
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(background)
+
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	overlay.add_child(scroll)
+
 	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(center)
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(350, 0)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("142b21")
-	style.set_corner_radius_all(10)
-	style.content_margin_left = 24
-	style.content_margin_right = 24
-	style.content_margin_top = 22
-	style.content_margin_bottom = 22
-	panel.add_theme_stylebox_override("panel", style)
-	center.add_child(panel)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(center)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 20)
+	margin.add_theme_constant_override("margin_bottom", 20)
+	center.add_child(margin)
+
+	var panel := MenuStyle.make_card_panel(
+		"PauseCard", Palette.PANEL, Palette.INK, 26, 22, 22, 6
+	)
+	panel.custom_minimum_size = Vector2(468, 0)
+	margin.add_child(panel)
+
 	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 14)
+	content.add_theme_constant_override("separation", 12)
 	panel.add_child(content)
-	var title := Label.new()
-	title.text = "Partida en pausa"
-	title.add_theme_font_size_override("font_size", 26)
-	content.add_child(title)
-	var hint := Label.new()
+
+	# Cabecera con emblema dinámico de la mesa actual
+	var head_row := HBoxContainer.new()
+	head_row.add_theme_constant_override("separation", 12)
+	content.add_child(head_row)
+
+	_emblem_slot = HBoxContainer.new()
+	head_row.add_child(_emblem_slot)
+
+	var head_col := VBoxContainer.new()
+	head_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head_col.add_theme_constant_override("separation", 1)
+	head_row.add_child(head_col)
+
+	head_col.add_child(MenuStyle.make_eyebrow("SESIÓN EN CURSO", Palette.SUN))
+	var title := MenuStyle.make_title("Partida en pausa", 28)
+	head_col.add_child(title)
+
+	var hint := MenuStyle.make_muted(
+		"Al volver al menú se descartan los cambios no guardados.", 13
+	)
 	hint.name = "PauseHint"
-	hint.text = "Al volver al menú se descartan los cambios no guardados."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(hint)
+
 	var resume := Button.new()
 	resume.name = "Resume"
 	resume.text = "Continuar partida"
+	resume.custom_minimum_size = Vector2(0, 48)
+	resume.add_theme_font_override("font", MenuStyle.DISPLAY_FONT)
+	resume.add_theme_font_size_override("font_size", 20)
+	MenuStyle.style_primary(resume, 14, 6)
 	resume.pressed.connect(_toggle)
 	content.add_child(resume)
+
+	# Subtarjeta 1: Cámara y marcadores de vista
+	var cam_card := MenuStyle.make_card_panel(
+		"CameraSection", MenuStyle.CARD_SURFACE, Palette.INK, 14, 12, 16, 0
+	)
+	content.add_child(cam_card)
+
+	var cam_col := VBoxContainer.new()
+	cam_col.add_theme_constant_override("separation", 8)
+	cam_card.add_child(cam_col)
+
+	cam_col.add_child(MenuStyle.make_eyebrow("CÁMARA Y VISTAS", Palette.SUN_LIGHT))
+
 	camera_button = Button.new()
 	camera_button.name = "ResetCamera"
 	camera_button.text = "Centrar cámara · Inicio"
+	camera_button.custom_minimum_size = Vector2(0, 40)
+	MenuStyle.style_secondary(camera_button, 12, 5)
 	camera_button.pressed.connect(_reset_camera)
-	content.add_child(camera_button)
+	cam_col.add_child(camera_button)
+
 	var views := HBoxContainer.new()
 	views.name = "CameraViews"
-	content.add_child(views)
+	views.add_theme_constant_override("separation", 8)
+	cam_col.add_child(views)
+
 	camera_slot = OptionButton.new()
 	camera_slot.name = "Slot"
 	for slot in range(1, 4):
 		camera_slot.add_item("Vista %d" % slot, slot)
+	MenuStyle.style_secondary(camera_slot, 10, 5)
 	camera_slot.item_selected.connect(_camera_slot_changed)
 	views.add_child(camera_slot)
+
 	camera_save = Button.new()
 	camera_save.name = "SaveView"
 	camera_save.text = "Guardar vista"
+	camera_save.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	MenuStyle.style_secondary(camera_save, 10, 5)
 	camera_save.pressed.connect(_save_camera_view)
 	views.add_child(camera_save)
+
 	camera_load = Button.new()
 	camera_load.name = "LoadView"
 	camera_load.text = "Ir a vista"
+	camera_load.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	MenuStyle.style_secondary(camera_load, 10, 5)
 	camera_load.pressed.connect(_load_camera_view)
 	views.add_child(camera_load)
-	camera_status = Label.new()
+
+	camera_status = MenuStyle.make_muted(
+		"Vistas temporales: Ctrl+1–3 guarda · Mayús+1–3 recupera.", 12
+	)
 	camera_status.name = "ViewStatus"
-	camera_status.text = "Vistas temporales: Ctrl+1–3 guarda · Mayús+1–3 recupera."
-	camera_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	camera_status.add_theme_font_size_override("font_size", 12)
-	content.add_child(camera_status)
+	cam_col.add_child(camera_status)
+
+	# Subtarjeta 2: Controles y comodidad
+	var opts_card := MenuStyle.make_card_panel(
+		"QuickSettingsSection", MenuStyle.CARD_WELL, Palette.INK, 14, 10, 16, 0
+	)
+	content.add_child(opts_card)
+
+	var opts_col := VBoxContainer.new()
+	opts_col.add_theme_constant_override("separation", 5)
+	opts_card.add_child(opts_col)
+
 	grab_option = CheckButton.new()
 	grab_option.name = "ClickToGrab"
 	grab_option.text = "Clic para agarrar y clic para soltar"
 	grab_option.button_pressed = click_to_grab
 	grab_option.toggled.connect(set_click_to_grab)
-	content.add_child(grab_option)
-	var control_help := Label.new()
-	control_help.text = (
-		"Sobre la interfaz, el clic cancela la suelta sin activar el botón. "
-		+ "Esc cancela y pausa."
+	opts_col.add_child(grab_option)
+
+	_sound_option = CheckButton.new()
+	_sound_option.name = "PauseSoundEffects"
+	_sound_option.text = "Efectos de sonido"
+	_sound_option.toggled.connect(func(on: bool) -> void:
+		var sfx := get_node_or_null("/root/Sfx")
+		if sfx != null:
+			sfx.set_enabled(on)
 	)
-	control_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	control_help.add_theme_font_size_override("font_size", 12)
-	content.add_child(control_help)
-	controls_status = Label.new()
-	controls_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	controls_status.text = "Con la opción desactivada, mantén pulsado para arrastrar."
-	controls_status.add_theme_font_size_override("font_size", 12)
-	content.add_child(controls_status)
-	var exit := Button.new()
-	exit.name = "ReturnToMenu"
-	exit.text = "Volver al menú principal"
-	exit.pressed.connect(_request_return_to_menu)
-	content.add_child(exit)
+	opts_col.add_child(_sound_option)
+
+	_motion_option = CheckButton.new()
+	_motion_option.name = "PauseReduceMotion"
+	_motion_option.text = "Reducir animaciones"
+	_motion_option.toggled.connect(func(on: bool) -> void:
+		var style := get_node_or_null("/root/ToonStyle")
+		if style != null:
+			style.set_reduce_motion(on)
+	)
+	opts_col.add_child(_motion_option)
+
+	var control_help := MenuStyle.make_muted(
+		"Sobre la interfaz, el clic cancela la suelta sin activar el botón. Esc cancela y pausa.",
+		12
+	)
+	opts_col.add_child(control_help)
+
+	controls_status = MenuStyle.make_muted(
+		"Con la opción desactivada, mantén pulsado para arrastrar.", 12
+	)
+	opts_col.add_child(controls_status)
+
+	# Botones de salida con confirmación en dos pasos
+	var exit_row := HBoxContainer.new()
+	exit_row.add_theme_constant_override("separation", 10)
+	content.add_child(exit_row)
+
 	var cancel_exit := Button.new()
 	cancel_exit.name = "CancelExit"
 	cancel_exit.text = "Seguir jugando"
 	cancel_exit.visible = false
+	cancel_exit.custom_minimum_size = Vector2(0, 44)
+	cancel_exit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	MenuStyle.style_primary(cancel_exit, 12, 6)
 	cancel_exit.pressed.connect(_cancel_return_to_menu)
-	content.add_child(cancel_exit)
+	exit_row.add_child(cancel_exit)
+
+	var exit := Button.new()
+	exit.name = "ReturnToMenu"
+	exit.text = "Volver al menú principal"
+	exit.custom_minimum_size = Vector2(0, 44)
+	exit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	MenuStyle.style_secondary(exit, 12, 6)
+	exit.pressed.connect(_request_return_to_menu)
+	exit_row.add_child(exit)
 
 
 func _layout_top_row(reserve: float) -> void:
@@ -190,17 +298,17 @@ func _layout_top_row(reserve: float) -> void:
 		return
 	_top_reserve = reserve
 	var right := -20.0 - reserve
-	for entry in [[menu_button, 132.0], [help_button, 126.0]]:
+	for entry in [[menu_button, 136.0], [help_button, 128.0]]:
 		var button: Button = entry[0]
 		button.offset_right = right
 		button.offset_left = right - entry[1]
-		right -= entry[1] + 12.0
+		right -= entry[1] + 10.0
 	# Con HUD, «Deshacer pieza» baja a una segunda fila para no chocar con el cartel central.
 	var below := reserve > 0.0
 	undo_button.offset_right = -20.0 - reserve if below else right
-	undo_button.offset_left = undo_button.offset_right - 154.0
-	undo_button.offset_top = 64.0 if below else 20.0
-	undo_button.offset_bottom = undo_button.offset_top + 36.0
+	undo_button.offset_left = undo_button.offset_right - 156.0
+	undo_button.offset_top = 62.0 if below else 16.0
+	undo_button.offset_bottom = undo_button.offset_top + 38.0
 
 
 func _load_controls() -> void:
@@ -213,7 +321,6 @@ func _load_controls() -> void:
 
 
 func set_click_to_grab(enabled: bool) -> void:
-	# Cambiar de modo nunca confirma ni deja un agarre pendiente.
 	_cancel_grab()
 	click_to_grab = enabled
 	var grabber := _find_grabber()
@@ -238,8 +345,6 @@ func _process(_delta: float) -> void:
 	var in_game := _in_game(scene)
 	menu_button.visible = in_game and not _visible
 	help_button.visible = in_game and not _visible
-	# Las mesas con HUD tienen su botón «Partida» en la esquina: los botones de sesión se
-	# colocan a su izquierda para no taparlo (sobre todo en pantalla completa).
 	var hud := scene.get_node_or_null("TableHud") if in_game else null
 	_layout_top_row(HUD_RESERVE if hud != null else 0.0)
 	if scene != _ui_scene or (is_instance_valid(_ui_grabber) and not _ui_grabber.is_inside_tree()):
@@ -285,7 +390,6 @@ func _toggle_help() -> void:
 	if controls_dialog.visible:
 		controls_dialog.hide()
 		return
-	# Abrir ayuda no puede confirmar una jugada que estaba en curso.
 	_cancel_grab()
 	var grabber := _find_grabber()
 	var guide := "CÁMARA\nDerecho: orbitar · Rueda: zoom · Inicio: recentrar.\n"
@@ -315,6 +419,21 @@ func _toggle_help() -> void:
 	controls_dialog.popup_centered(Vector2i(560, 360))
 
 
+func _refresh_pause_meta(scene: Node) -> void:
+	if _emblem_slot != null:
+		for child in _emblem_slot.get_children():
+			_emblem_slot.remove_child(child)
+			child.queue_free()
+		var key := GameThemes.key_for(scene)
+		_emblem_slot.add_child(MenuStyle.make_emblem_badge(key, 30.0, MenuStyle.CARD_WELL))
+	var sfx := get_node_or_null("/root/Sfx")
+	if _sound_option != null and sfx != null:
+		_sound_option.set_pressed_no_signal(sfx.get("enabled") == true)
+	var style := get_node_or_null("/root/ToonStyle")
+	if _motion_option != null and style != null:
+		_motion_option.set_pressed_no_signal(style.get("reduce_motion") == true)
+
+
 func _toggle() -> void:
 	if not _visible:
 		_cancel_grab()
@@ -325,9 +444,9 @@ func _toggle() -> void:
 	menu_button.visible = not _visible
 	var scene := get_tree().current_scene
 	var is_online: bool = scene != null and scene.get("online") == true
-	# En partidas online no se congela el árbol de escena para seguir recibiendo y animando RPCs.
 	get_tree().paused = _visible and not is_online
 	if _visible:
+		_refresh_pause_meta(scene)
 		camera_button.disabled = _find_camera() == null
 		_update_camera_views()
 		(overlay.find_child("Resume", true, false) as Button).grab_focus()
@@ -428,8 +547,12 @@ func _set_exit_confirmation_visible(visible: bool) -> void:
 	var cancel_exit := overlay.find_child("CancelExit", true, false) as Button
 	if visible:
 		hint.text = "Se perderá el progreso no guardado de esta partida. ¿Quieres salir?"
+		hint.add_theme_color_override("font_color", Palette.CORAL.lightened(0.22))
 		exit.text = "Sí, descartar y salir"
+		MenuStyle.style_danger(exit, 12)
 	else:
 		hint.text = "Al volver al menú se descartan los cambios no guardados."
+		hint.add_theme_color_override("font_color", Palette.MUTED)
 		exit.text = "Volver al menú principal"
+		MenuStyle.style_secondary(exit, 12, 6)
 	cancel_exit.visible = visible

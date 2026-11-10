@@ -117,6 +117,58 @@ func _run() -> void:
 			chat_log != null and chat_log.text.contains("Ana: Hola") and chat_log.text.contains("Luis: Listo"),
 			"chat del lobby inserta mensajes sin error en Godot 4.7"
 		)
+		_check(
+			current_scene.find_child("MenuBackdrop", true, false) != null,
+			"lobby monta el fondo ilustrado de mesa"
+		)
+		var leave_btn := current_scene.find_child("Leave", true, false) as Button
+		if leave_btn != null:
+			leave_btn.pressed.emit()
+			await _frames()
+			_check(
+				current_scene != null and current_scene.scene_file_path == "res://scenes/ModeSelect.tscn",
+				"salir del lobby sin sala vuelve al selector de modos"
+			)
+
+	# Verificar filtros del catálogo local y contenedor desplazable en BotSelect
+	_check(change_scene_to_file("res://scenes/Menu.tscn") == OK, "reabrir menú local para filtros")
+	await _frames()
+	if current_scene != null:
+		_check(
+			current_scene.find_child("MenuBackdrop", true, false) != null,
+			"menú local monta el fondo ilustrado"
+		)
+		var filter_strategy := current_scene.find_child("Filter_strategy", true, false) as Button
+		var filter_all := current_scene.find_child("Filter_all", true, false) as Button
+		var chess_btn := current_scene.find_child("GuidedChess", true, false) as Button
+		var ludo_btn := current_scene.find_child("Ludo", true, false) as Button
+		_check(
+			filter_strategy != null and filter_all != null and chess_btn != null and ludo_btn != null,
+			"controles de filtro por categoría presentes"
+		)
+		if filter_strategy != null and filter_all != null and chess_btn != null and ludo_btn != null:
+			filter_strategy.pressed.emit()
+			_check(
+				chess_btn.is_visible_in_tree() and not ludo_btn.is_visible_in_tree(),
+				"filtro Estrategia muestra Ajedrez y oculta Ludo"
+			)
+			filter_all.pressed.emit()
+			_check(
+				chess_btn.is_visible_in_tree() and ludo_btn.is_visible_in_tree(),
+				"filtro Todas vuelve a mostrar todas las familias"
+			)
+		var back_modes := current_scene.find_child("BackToModes", true, false) as Button
+		_check(back_modes != null, "menú local incluye botón para volver a modos")
+
+	_check(change_scene_to_file("res://scenes/BotSelect.tscn") == OK, "abrir selección de bots")
+	await _frames()
+	if current_scene != null:
+		_check(
+			current_scene.find_child("BotGamesScroll", true, false) is ScrollContainer
+			and current_scene.find_child("MenuBackdrop", true, false) != null,
+			"selección de bots usa cuadrícula desplazable y fondo ilustrado"
+		)
+
 	if failures:
 		printerr("Menu navigation: %d errores" % failures)
 		quit(1)
@@ -126,6 +178,7 @@ func _run() -> void:
 
 
 func _frames() -> void:
+	await physics_frame
 	await process_frame
 	await process_frame
 
