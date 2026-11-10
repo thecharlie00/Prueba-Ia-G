@@ -69,23 +69,21 @@ func _apply(action: Dictionary) -> bool:
 	return view_node.apply_change(action)
 
 
-func _apply_event(change: Dictionary) -> void:
-	view_node.apply_change(change)
+func _apply_event(change: Dictionary) -> bool:
+	return view_node.apply_change(change)
 
 
 func _on_sync(record: Dictionary) -> void:
 	var replayed := IslandRules.from_record(record)
 	if replayed == null:
 		return
+	synced = true
 	island = replayed
 	view_node.rules = replayed
 	view_node._rebuild_loaded_board()
 	view_node._refresh()
-	# Sync exitoso: dejar de pedir registro cada 2s.
-	_sync_tries = 0
-	if _sync_timer != null:
-		_sync_timer.stop()
-	sync_received.emit()
+	# Sync exitoso: dejar de pedir registro cada segundo.
+	_mark_synced()
 
 
 func snapshot() -> Dictionary:

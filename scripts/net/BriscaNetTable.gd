@@ -22,20 +22,18 @@ func _apply(action: Dictionary) -> bool:
 	return view_node.apply_change(action)
 
 
-func _apply_event(change: Dictionary) -> void:
-	view_node.apply_change(change)
+func _apply_event(change: Dictionary) -> bool:
+	return view_node.apply_change(change)
 
 
 func _on_sync(record: Dictionary) -> void:
 	var replayed := BriscaRules.from_record(record)
 	if replayed == null:
 		return
+	synced = true
 	brisca = replayed
 	view_node.sync_from_rules(replayed)
-	_sync_tries = 0
-	if _sync_timer != null:
-		_sync_timer.stop()
-	sync_received.emit()
+	_mark_synced()
 
 
 func snapshot() -> Dictionary:

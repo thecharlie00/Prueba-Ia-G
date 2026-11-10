@@ -37,6 +37,7 @@ var result_label: Label
 var bot_toggle: CheckBox
 var online := false
 var net_table: BriscaNetTable
+var _online_bots: Array[bool] = [false, false]
 
 
 func _net() -> Node:
@@ -79,23 +80,42 @@ func _start_online() -> void:
 	add_child(net_table)
 	if net_table.is_host():
 		var rbots: Array = net.room_bots
-		set_vs_bot(rbots.size() > 1 and bool(rbots[1]))
+		_online_bots[0] = rbots.size() > 0 and bool(rbots[0])
+		_online_bots[1] = rbots.size() > 1 and bool(rbots[1])
+		set_vs_bot(_online_bots[1])
 	else:
 		set_vs_bot(false)
 		if bot_toggle != null:
 			bot_toggle.disabled = true
 		net_table.request_sync()
+	var reset_btn := get_node_or_null("UI/Panel/Margin/Content/Reset") as Button
+	if reset_btn != null:
+		reset_btn.disabled = true
+	var load_btn := get_node_or_null("UI/Panel/Margin/Content/SaveRow/Load") as Button
+	if load_btn != null:
+		load_btn.disabled = true
 	net.player_left.connect(_on_net_player_left)
 
 
 func _on_net_player_left(player_id: int) -> void:
-	if online and net_table != null and net_table.is_host() and player_id == 2:
-		set_vs_bot(true)
+	if online and net_table != null and net_table.is_host():
+		var seat := player_id - 1
+		if seat >= 0 and seat < _online_bots.size() and seat != _local_seat():
+			_online_bots[seat] = true
+			if seat == 1:
+				set_vs_bot(true)
+			refresh()
+
+
+func _is_awaiting_sync() -> bool:
+	return online and net_table != null and not net_table.synced
 
 
 func is_local_turn() -> bool:
 	if not online:
 		return viewer == rules.turn and not is_bot_turn()
+	if _is_awaiting_sync():
+		return false
 	return _local_seat() == rules.turn and not is_bot_turn()
 
 
@@ -167,8 +187,16 @@ func _make_ui() -> void:
 		$UI/Panel/Margin/Content/Sandbox as Button,
 		"Mesa de cartas libre",
 		"Se perderá la partida actual. ¿Continuar?",
-		func() -> void: get_tree().change_scene_to_file("res://scenes/CardTable.tscn")
+		_open_card_sandbox
 	)
+
+
+func _open_card_sandbox() -> void:
+	if online:
+		var net := _net()
+		if net != null and net.has_method("leave_room"):
+			net.leave_room()
+	get_tree().change_scene_to_file("res://scenes/CardTable.tscn")
 
 
 func _make_hand() -> void:
@@ -199,6 +227,9 @@ func set_vs_bot(value: bool) -> void:
 
 
 func new_game() -> void:
+	if online:
+		help_label.text = "La partida online se sincroniza desde el anfitrión."
+		return
 	rules = BriscaRules.new(randi() % 1000000)
 	showing = {}
 	hand.set_cards([])
@@ -206,9 +237,13 @@ func new_game() -> void:
 
 
 func is_bot_turn() -> bool:
-	if online and (net_table == null or not net_table.is_host()):
+	if rules.phase != BriscaRules.PLAYING:
 		return false
-	return vs_bot and rules.phase == BriscaRules.PLAYING and rules.turn == 1
+	if online:
+		if net_table == null or not net_table.is_host():
+			return false
+		return (rules.turn == 1 and (vs_bot or _online_bots[1])) or (rules.turn == 0 and _online_bots[0])
+	return vs_bot and rules.turn == 1
 
 
 ## Juega una carta del jugador que tiene el turno. Devuelve si se ha jugado.
@@ -260,15 +295,29 @@ func _process(delta: float) -> void:
 		_bot_wait += delta
 		if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 			_bot_wait = 0.0
+			var bot_seat := rules.turn
 			var chosen := TableBots.brisca_choice(rules, TableBots.difficulty)
 			if online:
-				submit_change({"type": "play", "card": chosen}, 1)
+				submit_change({"type": "play", "card": chosen}, bot_seat)
 			else:
 				play(chosen)
 
 
 func refresh() -> void:
 	if rules == null or hand == null:
+		return
+	if _is_awaiting_sync():
+		hand.set_cards([])
+		for card in _table_cards:
+			if is_instance_valid(card):
+				objects.remove_child(card)
+				card.queue_free()
+		_table_cards.clear()
+		if stock_deck != null:
+			stock_deck.visible = false
+		result_label.text = "Sincronizando mesa…"
+		status_label.text = "Conectando con el anfitrión"
+		help_label.text = "Recibiendo reparto y muestra de la sala…"
 		return
 	var previous_viewer := viewer
 	if online:
@@ -385,6 +434,9 @@ func save_game() -> bool:
 
 
 func load_game() -> bool:
+	if online:
+		help_label.text = "La partida online se sincroniza desde el anfitrión; el guardado local no se usa."
+		return false
 	var loaded := SAVE_STORE.read_validated(save_path, MAX_SAVE_BYTES, _decode_save)
 	if loaded.is_empty():
 		help_label.text = "Guardado ausente o inválido; se conserva la partida."

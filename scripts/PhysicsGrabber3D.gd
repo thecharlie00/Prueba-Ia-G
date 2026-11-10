@@ -492,10 +492,16 @@ func _release(reason: String = "released") -> void:
 		grab_finished.emit(released_object, _target, reason)
 
 
+func is_online_table() -> bool:
+	var p := get_parent()
+	return p != null and p.get("online") == true
+
+
 # Devuelve solo una pieza a donde se agarró. No revierte cartas, dados ni reglas.
 func can_undo_movement() -> bool:
 	return (
-		lock_shortcut_enabled
+		not is_online_table()
+		and lock_shortcut_enabled
 		and is_instance_valid(_undo_object)
 		and _undo_object.is_inside_tree()
 		and not _undo_object.is_queued_for_deletion()
@@ -686,6 +692,13 @@ func ping(at: Vector3) -> Node3D:
 ## Atajos sobre una pieza (teclado y menú radial comparten esta lógica).
 func apply_shortcut(keycode: int, selected: InteractiveTableObject) -> void:
 	if not is_instance_valid(selected) or not selected.is_inside_tree():
+		return
+	# En mesas online con reglas autoritativas se bloquean atajos físicos locales
+	# (voltear fichas ocultas, bloquear cuerpos, girar dados reposados, barajar o robar fuera de reglas)
+	# para evitar desincronizar el estado visual entre jugadores.
+	if is_online_table():
+		if keycode in [KEY_Q, KEY_E] and selected == held and not (selected is Dice3D):
+			selected.rotate_object(0.7 if keycode == KEY_E else -0.7)
 		return
 	if selected is TableUtility and not is_instance_valid(held):
 		if (selected as TableUtility).handle_shortcut(keycode):

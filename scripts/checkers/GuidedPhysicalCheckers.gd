@@ -33,6 +33,7 @@ var _bot_wait := 0.0
 var _bot_toggle: CheckBox
 var online := false
 var net_table: CheckersNetTable
+var _online_bots: Array[bool] = [false, false]
 
 
 func _net() -> Node:
@@ -109,23 +110,42 @@ func _start_online() -> void:
 	add_child(net_table)
 	if net_table.is_host():
 		var rbots: Array = net.room_bots
-		if rbots.size() > 1 and bool(rbots[1]):
+		_online_bots[0] = rbots.size() > 0 and bool(rbots[0])
+		_online_bots[1] = rbots.size() > 1 and bool(rbots[1])
+		if _online_bots[1]:
 			set_bot_enabled(true)
 	else:
 		if _bot_toggle != null:
 			_bot_toggle.disabled = true
 		net_table.request_sync()
+	var reset_btn := get_node_or_null("UI/Panel/Margin/Content/Reset") as Button
+	if reset_btn != null:
+		reset_btn.disabled = true
+	var load_btn := get_node_or_null("UI/Panel/Margin/Content/Load") as Button
+	if load_btn != null:
+		load_btn.disabled = true
 	net.player_left.connect(_on_net_player_left)
 
 
 func _on_net_player_left(player_id: int) -> void:
-	if online and net_table != null and net_table.is_host() and player_id == 2:
-		set_bot_enabled(true)
+	if online and net_table != null and net_table.is_host():
+		var seat := player_id - 1
+		if seat >= 0 and seat < _online_bots.size() and seat != _local_seat():
+			_online_bots[seat] = true
+			if seat == 1:
+				set_bot_enabled(true)
+			_refresh_guides()
+
+
+func _is_awaiting_sync() -> bool:
+	return online and net_table != null and not net_table.synced
 
 
 func is_local_turn() -> bool:
 	if not online:
 		return not is_bot_turn()
+	if _is_awaiting_sync():
+		return false
 	var active_seat := 0 if rules.turn == CheckersRules.WHITE else 1
 	return _local_seat() == active_seat and not is_bot_turn()
 
@@ -168,9 +188,16 @@ func set_bot_enabled(enabled: bool) -> void:
 
 
 func is_bot_turn() -> bool:
-	if online and (net_table == null or not net_table.is_host()):
+	if rules.status() != "playing":
 		return false
-	return bot_enabled and rules.turn == CheckersRules.BLACK and rules.status() == "playing"
+	if online:
+		if net_table == null or not net_table.is_host():
+			return false
+		var active_seat := 0 if rules.turn == CheckersRules.WHITE else 1
+		if active_seat == 1 and bot_enabled:
+			return true
+		return _online_bots[active_seat]
+	return bot_enabled and rules.turn == CheckersRules.BLACK
 
 
 func _process(delta: float) -> void:
@@ -189,7 +216,8 @@ func bot_step() -> bool:
 	if move.is_empty():
 		return false
 	if online:
-		if not submit_change({"type": "move", "from": int(move["from"]), "to": int(move["to"])}, 1):
+		var bot_seat := 0 if rules.turn == CheckersRules.WHITE else 1
+		if not submit_change({"type": "move", "from": int(move["from"]), "to": int(move["to"])}, bot_seat):
 			return false
 		$UI/Panel/Margin/Content/Help.text = "El bot ha movido."
 		return true
@@ -218,6 +246,14 @@ func _on_grab_started(object: InteractiveTableObject) -> void:
 		_refresh_guides()
 		$UI/Panel/Margin/Content/Help.text = "Espera el turno de tu rival."
 		return
+	if online:
+		var pval := rules.piece_at(_drag_from) if _drag_from >= 0 else 0
+		var own_piece := (pval > 0 and _local_seat() == 0) or (pval < 0 and _local_seat() == 1)
+		if not own_piece:
+			grabber.call_deferred("_release", "cancelled")
+			_refresh_guides()
+			$UI/Panel/Margin/Content/Help.text = "Solo puedes mover tus propias fichas."
+			return
 	if _drag_from >= 0 and rules.status() == "playing":
 		for move in rules.legal_moves_from(_drag_from):
 			_legal_destinations.append(int(move["to"]))
@@ -325,7 +361,16 @@ func _update_kings() -> void:
 		token.set_king(square >= 0 and absi(rules.piece_at(square)) == CheckersRules.KING)
 
 
+func _reset() -> void:
+	if online:
+		$UI/Panel/Margin/Content/Help.text = "La partida online se sincroniza desde el anfitrión."
+		return
+	super._reset()
+
+
 func _undo() -> void:
+	if online:
+		return
 	if is_instance_valid(grabber.held):
 		$UI/Panel/Margin/Content/Help.text = "Suelta la ficha antes de deshacer."
 		return
@@ -358,6 +403,9 @@ func _save_game() -> void:
 
 
 func _load_game() -> void:
+	if online:
+		$UI/Panel/Margin/Content/Help.text = "La partida online se sincroniza desde el anfitrión; el guardado local no se usa."
+		return
 	if is_instance_valid(grabber.held):
 		$UI/Panel/Margin/Content/Help.text = "Suelta la ficha antes de cargar."
 		return
@@ -493,7 +541,19 @@ func _square_center(square: int) -> Vector3:
 
 
 func _open_free() -> void:
+	if online:
+		var net := _net()
+		if net != null and net.has_method("leave_room"):
+			net.leave_room()
 	get_tree().change_scene_to_file("res://scenes/PhysicalCheckers.tscn")
+
+
+func _open_sandbox() -> void:
+	if online:
+		var net := _net()
+		if net != null and net.has_method("leave_room"):
+			net.leave_room()
+	super._open_sandbox()
 
 
 # --- Interfaz integrada en la mesa (TableHud) ---

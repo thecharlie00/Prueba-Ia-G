@@ -235,6 +235,232 @@ func _run() -> void:
 			"Brisca online sincroniza semilla y bazas jugadas"
 		)
 
+	# 7. Sincronización exacta de dados 3D y DicePop entre jugadores (Parchís e Isla)
+	var parchis_packed := load("res://scenes/Parchis2.tscn") as PackedScene
+	var host_ludo := parchis_packed.instantiate() as LudoView
+	var guest_ludo := parchis_packed.instantiate() as LudoView
+	root.add_child(host_ludo)
+	root.add_child(guest_ludo)
+	await _frames()
+	host_ludo.online = true
+	guest_ludo.online = true
+	host_ludo._suppress_roll_anim = false
+	guest_ludo._suppress_roll_anim = false
+	var roll_event := {"type": "roll", "value": 5, "seat": 0}
+	_check(
+		host_ludo.apply_change(roll_event) and guest_ludo.apply_change(roll_event),
+		"Parchís online aplica evento de tirada animada en ambos clientes"
+	)
+	for step in 12:
+		host_ludo.die._process(0.08)
+		guest_ludo.die._process(0.08)
+		host_ludo._physics_process(0.05)
+		guest_ludo._physics_process(0.05)
+	await physics_frame
+	await process_frame
+	_check(
+		host_ludo.die.top_face() == 5 and guest_ludo.die.top_face() == 5,
+		"Parchís online muestra la misma cara 5 en el dado 3D de ambos jugadores"
+	)
+	_check(
+		is_instance_valid(host_ludo.die._pop)
+		and is_instance_valid(guest_ludo.die._pop)
+		and host_ludo.die._pop.text_value == 5
+		and guest_ludo.die._pop.text_value == 5,
+		"Parchís online muestra el mismo número 5 en DicePop para ambos jugadores"
+	)
+	# Fast-forward si llega un movimiento antes de que termine la caída del dado
+	_check(
+		host_ludo.apply_change({"type": "move", "token": 0, "seat": 0})
+		and guest_ludo.apply_change({"type": "move", "token": 0, "seat": 0}),
+		"Parchís online saca ficha tras tirada sincronizada"
+	)
+	var second_roll := {"type": "roll", "value": 4, "seat": 1}
+	_check(
+		host_ludo.apply_change(second_roll) and guest_ludo.apply_change(second_roll),
+		"Parchís online inicia segunda tirada animada (4)"
+	)
+	guest_ludo.die._process(0.12)
+	guest_ludo._finish_forced_die()
+	await physics_frame
+	await process_frame
+	_check(
+		guest_ludo.die.top_face() == 4
+		and is_instance_valid(guest_ludo.die._pop)
+		and guest_ludo.die._pop.text_value == 4,
+		"Parchís online completa en bandeja una tirada interrumpida conservando la cara 4"
+	)
+	host_ludo.queue_free()
+	guest_ludo.queue_free()
+	await _frames()
+
+	var island_packed := load("res://scenes/IslandTwo.tscn") as PackedScene
+	var host_island := island_packed.instantiate() as IslandView
+	var guest_island := island_packed.instantiate() as IslandView
+	root.add_child(host_island)
+	root.add_child(guest_island)
+	await _frames()
+	host_island.online = true
+	guest_island.online = true
+	host_island._suppress_roll_anim = false
+	guest_island._suppress_roll_anim = false
+	var host_inet := IslandNetTable.new()
+	host_inet.view_node = host_island
+	host_inet.island = host_island.rules
+	host_island.net_table = host_inet
+	host_island.add_child(host_inet)
+	var guest_inet := IslandNetTable.new()
+	guest_inet.view_node = guest_island
+	guest_inet.island = guest_island.rules
+	guest_island.net_table = guest_inet
+	guest_island.add_child(guest_inet)
+	# Completar colocación inicial en host y sincronizar invitado
+	for step in range(4):
+		for v in range(host_island.rules.board.vertices.size()):
+			if host_island.rules.can_settlement(v):
+				host_island.rules.place_settlement(v)
+				break
+		for e in range(host_island.rules.board.edges.size()):
+			if host_island.rules.can_road(e):
+				host_island.rules.place_road(e)
+				break
+	guest_inet._on_sync(host_inet.snapshot())
+	_check(
+		host_island.rules.initial_seed == guest_island.rules.initial_seed
+		and guest_island.rules.phase == IslandRules.ROLL,
+		"Isla online sincroniza semilla de tablero y fase ROLL en invitado"
+	)
+	var island_roll := {"type": "roll", "a": 2, "b": 6, "seat": 0}
+	_check(
+		host_island.apply_change(island_roll) and guest_island.apply_change(island_roll),
+		"Isla online aplica tirada 2 + 6 en ambos jugadores"
+	)
+	for step in 12:
+		for d in host_island.dice:
+			d._process(0.08)
+		for d in guest_island.dice:
+			d._process(0.08)
+		host_island._physics_process(0.05)
+		guest_island._physics_process(0.05)
+	await physics_frame
+	await process_frame
+	_check(
+		host_island.dice[0].top_face() == 2
+		and host_island.dice[1].top_face() == 6
+		and guest_island.dice[0].top_face() == 2
+		and guest_island.dice[1].top_face() == 6,
+		"Isla online muestra exactamente 2 y 6 en los dados 3D de ambos jugadores"
+	)
+	_check(
+		is_instance_valid(host_island.dice[0]._pop)
+		and is_instance_valid(host_island.dice[1]._pop)
+		and is_instance_valid(guest_island.dice[0]._pop)
+		and is_instance_valid(guest_island.dice[1]._pop)
+		and host_island.dice[0]._pop.text_value == 2
+		and host_island.dice[1]._pop.text_value == 6
+		and guest_island.dice[0]._pop.text_value == 2
+		and guest_island.dice[1]._pop.text_value == 6,
+		"Isla online muestra 2 y 6 en DicePop para ambos jugadores"
+	)
+	host_island.queue_free()
+	guest_island.queue_free()
+	await _frames()
+
+	# 8. Prevención transversal de desincronizaciones en los demás juegos online
+	_check(change_scene_to_file("res://scenes/Brisca.tscn") == OK, "reabrir Brisca para pruebas de guarda")
+	await _frames()
+	var bri_guard := current_scene as BriscaView
+	if bri_guard != null:
+		bri_guard.online = true
+		var bnet := BriscaNetTable.new()
+		bnet.view_node = bri_guard
+		bnet.brisca = bri_guard.rules
+		bri_guard.net_table = bnet
+		bri_guard.add_child(bnet)
+		var host_seed := bri_guard.rules.deal_seed
+		var snap := bnet.snapshot()
+		bnet.synced = false
+		bnet._sync_tries = 0
+		bri_guard.refresh()
+		_check(
+			not bri_guard.is_local_turn() and bri_guard.hand.cards.is_empty(),
+			"Brisca online oculta cartas locales falsas y bloquea jugada antes del sync inicial"
+		)
+		bnet.rule_event({"type": "play", "card": "99 X"})
+		_check(
+			bnet._sync_tries >= 1,
+			"NetTable solicita resync automático si recibe un evento desincronizado"
+		)
+		bnet._on_sync(snap)
+		_check(
+			bnet.synced and bri_guard.rules.deal_seed == host_seed and not bri_guard.hand.cards.is_empty(),
+			"Brisca online restaura mano y semilla tras completar sync"
+		)
+		bri_guard.new_game()
+		_check(
+			bri_guard.rules.deal_seed == host_seed,
+			"Brisca online impide reiniciar localmente una nueva baraja"
+		)
+
+	_check(
+		change_scene_to_file("res://scenes/GuidedDomino.tscn") == OK,
+		"reabrir GuidedDomino para pruebas de atajos y pre-sync"
+	)
+	await _frames()
+	var dom_guard := current_scene as GuidedDomino
+	if dom_guard != null:
+		dom_guard.online = true
+		var dnet := DominoNetTable.new()
+		dnet.view_node = dom_guard
+		dnet.domino = dom_guard.rules
+		dom_guard.net_table = dnet
+		dom_guard.add_child(dnet)
+		var dom_snap := dnet.snapshot()
+		dnet.synced = false
+		dom_guard._refresh()
+		var any_visible_before := false
+		for t in dom_guard.tiles:
+			var pips := t.get_node_or_null("Visual/Pips") as Node3D
+			if pips != null and pips.visible:
+				any_visible_before = true
+		_check(
+			not any_visible_before and not dom_guard.is_local_turn(),
+			"Dominó online oculta todas las fichas y bloquea acciones antes del sync inicial"
+		)
+		dnet._on_sync(dom_snap)
+		_check(dnet.synced, "Dominó online marca mesa sincronizada tras _on_sync")
+		var sample_tile: Domino3D = dom_guard.tiles[0]
+		var rot_before := sample_tile.global_rotation
+		dom_guard.grabber.apply_shortcut(KEY_L, sample_tile)
+		dom_guard.grabber.apply_shortcut(KEY_F, sample_tile)
+		_check(
+			not sample_tile.is_table_locked
+			and sample_tile.global_rotation.is_equal_approx(rot_before)
+			and not dom_guard.grabber.can_undo_movement(),
+			"PhysicsGrabber3D bloquea atajos físicos locales (L, F, Ctrl+Z) en mesas online"
+		)
+
+	_check(
+		change_scene_to_file("res://scenes/GuidedPhysicalChess.tscn") == OK,
+		"reabrir GuidedPhysicalChess para pruebas de bloqueo local"
+	)
+	await _frames()
+	var chess_guard := current_scene as GuidedPhysicalChess
+	if chess_guard != null:
+		chess_guard.online = true
+		var cnet := ChessNetTable.new()
+		cnet.view_node = chess_guard
+		cnet.chess = chess_guard.rules
+		chess_guard.net_table = cnet
+		chess_guard.add_child(cnet)
+		cnet._apply({"type": "move", "from": 52, "to": 36, "promotion": ChessRules.QUEEN})
+		chess_guard._undo()
+		chess_guard._reset()
+		_check(
+			chess_guard.rules.move_log.size() == 1,
+			"Ajedrez online bloquea deshacer y reiniciar local para no desincronizar el tablero"
+		)
+
 	if failures > 0:
 		printerr("Online tables tests: %d errores" % failures)
 		quit(1)

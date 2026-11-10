@@ -13,6 +13,14 @@ const FACES := {
 }
 var _awaiting_result := false
 var _pop: DicePop
+var _forced_active := false
+var _forced_value := 0
+var _forced_elapsed := 0.0
+var _forced_duration := 0.62
+var _forced_start_pos := Vector3.ZERO
+var _forced_rest_pos := Vector3.ZERO
+var _forced_end_basis := Basis.IDENTITY
+var _forced_spin_axis := Vector3(0.75, 0.35, 0.56).normalized()
 
 
 func _ready() -> void:
@@ -21,9 +29,121 @@ func _ready() -> void:
 	_make_pips()
 
 
+func _process(delta: float) -> void:
+	if not _forced_active:
+		return
+	_forced_elapsed += delta
+	var u := clampf(_forced_elapsed / maxf(_forced_duration, 0.05), 0.0, 1.0)
+	var pos := _forced_start_pos.lerp(_forced_rest_pos, u)
+	var arc := 0.0
+	if u < 0.74:
+		arc = 0.48 * sin(PI * (u / 0.74))
+	else:
+		arc = 0.08 * sin(PI * ((u - 0.74) / 0.26))
+	pos.y = lerpf(_forced_start_pos.y, _forced_rest_pos.y, u) + arc
+	var inv := 1.0 - u
+	var remaining_angle := (inv * inv * inv) * TAU * 2.0
+	var spin := Basis(_forced_spin_axis, remaining_angle)
+	global_transform = Transform3D((spin * _forced_end_basis).orthonormalized(), pos)
+	if u >= 1.0:
+		finish_forced_roll(true)
+
+
+func is_forced_rolling() -> bool:
+	return _forced_active
+
+
+## Lanza el dado con una animación 3D determinista en la bandeja que aterriza
+## exactamente en `value` (1..6) y muestra ese mismo número en DicePop.
+func roll_to_value(value: int, rest_pos: Vector3, duration: float = 0.62) -> void:
+	if value < 1 or value > 6:
+		return
+	_awaiting_result = false
+	_forced_active = true
+	_forced_value = value
+	_forced_elapsed = 0.0
+	_forced_duration = maxf(duration, 0.05)
+	_forced_rest_pos = rest_pos
+	_forced_start_pos = rest_pos + Vector3(
+		randf_range(-0.14, 0.14), 0.22, randf_range(-0.14, 0.14)
+	)
+	var end_yaw := randf_range(-PI, PI)
+	_forced_end_basis = basis_for_top_face(value, end_yaw)
+	_forced_spin_axis = Vector3(
+		randf_range(0.55, 0.95),
+		randf_range(0.25, 0.55),
+		randf_range(0.45, 0.85)
+	).normalized()
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+	freeze = true
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	global_transform = Transform3D(
+		(Basis(_forced_spin_axis, TAU * 2.0) * _forced_end_basis).orthonormalized(),
+		_forced_start_pos
+	)
+	_note("dado: lanzado")
+	_sound("dice")
+
+
+func finish_forced_roll(celebrate: bool = true) -> void:
+	if not _forced_active:
+		return
+	var val := _forced_value
+	var final_xf := Transform3D(_forced_end_basis, _forced_rest_pos)
+	_forced_active = false
+	_forced_value = 0
+	_awaiting_result = false
+	freeze = false
+	global_transform = final_xf
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	if is_inside_tree():
+		PhysicsServer3D.body_set_state(
+			get_rid(), PhysicsServer3D.BODY_STATE_TRANSFORM, final_xf
+		)
+		PhysicsServer3D.body_set_state(
+			get_rid(), PhysicsServer3D.BODY_STATE_LINEAR_VELOCITY, Vector3.ZERO
+		)
+		PhysicsServer3D.body_set_state(
+			get_rid(), PhysicsServer3D.BODY_STATE_ANGULAR_VELOCITY, Vector3.ZERO
+		)
+	sleeping = true
+	if celebrate and val >= 1 and val <= 6:
+		var meter := get_node_or_null("/root/PerfMeter")
+		if meter == null or meter.dice_part_enabled("pop"):
+			_celebrate(val)
+		elif meter.dice_part_enabled("sound"):
+			_sound("pop")
+		if meter == null or meter.dice_part_enabled("signal"):
+			result_ready.emit(val)
+
+
+func cancel_forced_roll() -> void:
+	if not _forced_active:
+		return
+	_forced_active = false
+	_forced_value = 0
+	_awaiting_result = false
+	freeze = false
+
+
+## Garantiza que el número flotante (DicePop) coincida con la cara final leída
+## (por ejemplo, si el segundo dado golpeó al primero después de detenerse).
+func ensure_celebrated(value: int) -> void:
+	if value < 1 or value > 6:
+		return
+	if not is_instance_valid(_pop) or _pop.text_value != value:
+		var meter := get_node_or_null("/root/PerfMeter")
+		if meter == null or meter.dice_part_enabled("pop"):
+			_celebrate(value)
+
+
 func roll(impulse_scale: float = 1.0) -> void:
 	if is_grabbed:
 		return
+	if _forced_active:
+		cancel_forced_roll()
 	_awaiting_result = true
 	sleeping = false
 	_note("dado: lanzado")
@@ -55,12 +175,7 @@ func top_face() -> int:
 	return value
 
 
-## Snapear el dado para mostrar una cara específica (conservando su giro horizontal).
-## Usado para sincronizar dados remotos: se tiran físicamente y al detenerse
-## se ajusta la rotación para mostrar el resultado exacto.
-func set_top_face(value: int) -> void:
-	if value < 1 or value > 6:
-		return
+static func basis_for_top_face(value: int, yaw_angle: float = 0.0) -> Basis:
 	var target_normal := Vector3.UP
 	for normal: Vector3 in FACES:
 		if FACES[normal] == value:
@@ -73,10 +188,29 @@ func set_top_face(value: int) -> void:
 			align = Basis(Vector3.RIGHT, PI)
 	else:
 		align = Basis(axis.normalized(), target_normal.angle_to(Vector3.UP))
-	var yaw := Basis(Vector3.UP, global_rotation.y)
-	global_basis = yaw * align
+	return (Basis(Vector3.UP, yaw_angle) * align).orthonormalized()
+
+
+## Snapear el dado para mostrar una cara específica (conservando su giro horizontal).
+func set_top_face(value: int) -> void:
+	if value < 1 or value > 6:
+		return
+	var new_basis := basis_for_top_face(value, global_rotation.y)
+	global_basis = new_basis
 	linear_velocity = Vector3.ZERO
 	angular_velocity = Vector3.ZERO
+	if is_inside_tree():
+		PhysicsServer3D.body_set_state(
+			get_rid(),
+			PhysicsServer3D.BODY_STATE_TRANSFORM,
+			Transform3D(new_basis, global_position)
+		)
+		PhysicsServer3D.body_set_state(
+			get_rid(), PhysicsServer3D.BODY_STATE_LINEAR_VELOCITY, Vector3.ZERO
+		)
+		PhysicsServer3D.body_set_state(
+			get_rid(), PhysicsServer3D.BODY_STATE_ANGULAR_VELOCITY, Vector3.ZERO
+		)
 
 
 func _on_sleeping_changed() -> void:

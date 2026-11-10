@@ -37,19 +37,21 @@ func _apply(action: Dictionary) -> bool:
 	return ok
 
 
-func _apply_event(change: Dictionary) -> void:
-	if view_node.apply_change(change):
+func _apply_event(change: Dictionary) -> bool:
+	var ok := view_node.apply_change(change)
+	if ok:
 		checkers = view_node.rules
+	return ok
 
 
 func _on_sync(record: Dictionary) -> void:
+	var prev_synced := synced
+	synced = true
 	if not view_node.sync_from_record(record):
+		synced = prev_synced
 		return
 	checkers = view_node.rules
-	_sync_tries = 0
-	if _sync_timer != null:
-		_sync_timer.stop()
-	sync_received.emit()
+	_mark_synced()
 
 
 func snapshot() -> Dictionary:

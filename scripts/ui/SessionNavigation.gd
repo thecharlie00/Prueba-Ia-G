@@ -323,7 +323,10 @@ func _toggle() -> void:
 	_visible = not _visible
 	overlay.visible = _visible
 	menu_button.visible = not _visible
-	get_tree().paused = _visible
+	var scene := get_tree().current_scene
+	var is_online: bool = scene != null and scene.get("online") == true
+	# En partidas online no se congela el árbol de escena para seguir recibiendo y animando RPCs.
+	get_tree().paused = _visible and not is_online
 	if _visible:
 		camera_button.disabled = _find_camera() == null
 		_update_camera_views()
@@ -396,6 +399,11 @@ func _return_to_menu() -> void:
 	_visible = false
 	overlay.visible = false
 	get_tree().paused = false
+	var scene := get_tree().current_scene
+	if scene != null and scene.get("online") == true:
+		var net := get_node_or_null("/root/Net")
+		if net != null and net.has_method("leave_room"):
+			net.leave_room()
 	get_tree().change_scene_to_file(MENU_PATH)
 
 
