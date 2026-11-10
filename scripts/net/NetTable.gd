@@ -68,15 +68,16 @@ func submit(action: Dictionary, acting_seat: int = -1) -> bool:
 			_host_apply(action, acting_seat)
 			return true
 		return false
-	if Engine.has_singleton("Fusion"):
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
 		Fusion.rpc_to(Fusion.TARGET_MASTER, req_action, action, acting_seat)
 	return true
 
 
 ## El anfitrión aplica, difunde y avisa.
-func _host_apply(action: Dictionary, seat: int) -> void:
+func _host_apply(action: Dictionary, _seat: int) -> void:
 	if _apply(action) and _event_for(action) != null:
-		Fusion.rpc(rule_event, _event_for(action))
+		if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+			Fusion.rpc(rule_event, _event_for(action))
 		_on_applied(_event_for(action))
 
 
@@ -89,7 +90,7 @@ func request_sync() -> void:
 func _request_sync() -> void:
 	if is_host():
 		return
-	if Engine.has_singleton("Fusion"):
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
 		Fusion.rpc_to(Fusion.TARGET_MASTER, sync_request)
 	_sync_tries += 1
 	if _sync_tries >= SYNC_TRIES and _sync_timer != null:
