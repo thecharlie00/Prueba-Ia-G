@@ -103,6 +103,10 @@ func req_action(action: Dictionary, acting_seat: int) -> void:
 
 @rpc("any_peer", "call_remote")
 func rule_event(change: Dictionary) -> void:
+	# El host ya aplicó el cambio localmente en _host_apply; Fusion.rpc()
+	# reenvía el broadcast al host también, así que se salta la aplicación.
+	if is_host():
+		return
 	_apply_event(change)
 
 
