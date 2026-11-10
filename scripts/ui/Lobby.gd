@@ -449,7 +449,8 @@ func _send_chat() -> void:
 
 
 func _append_chat(who: String, text: String) -> void:
-	_chat_log.append_text("%s: %s" % [who, text])
+	_chat_log.append("%s: %s" % [who, text])
+	_chat_log.scroll_vertical = _chat_log.max_scroll_vertical
 
 
 func _leave() -> void:
