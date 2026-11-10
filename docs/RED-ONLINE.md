@@ -2,7 +2,7 @@
 
 Estado: implementación de piloto. El protocolo y el ciclo de vida de sala
 funcionan sin App ID usando sala offline; la partida en red se prueba con la
-mesa de la Isla (3 o 4 jugadores).
+mesa de la Isla (2, 3 o 4 jugadores, con soporte de bots en butacas libres).
 
 ## Instalación del SDK
 
@@ -81,7 +81,7 @@ tiene restricción (testing local).
   (`_active_hand_player` = `Net.local_seat()`); privacidad de manos es fase
   futura.
 - Chat solo en el Lobby (el de mesa `net_chat` está disponible para mesas).
-- Dados remotos: el resultado aparece en el estado; la animación física de
-  dados es local.
+- Dados remotos y de bots: se lanzan físicamente en todas las pantallas y, al
+  detenerse, se ajustan a la cara exacta (`Dice3D.set_top_face`).
 - Sin re-entrada de butacas durante la partida (late-join solo antes del inicio
   o reconexión por sync).

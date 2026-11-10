@@ -36,6 +36,7 @@ var start_seats: int = 3
 ## Juego de la sala actual y butacas.
 var room_game: String = ""
 var room_seats: int = 3
+var room_bots: Array[bool] = [false, false, false, false]
 var room_started: bool = false
 var room_code := ""
 var singleplayer_room := false  # sala offline creada sin App ID (testing)
@@ -99,6 +100,7 @@ func create_room(game_id: String, seats: int) -> void:
 	singleplayer_room = false
 	room_game = game_id
 	room_seats = seats
+	reset_room_bots()
 	room_started = false
 	room_code = _room_code()
 	var options := FusionRoomOptions.new()
@@ -119,11 +121,40 @@ func join_room(code: String) -> void:
 	if not Fusion.is_connected_to_photon():
 		return
 	singleplayer_room = false
+	reset_room_bots()
 	room_started = false
-	room_code = ""
+	room_code = code
 	var options := FusionRoomOptions.new()
 	options.max_players = SEATS_MAX
 	Fusion.join_room(code, options)
+
+
+func reset_room_bots() -> void:
+	room_bots = [false, false, false, false]
+
+
+func set_room_bot(seat: int, enabled: bool) -> void:
+	if seat < 0 or seat >= room_bots.size():
+		return
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room() and not (is_host() or singleplayer_room):
+		return
+	room_bots[seat] = enabled
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room() and not singleplayer_room:
+		Fusion.rpc(_rpc_room_bots, _bots_mask())
+	room_info_received.emit()
+
+
+func _bots_mask() -> int:
+	var mask := 0
+	for i in range(room_bots.size()):
+		if room_bots[i]:
+			mask |= (1 << i)
+	return mask
+
+
+func _apply_bots_mask(mask: int) -> void:
+	for i in range(room_bots.size()):
+		room_bots[i] = (mask & (1 << i)) != 0
 
 
 func is_host() -> bool:
@@ -182,7 +213,8 @@ func send_room_info_to(player_id: int) -> void:
 			room_game,
 			room_seats,
 			room_started,
-			start_scene
+			start_scene,
+			_bots_mask()
 		)
 
 
@@ -195,16 +227,28 @@ func _rpc_room_info_request() -> void:
 			room_game,
 			room_seats,
 			room_started,
-			start_scene
+			start_scene,
+			_bots_mask()
 		)
 
 
 @rpc("any_peer", "call_remote")
-func _rpc_room_info(game: String, seats: int, started: bool, scene: String) -> void:
+func _rpc_room_info(
+	game: String, seats: int, started: bool, scene: String, bots_mask: int
+) -> void:
 	room_game = game
 	room_seats = seats
 	room_started = started
 	start_scene = scene
+	_apply_bots_mask(bots_mask)
+	room_info_received.emit()
+
+
+@rpc("any_peer", "call_remote")
+func _rpc_room_bots(bots_mask: int) -> void:
+	if is_host():
+		return
+	_apply_bots_mask(bots_mask)
 	room_info_received.emit()
 
 
@@ -223,11 +267,15 @@ func _on_room_joined() -> void:
 func _on_room_left() -> void:
 	singleplayer_room = false
 	room_code = ""
+	reset_room_bots()
 	room_left.emit()
 
 
 func _on_player_joined(player_id: int, user_id: String) -> void:
 	players[player_id] = user_id
+	var seat := player_id - 1
+	if seat >= 0 and seat < room_bots.size():
+		room_bots[seat] = false
 	player_joined.emit(player_id, user_id)
 
 

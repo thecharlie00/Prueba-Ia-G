@@ -13,10 +13,22 @@ const INK := Color("1d1a3a")
 ## Mesas con bot disponible: identificador, título, escena y nota.
 const GAMES := [
 	{
+		"id": "IslandTwo",
+		"title": "Isla de recursos · 2 jugadores",
+		"scene": "res://scenes/IslandTwo.tscn",
+		"note": "Contra un bot · duelo rápido",
+	},
+	{
 		"id": "Island",
 		"title": "Isla de recursos · Catan",
 		"scene": "res://scenes/Island.tscn",
 		"note": "Contra dos bots · 3 jugadores · 1 humano",
+	},
+	{
+		"id": "IslandFour",
+		"title": "Isla de recursos · 4 jugadores",
+		"scene": "res://scenes/IslandFour.tscn",
+		"note": "Contra tres bots · 4 jugadores · 1 humano",
 	},
 	{
 		"id": "Parchis",

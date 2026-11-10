@@ -28,6 +28,7 @@ func _run() -> void:
 		"Ludo": "res://scenes/Ludo.tscn",
 		"Ludo3": "res://scenes/Ludo3.tscn",
 		"Ludo4": "res://scenes/Ludo4.tscn",
+		"IslandTwo": "res://scenes/IslandTwo.tscn",
 		"Island": "res://scenes/Island.tscn",
 		"IslandFour": "res://scenes/IslandFour.tscn"
 	}
@@ -90,6 +91,31 @@ func _run() -> void:
 		_check(
 			not paused and current_scene.scene_file_path == "res://scenes/Menu.tscn",
 			"confirmar salida vuelve al menú y reanuda el árbol"
+		)
+	_check(change_scene_to_file("res://scenes/Lobby.tscn") == OK, "abrir lobby online")
+	await _frames()
+	if current_scene != null:
+		var create_section := current_scene.find_child("CreateSection", true, false) as Control
+		var join_section := current_scene.find_child("JoinSection", true, false) as Control
+		var room_section := current_scene.find_child("RoomSection", true, false) as Control
+		_check(
+			create_section != null
+			and join_section != null
+			and create_section.visible
+			and join_section.visible
+			and create_section.get_index() < join_section.get_index(),
+			"lobby muestra crear sala y unirse en primer lugar"
+		)
+		_check(
+			room_section != null and not room_section.visible,
+			"lobby oculta butacas y chat antes de entrar a sala"
+		)
+		current_scene.call("_append_chat", "Ana", "Hola")
+		current_scene.call("_append_chat", "Luis", "Listo")
+		var chat_log := current_scene.find_child("ChatLog", true, false) as TextEdit
+		_check(
+			chat_log != null and chat_log.text.contains("Ana: Hola") and chat_log.text.contains("Luis: Listo"),
+			"chat del lobby inserta mensajes sin error en Godot 4.7"
 		)
 	if failures:
 		printerr("Menu navigation: %d errores" % failures)

@@ -9,12 +9,11 @@ const SCENES := [
 	"res://scenes/PhysicalChess.tscn", "res://scenes/Checkers.tscn",
 	"res://scenes/GuidedPhysicalCheckers.tscn", "res://scenes/PhysicalCheckers.tscn",
 	"res://scenes/GuidedDomino.tscn", "res://scenes/PhysicalDomino.tscn", "res://scenes/Ludo.tscn",
-	"res://scenes/Ludo3.tscn", "res://scenes/Ludo4.tscn", "res://scenes/Island.tscn",
-	"res://scenes/IslandFour.tscn", "res://scenes/CardTable.tscn", "res://scenes/Brisca.tscn",
-	"res://scenes/Parchis.tscn", "res://scenes/Parchis2.tscn", "res://scenes/Menu.tscn",
-	"res://scenes/BotMenu.tscn",
-	"res://scenes/ModeSelect.tscn",
-	"res://scenes/BotSelect.tscn",
+	"res://scenes/Ludo3.tscn", "res://scenes/Ludo4.tscn", "res://scenes/IslandTwo.tscn",
+	"res://scenes/Island.tscn", "res://scenes/IslandFour.tscn", "res://scenes/CardTable.tscn",
+	"res://scenes/Brisca.tscn", "res://scenes/Parchis.tscn", "res://scenes/Parchis2.tscn",
+	"res://scenes/Menu.tscn", "res://scenes/BotMenu.tscn", "res://scenes/ModeSelect.tscn",
+	"res://scenes/BotSelect.tscn", "res://scenes/Lobby.tscn",
 ]
 const FRAMES_PER_SCENE := 45
 

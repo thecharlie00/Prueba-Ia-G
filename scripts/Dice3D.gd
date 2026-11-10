@@ -55,9 +55,9 @@ func top_face() -> int:
 	return value
 
 
-## Snapear el dado para mostrar una cara específica (sin tirarlo físicamente).
-## Usado para sincronizar dados remotos: se tira físicamente y al detenerse
-## se ajusta la rotación para mostrar el resultado correcto.
+## Snapear el dado para mostrar una cara específica (conservando su giro horizontal).
+## Usado para sincronizar dados remotos: se tiran físicamente y al detenerse
+## se ajusta la rotación para mostrar el resultado exacto.
 func set_top_face(value: int) -> void:
 	if value < 1 or value > 6:
 		return
@@ -66,18 +66,17 @@ func set_top_face(value: int) -> void:
 		if FACES[normal] == value:
 			target_normal = normal
 			break
-	# Rotación que lleva target_normal a UP.
+	var align := Basis.IDENTITY
 	var axis := target_normal.cross(Vector3.UP)
-	var angle := target_normal.angle_to(Vector3.UP)
 	if axis.length() < 0.001:
-		# Ya alineado o completamente opuesto.
-		if target_normal.dot(Vector3.UP) < 0:
-			basis = Basis(Quaternion(Vector3.RIGHT, PI))
+		if target_normal.dot(Vector3.UP) < 0.0:
+			align = Basis(Vector3.RIGHT, PI)
 	else:
-		axis = axis.normalized()
-		basis = Basis(Quaternion(axis, angle))
-	_awaiting_result = true
-	_on_sleeping_changed()
+		align = Basis(axis.normalized(), target_normal.angle_to(Vector3.UP))
+	var yaw := Basis(Vector3.UP, global_rotation.y)
+	global_basis = yaw * align
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
 
 
 func _on_sleeping_changed() -> void:
