@@ -139,7 +139,12 @@ func _build() -> void:
 		_diff_buttons.append(button)
 	_diff_note = _label(DIFFICULTIES[1]["desc"], 12, MUTED)
 	column.add_child(_diff_note)
-	_select_difficulty(1)
+	var initial := 1
+	for i in DIFFICULTIES.size():
+		if int(DIFFICULTIES[i]["level"]) == TableBots.difficulty:
+			initial = i
+			break
+	_select_difficulty(initial)
 	_group(
 		column,
 		"MESAS CON BOT",
@@ -165,6 +170,7 @@ func _select_difficulty(index: int) -> void:
 	if index < 0 or index >= DIFFICULTIES.size():
 		return
 	_level = int(DIFFICULTIES[index]["level"])
+	TableBots.difficulty = _level
 	_diff_note.text = DIFFICULTIES[index]["desc"]
 	for i in _diff_buttons.size():
 		_style_button(_diff_buttons[i], ACCENT if i == index else BUTTON_STYLE)
