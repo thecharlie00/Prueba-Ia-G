@@ -37,6 +37,9 @@ func is_open() -> bool:
 ## Acciones disponibles para una pieza: {"label", "key", "keycode", "ctrl"}.
 func actions_for(object: InteractiveTableObject) -> Array[Dictionary]:
 	var list: Array[Dictionary] = []
+	if grabber != null and grabber.is_online_table():
+		list.append({"label": "Señalar", "key": "P", "keycode": KEY_P})
+		return list
 	if object is TableUtility:
 		list.append_array((object as TableUtility).radial_actions())
 	if object is Dice3D and grabber.dice_shortcuts_enabled:

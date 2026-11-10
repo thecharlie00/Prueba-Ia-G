@@ -45,6 +45,8 @@ var help: Label
 var title_label: Label
 var roll_button: Button
 var reset_button: Button
+var load_game_button: Button
+var new_game_button: Button
 var token_buttons: Array[Button] = []
 var new_game_confirmation: ConfirmationDialog
 ## Jugadores que lleva un bot (TableBots); el resto juega en el mismo equipo.
@@ -125,9 +127,15 @@ func _on_net_player_left(player_id: int) -> void:
 		set_bot(true, player_id - 1)
 
 
+func _is_awaiting_sync() -> bool:
+	return online and net_table != null and not net_table.synced
+
+
 func is_local_turn() -> bool:
 	if not online:
 		return true
+	if _is_awaiting_sync():
+		return false
 	var seat := _local_seat()
 	return seat >= 0 and seat < rules.players and rules.turn == seat and not is_bot_turn()
 
@@ -553,8 +561,8 @@ func _make_ui() -> void:
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.add_theme_font_size_override("font_size", 12)
 	_button(column, "Guardar partida", _save_game)
-	_button(column, "Cargar partida", _request_load)
-	_button(column, "Nueva partida", _new_game)
+	load_game_button = _button(column, "Cargar partida", _request_load)
+	new_game_button = _button(column, "Nueva partida", _new_game)
 	_label(column, "Rueda: zoom · Derecho: orbitar · Inicio: centrar · Esc: menú")
 	new_game_confirmation = ConfirmationDialog.new()
 	new_game_confirmation.title = "Nueva partida"
@@ -648,6 +656,10 @@ func _refresh() -> void:
 		or (waiting_roll and not _roll_should_submit)
 		or not can_act
 	)
+	if load_game_button != null:
+		load_game_button.disabled = online
+	if new_game_button != null:
+		new_game_button.disabled = online
 	var legal := rules.legal_tokens()
 	for index in range(4):
 		token_buttons[index].disabled = (index not in legal) or not can_act
@@ -971,6 +983,9 @@ func _save_game() -> void:
 
 
 func _load_game() -> void:
+	if online:
+		help.text = "La partida en línea se sincroniza desde el anfitrión; el guardado local no se usa."
+		return
 	if waiting_roll or grabber.held != null:
 		help.text = "Termina la tirada y suelta la ficha antes de cargar."
 		return
@@ -998,11 +1013,16 @@ func _load_game() -> void:
 
 
 func _new_game() -> void:
+	if online:
+		help.text = "La partida en línea continúa desde el anfitrión; usa el menú para salir."
+		return
 	if _can_replace_game():
 		new_game_confirmation.popup_centered()
 
 
 func _confirm_new_game() -> void:
+	if online:
+		return
 	if _can_replace_game():
 		get_tree().change_scene_to_file(scene_file_path)
 

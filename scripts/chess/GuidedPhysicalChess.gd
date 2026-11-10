@@ -34,6 +34,7 @@ var _selected: Material
 var _legal: Material
 var online := false
 var net_table: ChessNetTable
+var _online_bots: Array[bool] = [false, false]
 
 
 func _net() -> Node:
@@ -111,25 +112,43 @@ func _start_online() -> void:
 	add_child(net_table)
 	if net_table.is_host():
 		var rbots: Array = net.room_bots
-		if rbots.size() > 1 and bool(rbots[1]):
+		_online_bots[0] = rbots.size() > 0 and bool(rbots[0])
+		_online_bots[1] = rbots.size() > 1 and bool(rbots[1])
+		if _online_bots[1]:
 			rules.opponent_mode = ChessRules.OPPONENT_AI_CASUAL
 		else:
 			rules.opponent_mode = ChessRules.OPPONENT_LOCAL
 	else:
 		rules.opponent_mode = ChessRules.OPPONENT_LOCAL
 		net_table.request_sync()
+	var reset_btn := get_node_or_null("UI/Panel/Margin/Content/Reset") as Button
+	if reset_btn != null:
+		reset_btn.disabled = true
+	var load_btn := get_node_or_null("UI/Panel/Margin/Content/SaveRow/Load") as Button
+	if load_btn != null:
+		load_btn.disabled = true
 	net.player_left.connect(_on_net_player_left)
 
 
 func _on_net_player_left(player_id: int) -> void:
-	if online and net_table != null and net_table.is_host() and player_id == 2:
-		rules.opponent_mode = ChessRules.OPPONENT_AI_CASUAL
-		_refresh()
+	if online and net_table != null and net_table.is_host():
+		var seat := player_id - 1
+		if seat >= 0 and seat < _online_bots.size() and seat != _local_seat():
+			_online_bots[seat] = true
+			if seat == 1:
+				rules.opponent_mode = ChessRules.OPPONENT_AI_CASUAL
+			_refresh()
+
+
+func _is_awaiting_sync() -> bool:
+	return online and net_table != null and not net_table.synced
 
 
 func is_local_turn() -> bool:
 	if not online:
 		return not _is_ai_turn()
+	if _is_awaiting_sync():
+		return false
 	var active_seat := 0 if rules.turn == ChessRules.WHITE else 1
 	return _local_seat() == active_seat and not _is_ai_turn()
 
@@ -211,6 +230,14 @@ func _on_grab_started(object: InteractiveTableObject) -> void:
 		_refresh()
 		_help("Espera el turno de tu rival.")
 		return
+	if online:
+		var pval := rules.piece_at(_drag_from) if _drag_from >= 0 else 0
+		var own_piece := (pval > 0 and _local_seat() == 0) or (pval < 0 and _local_seat() == 1)
+		if not own_piece:
+			grabber.call_deferred("_release", "cancelled")
+			_refresh()
+			_help("Solo puedes mover tus propias piezas.")
+			return
 	if _drag_from >= 0 and rules.status() in ["playing", "check"]:
 		for move in rules.legal_moves_from(_drag_from):
 			_destinations.append(int(move["to"]))
@@ -350,6 +377,9 @@ func _update_models() -> void:
 
 
 func _reset() -> void:
+	if online:
+		_help("La partida online se sincroniza desde el anfitrión.")
+		return
 	if is_instance_valid(grabber.held):
 		_help("Suelta la pieza antes de iniciar una partida nueva.")
 		return
@@ -376,6 +406,8 @@ func _reset() -> void:
 
 
 func _undo() -> void:
+	if online:
+		return
 	if is_instance_valid(grabber.held):
 		_help("Suelta la pieza antes de deshacer.")
 		return
@@ -447,6 +479,9 @@ func _save_game() -> void:
 
 
 func _load_game() -> void:
+	if online:
+		_help("La partida online se sincroniza desde el anfitrión; el guardado local no se usa.")
+		return
 	if is_instance_valid(grabber.held):
 		_help("Suelta la pieza antes de cargar.")
 		return
@@ -565,8 +600,13 @@ func _on_opponent_selected(index: int) -> void:
 
 
 func _is_ai_turn() -> bool:
-	if online and (net_table == null or not net_table.is_host()):
-		return false
+	if online:
+		if net_table == null or not net_table.is_host():
+			return false
+		var active_seat := 0 if rules.turn == ChessRules.WHITE else 1
+		if active_seat == 1 and rules.opponent_mode != ChessRules.OPPONENT_LOCAL:
+			return true
+		return _online_bots[active_seat]
 	return rules.opponent_mode != ChessRules.OPPONENT_LOCAL and rules.turn == ChessRules.BLACK
 
 
@@ -575,7 +615,7 @@ func _schedule_ai_turn() -> void:
 		return
 	_ai_thinking = true
 	_ai_request_id += 1
-	status_label.text = "Turno de la IA (negras) · pensando…"
+	status_label.text = "Turno de la IA · pensando…"
 	_help("La IA elegirá una jugada legal.")
 	_play_ai_turn.call_deferred(_ai_request_id)
 
@@ -588,7 +628,13 @@ func _play_ai_turn(request_id: int) -> void:
 		_ai_thinking = false
 		_refresh()
 		return
-	var move := ChessAI.choose_move(rules, rules.opponent_mode, _random)
+	var ai_mode := (
+		rules.opponent_mode
+		if rules.opponent_mode != ChessRules.OPPONENT_LOCAL
+		else ChessRules.OPPONENT_AI_CASUAL
+	)
+	var ai_seat := 0 if rules.turn == ChessRules.WHITE else 1
+	var move := ChessAI.choose_move(rules, ai_mode, _random)
 	if move.is_empty():
 		_ai_thinking = false
 		_ai_failed = true
@@ -599,7 +645,7 @@ func _play_ai_turn(request_id: int) -> void:
 		_ai_thinking = false
 		if submit_change(
 			{"type": "move", "from": int(move["from"]), "to": int(move["to"]), "promotion": ChessRules.QUEEN},
-			1
+			ai_seat
 		):
 			_help("La IA ha movido.")
 		return
@@ -647,7 +693,19 @@ func _square_center(square: int) -> Vector3:
 
 
 func _open_free() -> void:
+	if online:
+		var net := _net()
+		if net != null and net.has_method("leave_room"):
+			net.leave_room()
 	get_tree().change_scene_to_file("res://scenes/PhysicalChess.tscn")
+
+
+func _open_sandbox() -> void:
+	if online:
+		var net := _net()
+		if net != null and net.has_method("leave_room"):
+			net.leave_room()
+	super._open_sandbox()
 
 
 # --- Interfaz integrada en la mesa (TableHud) ---

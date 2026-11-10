@@ -34,6 +34,7 @@ var _bot_wait := 0.0
 var _bot_toggle: CheckBox
 var online := false
 var net_table: DominoNetTable
+var _online_bots: Array[bool] = [false, false]
 
 
 func _net() -> Node:
@@ -105,23 +106,42 @@ func _start_online() -> void:
 	add_child(net_table)
 	if net_table.is_host():
 		var rbots: Array = net.room_bots
-		if rbots.size() > 1 and bool(rbots[1]):
+		_online_bots[0] = rbots.size() > 0 and bool(rbots[0])
+		_online_bots[1] = rbots.size() > 1 and bool(rbots[1])
+		if _online_bots[1]:
 			set_bot_enabled(true)
 	else:
 		if _bot_toggle != null:
 			_bot_toggle.disabled = true
 		net_table.request_sync()
+	var reset_btn := get_node_or_null("UI/Panel/Margin/Content/Reset") as Button
+	if reset_btn != null:
+		reset_btn.disabled = true
+	var load_btn := get_node_or_null("UI/Panel/Margin/Content/SaveRow/Load") as Button
+	if load_btn != null:
+		load_btn.disabled = true
 	net.player_left.connect(_on_net_player_left)
 
 
 func _on_net_player_left(player_id: int) -> void:
-	if online and net_table != null and net_table.is_host() and player_id == 2:
-		set_bot_enabled(true)
+	if online and net_table != null and net_table.is_host():
+		var seat := player_id - 1
+		if seat >= 0 and seat < _online_bots.size() and seat != _local_seat():
+			_online_bots[seat] = true
+			if seat == 1:
+				set_bot_enabled(true)
+			_refresh()
+
+
+func _is_awaiting_sync() -> bool:
+	return online and net_table != null and not net_table.synced
 
 
 func is_local_turn() -> bool:
 	if not online:
 		return not is_bot_turn()
+	if _is_awaiting_sync():
+		return false
 	return _local_seat() == rules.turn and not is_bot_turn()
 
 
@@ -166,8 +186,9 @@ func sync_from_record(record: Dictionary) -> bool:
 func _update_tile_privacy() -> void:
 	if not online:
 		return
+	var awaiting := _is_awaiting_sync()
 	var my_seat := clampi(_local_seat(), 0, 1)
-	var game_over := rules.result != DominoRules.PLAYING
+	var game_over := not awaiting and rules.result != DominoRules.PLAYING
 	var hand0: Array = rules.hands[0]
 	var hand1: Array = rules.hands[1]
 	var my_hand: Array = rules.hands[my_seat]
@@ -176,7 +197,7 @@ func _update_tile_privacy() -> void:
 			continue
 		var id: int = int(tile_ids[tile])
 		var in_chain: bool = not hand0.has(id) and not hand1.has(id) and not rules.stock.has(id)
-		var visible_pips: bool = game_over or my_hand.has(id) or in_chain
+		var visible_pips: bool = not awaiting and (game_over or my_hand.has(id) or in_chain)
 		var pips_node := tile.get_node_or_null("Visual/Pips") as Node3D
 		if pips_node != null:
 			pips_node.visible = visible_pips
@@ -196,9 +217,13 @@ func set_bot_enabled(enabled: bool) -> void:
 
 
 func is_bot_turn() -> bool:
-	if online and (net_table == null or not net_table.is_host()):
+	if rules.result != DominoRules.PLAYING:
 		return false
-	return bot_enabled and rules.turn == 1 and rules.result == DominoRules.PLAYING
+	if online:
+		if net_table == null or not net_table.is_host():
+			return false
+		return (rules.turn == 1 and (bot_enabled or _online_bots[1])) or (rules.turn == 0 and _online_bots[0])
+	return bot_enabled and rules.turn == 1
 
 
 func _process(delta: float) -> void:
@@ -215,19 +240,20 @@ func _process(delta: float) -> void:
 func bot_step() -> bool:
 	var choice := TableBots.domino_choice(rules, TableBots.difficulty)
 	if online:
+		var bot_seat := rules.turn
 		if choice.has("id"):
-			if not submit_change({"type": "play", "id": int(choice["id"]), "end": String(choice["end"])}, 1):
+			if not submit_change({"type": "play", "id": int(choice["id"]), "end": String(choice["end"])}, bot_seat):
 				return false
 			var btile: Vector2i = rules.values[int(choice["id"])]
 			_help(tr("El bot juega [%d|%d] a la %s.") % [btile.x, btile.y, tr("izquierda" if choice["end"] == "left" else "derecha")])
 			return true
 		if choice.get("action") == "draw":
-			if submit_change({"type": "draw"}, 1):
+			if submit_change({"type": "draw"}, bot_seat):
 				_help("El bot roba del pozo.")
 				return true
 			return false
 		if choice.get("action") == "pass":
-			if submit_change({"type": "pass"}, 1):
+			if submit_change({"type": "pass"}, bot_seat):
 				_help("El bot pasa.")
 				return true
 			return false
@@ -368,7 +394,17 @@ func _save_game() -> void:
 	_help("Partida guardada en este dispositivo.")
 
 
+func _reset() -> void:
+	if online:
+		_help("La partida online se sincroniza desde el anfitrión.")
+		return
+	super._reset()
+
+
 func _load_game() -> void:
+	if online:
+		_help("La partida online se sincroniza desde el anfitrión; el guardado local no se usa.")
+		return
 	if is_instance_valid(grabber.held):
 		_help("Suelta la ficha antes de cargar.")
 		return
@@ -513,6 +549,14 @@ func _refresh_zones() -> void:
 
 func _refresh() -> void:
 	_refresh_zones()
+	if _is_awaiting_sync():
+		status_label.text = "Conectando con el anfitrión…"
+		$UI/Panel/Margin/Content/Chain.text = "Sincronizando reparto…"
+		$UI/Panel/Margin/Content/Actions/Draw.disabled = true
+		$UI/Panel/Margin/Content/Actions/Pass.disabled = true
+		_update_tile_privacy()
+		_help("Recibiendo reparto de fichas de la sala…")
+		return
 	var status := ""
 	if rules.result == DominoRules.PLAYING:
 		status = "Turno: jugador %d%s · Pozo: %d" % [
@@ -563,7 +607,19 @@ func _help(message: String) -> void:
 
 
 func _open_free() -> void:
+	if online:
+		var net := _net()
+		if net != null and net.has_method("leave_room"):
+			net.leave_room()
 	get_tree().change_scene_to_file("res://scenes/PhysicalDomino.tscn")
+
+
+func _open_sandbox() -> void:
+	if online:
+		var net := _net()
+		if net != null and net.has_method("leave_room"):
+			net.leave_room()
+	super._open_sandbox()
 
 
 # --- Interfaz integrada en la mesa (TableHud) ---

@@ -366,6 +366,101 @@ func _run() -> void:
 	guest_island.queue_free()
 	await _frames()
 
+	# 8. Prevención transversal de desincronizaciones en los demás juegos online
+	_check(change_scene_to_file("res://scenes/Brisca.tscn") == OK, "reabrir Brisca para pruebas de guarda")
+	await _frames()
+	var bri_guard := current_scene as BriscaView
+	if bri_guard != null:
+		bri_guard.online = true
+		var bnet := BriscaNetTable.new()
+		bnet.view_node = bri_guard
+		bnet.brisca = bri_guard.rules
+		bri_guard.net_table = bnet
+		bri_guard.add_child(bnet)
+		var host_seed := bri_guard.rules.deal_seed
+		var snap := bnet.snapshot()
+		bnet.synced = false
+		bnet._sync_tries = 0
+		bri_guard.refresh()
+		_check(
+			not bri_guard.is_local_turn() and bri_guard.hand.cards.is_empty(),
+			"Brisca online oculta cartas locales falsas y bloquea jugada antes del sync inicial"
+		)
+		bnet.rule_event({"type": "play", "card": "99 X"})
+		_check(
+			bnet._sync_tries >= 1,
+			"NetTable solicita resync automático si recibe un evento desincronizado"
+		)
+		bnet._on_sync(snap)
+		_check(
+			bnet.synced and bri_guard.rules.deal_seed == host_seed and not bri_guard.hand.cards.is_empty(),
+			"Brisca online restaura mano y semilla tras completar sync"
+		)
+		bri_guard.new_game()
+		_check(
+			bri_guard.rules.deal_seed == host_seed,
+			"Brisca online impide reiniciar localmente una nueva baraja"
+		)
+
+	_check(
+		change_scene_to_file("res://scenes/GuidedDomino.tscn") == OK,
+		"reabrir GuidedDomino para pruebas de atajos y pre-sync"
+	)
+	await _frames()
+	var dom_guard := current_scene as GuidedDomino
+	if dom_guard != null:
+		dom_guard.online = true
+		var dnet := DominoNetTable.new()
+		dnet.view_node = dom_guard
+		dnet.domino = dom_guard.rules
+		dom_guard.net_table = dnet
+		dom_guard.add_child(dnet)
+		var dom_snap := dnet.snapshot()
+		dnet.synced = false
+		dom_guard._refresh()
+		var any_visible_before := false
+		for t in dom_guard.tiles:
+			var pips := t.get_node_or_null("Visual/Pips") as Node3D
+			if pips != null and pips.visible:
+				any_visible_before = true
+		_check(
+			not any_visible_before and not dom_guard.is_local_turn(),
+			"Dominó online oculta todas las fichas y bloquea acciones antes del sync inicial"
+		)
+		dnet._on_sync(dom_snap)
+		_check(dnet.synced, "Dominó online marca mesa sincronizada tras _on_sync")
+		var sample_tile: Domino3D = dom_guard.tiles[0]
+		var rot_before := sample_tile.global_rotation
+		dom_guard.grabber.apply_shortcut(KEY_L, sample_tile)
+		dom_guard.grabber.apply_shortcut(KEY_F, sample_tile)
+		_check(
+			not sample_tile.is_table_locked
+			and sample_tile.global_rotation.is_equal_approx(rot_before)
+			and not dom_guard.grabber.can_undo_movement(),
+			"PhysicsGrabber3D bloquea atajos físicos locales (L, F, Ctrl+Z) en mesas online"
+		)
+
+	_check(
+		change_scene_to_file("res://scenes/GuidedPhysicalChess.tscn") == OK,
+		"reabrir GuidedPhysicalChess para pruebas de bloqueo local"
+	)
+	await _frames()
+	var chess_guard := current_scene as GuidedPhysicalChess
+	if chess_guard != null:
+		chess_guard.online = true
+		var cnet := ChessNetTable.new()
+		cnet.view_node = chess_guard
+		cnet.chess = chess_guard.rules
+		chess_guard.net_table = cnet
+		chess_guard.add_child(cnet)
+		cnet._apply({"type": "move", "from": 52, "to": 36, "promotion": ChessRules.QUEEN})
+		chess_guard._undo()
+		chess_guard._reset()
+		_check(
+			chess_guard.rules.move_log.size() == 1,
+			"Ajedrez online bloquea deshacer y reiniciar local para no desincronizar el tablero"
+		)
+
 	if failures > 0:
 		printerr("Online tables tests: %d errores" % failures)
 		quit(1)

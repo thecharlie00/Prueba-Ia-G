@@ -142,9 +142,15 @@ func _input_allowed() -> bool:
 	return is_local_turn()
 
 
+func _is_awaiting_sync() -> bool:
+	return online and net_table != null and not net_table.synced
+
+
 func is_local_turn() -> bool:
 	if not online:
 		return true
+	if _is_awaiting_sync():
+		return false
 	var seat := _local_seat()
 	if seat < 0 or seat >= rules.players:
 		return false
@@ -785,6 +791,9 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Selección de marca en el tablero. En línea se envía al anfitrión (con la
 ## butaca que actúa); fuera de línea se aplica directamente.
 func _select_board(point: Vector3, acting_seat: int = -1) -> void:
+	if _is_awaiting_sync():
+		_help("Sincronizando isla con el anfitrión…")
+		return
 	var id := _nearest(point, selection_mode)
 	if id < 0:
 		_help("Selecciona una marca en el tablero.")
@@ -1453,6 +1462,10 @@ func _refresh() -> void:
 			or (waiting_roll and not _roll_should_submit)
 			or (online and not is_local_turn())
 		)
+	if buttons.has("load"):
+		buttons["load"].disabled = online
+	if buttons.has("new"):
+		buttons["new"].disabled = online
 	var can_cancel_roll := (
 		((waiting_roll and _roll_should_submit) or manual_roll)
 		and not _awaiting_roll_ack

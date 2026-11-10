@@ -23,12 +23,26 @@ const SYNC_INTERVAL := 1.0
 
 var _sync_tries := 0
 var _sync_timer: Timer
+var _host_initial_timer: Timer
+## Indica si la mesa ya está sincronizada con la semilla/registro del anfitrión.
+var synced := true
 
 
 func _enter_tree() -> void:
 	if Engine.has_singleton("Fusion"):
 		Fusion.register_broadcast_receiver(self)
-	if not is_host():
+	if is_host():
+		synced = true
+		if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+			_broadcast_sync_to_room.call_deferred()
+			_host_initial_timer = Timer.new()
+			_host_initial_timer.wait_time = 0.45
+			_host_initial_timer.one_shot = true
+			_host_initial_timer.autostart = true
+			_host_initial_timer.timeout.connect(_broadcast_sync_to_room)
+			add_child(_host_initial_timer)
+	else:
+		synced = not (Engine.has_singleton("Fusion") and Fusion.is_in_room())
 		_sync_timer = Timer.new()
 		_sync_timer.wait_time = SYNC_INTERVAL
 		_sync_timer.one_shot = false
@@ -43,6 +57,25 @@ func _exit_tree() -> void:
 		Fusion.unregister_broadcast_receiver(self)
 	if _sync_timer != null:
 		_sync_timer.stop()
+	if _host_initial_timer != null:
+		_host_initial_timer.stop()
+
+
+func _broadcast_sync_to_room() -> void:
+	if not is_inside_tree() or not is_host():
+		return
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+		var snap := snapshot()
+		if not snap.is_empty():
+			Fusion.rpc(sync_state, snap)
+
+
+func _mark_synced() -> void:
+	synced = true
+	_sync_tries = 0
+	if _sync_timer != null:
+		_sync_timer.stop()
+	sync_received.emit()
 
 
 func is_host() -> bool:
@@ -68,6 +101,9 @@ func submit(action: Dictionary, acting_seat: int = -1) -> bool:
 		if _allows(action, acting_seat):
 			_host_apply(action, acting_seat)
 			return true
+		return false
+	if not synced:
+		_request_sync()
 		return false
 	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
 		Fusion.rpc_to(Fusion.TARGET_MASTER, req_action, action, acting_seat)
@@ -114,17 +150,23 @@ func rule_event(change: Dictionary) -> void:
 	# reenvía el broadcast al host también, así que se salta la aplicación.
 	if is_host():
 		return
-	_apply_event(change)
+	if not synced or not _apply_event(change):
+		_sync_tries = 0
+		if _sync_timer != null and _sync_timer.is_stopped():
+			_sync_timer.start()
+		_request_sync()
 
 
 @rpc("any_peer", "call_remote")
 func sync_request() -> void:
-	if is_host():
+	if is_host() and Engine.has_singleton("Fusion") and Fusion.is_in_room():
 		Fusion.rpc_to_player(Fusion.get_rpc_sender(), sync_state, snapshot())
 
 
 @rpc("any_peer", "call_remote")
 func sync_state(record: Dictionary) -> void:
+	if is_host():
+		return
 	_on_sync(record)
 
 
@@ -162,8 +204,8 @@ func _event_for(action: Dictionary) -> Dictionary:
 	return action
 
 
-func _apply_event(_change: Dictionary) -> void:
-	pass
+func _apply_event(_change: Dictionary) -> bool:
+	return false
 
 
 func _on_applied(_change: Dictionary) -> void:
