@@ -5,7 +5,7 @@
 set -u
 
 GODOT="${1:-${GODOT:-godot}}"
-TIMEOUT="${TEST_TIMEOUT:-600}"
+TIMEOUT="${TEST_TIMEOUT:-90}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOG_DIR="${TEST_LOG_DIR:-$ROOT/.test-logs}"
 mkdir -p "$LOG_DIR"

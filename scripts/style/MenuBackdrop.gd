@@ -8,8 +8,7 @@ extends Control
 var accent_color := Palette.SUN
 
 
-func _init(accent := Palette.SUN) -> void:
-	accent_color = accent
+func _init() -> void:
 	name = "MenuBackdrop"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

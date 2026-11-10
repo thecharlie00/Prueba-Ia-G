@@ -15,8 +15,9 @@ const CARD_WELL := Color("221e42")
 const LOCKED_FILL := Color("6e6894")
 
 
-static func add_backdrop(parent: Control, accent := Palette.SUN) -> MenuBackdrop:
-	var backdrop := MenuBackdrop.new(accent)
+static func add_backdrop(parent: Control, accent := Palette.SUN) -> Control:
+	var backdrop := MenuBackdrop.new()
+	backdrop.accent_color = accent
 	parent.add_child(backdrop)
 	return backdrop
 
