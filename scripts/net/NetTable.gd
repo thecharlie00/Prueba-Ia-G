@@ -48,8 +48,13 @@ func is_host() -> bool:
 	return Engine.has_singleton("Fusion") and Fusion.is_master_client()
 
 
+func _net() -> Node:
+	return get_node_or_null("/root/Net")
+
+
 func local_seat() -> int:
-	return Net.local_seat()
+	var net := _net()
+	return int(net.local_seat()) if net != null else -1
 
 
 ## El jugador local pide aplicar una acción. Devuelve true si se aceptó (en el
@@ -127,8 +132,9 @@ func net_chat(sender_id: int, text: String) -> void:
 
 
 func send_chat(text: String) -> void:
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
-		Fusion.rpc(net_chat, Net.local_id(), text)
+	var net := _net()
+	if net != null and Engine.has_singleton("Fusion") and Fusion.is_in_room():
+		Fusion.rpc(net_chat, int(net.local_id()), text)
 
 
 #endregion

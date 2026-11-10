@@ -80,10 +80,20 @@ var _bot_wait := 0.0
 var online := false
 var net_table: IslandNetTable
 
+func _net() -> Node:
+	return get_node_or_null("/root/Net")
+
+
+func _local_seat() -> int:
+	var net := _net()
+	return int(net.local_seat()) if net != null else -1
+
+
 ## Arranca la vista en línea cuando la sala indica la Isla. El anfitrión crea
 ## la mesa; los demás piden el registro completo y lo reemiten.
 func _start_online() -> void:
-	if Net.room_game not in ["IslandTwo", "Island", "IslandFour"]:
+	var net := _net()
+	if net == null or str(net.room_game) not in ["IslandTwo", "Island", "IslandFour"]:
 		return
 	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
 		return
@@ -94,8 +104,9 @@ func _start_online() -> void:
 	net_table.island = rules
 	add_child(net_table)
 	if net_table.is_host():
-		for seat in range(mini(player_count, Net.room_bots.size())):
-			if Net.room_bots[seat]:
+		var rbots: Array = net.room_bots
+		for seat in range(mini(player_count, rbots.size())):
+			if bool(rbots[seat]):
 				set_bot(true, seat)
 		_help("Eres el anfitrión: valida y difunde las acciones de la sala.")
 	else:
@@ -103,7 +114,7 @@ func _start_online() -> void:
 			if is_instance_valid(toggle):
 				toggle.disabled = true
 		net_table.request_sync()
-	Net.player_left.connect(_on_net_player_left)
+	net.player_left.connect(_on_net_player_left)
 	_refresh()
 
 
@@ -130,7 +141,7 @@ func _input_allowed() -> bool:
 func is_local_turn() -> bool:
 	if not online:
 		return true
-	var seat := Net.local_seat()
+	var seat := _local_seat()
 	if seat < 0 or seat >= rules.players:
 		return false
 	if rules.phase == IslandRules.DISCARD:
@@ -175,7 +186,7 @@ func _apply_change_effects(change: Dictionary) -> void:
 			var seat := int(change.get("seat", -1))
 			if _suppress_roll_anim:
 				return
-			if online and seat == Net.local_seat() and (seat < 0 or seat >= bots.size() or not bots[seat]):
+			if online and seat == _local_seat() and (seat < 0 or seat >= bots.size() or not bots[seat]):
 				_help("Dados aceptados: %d + %d." % [a, b])
 				return
 			_animate_remote_roll(a, b, seat)
@@ -741,7 +752,7 @@ func _select_board(point: Vector3, acting_seat: int = -1) -> void:
 
 ## Diccionario de acción (formato registro) para el modo de selección actual.
 func _action_for_selection(id: int, seat: int) -> Dictionary:
-	var actor := seat if seat >= 0 else Net.local_seat()
+	var actor := seat if seat >= 0 else _local_seat()
 	match selection_mode:
 		"settlement":
 			return {"type": "settlement", "id": id, "seat": actor}
@@ -1163,7 +1174,7 @@ func _build_privacy_overlay(layer: CanvasLayer) -> void:
 func _active_hand_player() -> int:
 	if online:
 		# Piloto: solo se muestra la mano de la butaca local.
-		return Net.local_seat()
+		return clampi(_local_seat(), 0, rules.players - 1)
 	if rules.phase == IslandRules.DISCARD:
 		return rules.discard_player
 	if rules.phase == IslandRules.TRADE_RESPONSE:
@@ -1741,7 +1752,7 @@ func _finish_roll() -> void:
 		die._awaiting_result = false
 	if online:
 		if _roll_should_submit:
-			var roll_seat := remote_seat if remote_seat >= 0 else Net.local_seat()
+			var roll_seat := remote_seat if remote_seat >= 0 else _local_seat()
 			_suppress_roll_anim = true
 			var sent := submit_change(
 				{"type": "roll", "a": roll_results[0], "b": roll_results[1], "seat": roll_seat},

@@ -1,7 +1,6 @@
 extends SceneTree
 
-const ISLAND_SCENE := load("res://scenes/Island.tscn")
-
+var island_scene: PackedScene
 var failures := 0
 
 
@@ -10,7 +9,8 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	var view := ISLAND_SCENE.instantiate() as IslandView
+	island_scene = load("res://scenes/Island.tscn") as PackedScene
+	var view := island_scene.instantiate() as IslandView
 	root.add_child(view)
 	await _ticks(3)
 	_check(view.dice.size() == 2 and view.homes.size() == 1, "dos dados y ladrón físicos")
@@ -368,7 +368,7 @@ func _four_player_view() -> void:
 func _bot_match() -> void:
 	TableBots.solo = true
 	TableBots.difficulty = TableBots.Difficulty.FACIL
-	var view := ISLAND_SCENE.instantiate() as IslandView
+	var view := island_scene.instantiate() as IslandView
 	root.add_child(view)
 	await _ticks(2)
 	_check(view.bots[1] and view.bots[2], "solo bots marca J2 y J3")
