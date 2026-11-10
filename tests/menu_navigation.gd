@@ -89,7 +89,7 @@ func _run() -> void:
 		nav.call("_request_return_to_menu")
 		await _frames()
 		_check(
-			not paused and current_scene.scene_file_path == "res://scenes/Menu.tscn",
+			not paused and current_scene.scene_file_path == "res://scenes/BotMenu.tscn",
 			"confirmar salida vuelve al menú y reanuda el árbol"
 		)
 	_check(change_scene_to_file("res://scenes/Lobby.tscn") == OK, "abrir lobby online")

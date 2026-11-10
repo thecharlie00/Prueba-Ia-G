@@ -15,6 +15,10 @@ cd "$ROOT" || exit 1
 echo "Importando recursos y registrando class_name..."
 if ! timeout "$TIMEOUT" "$GODOT" --headless --editor --path . --quit >"$LOG_DIR/import.log" 2>&1; then
   echo "La importación del proyecto ha fallado; ver $LOG_DIR/import.log"
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    msg="$(tail -n 10 "$LOG_DIR/import.log" | tr '\n' ' ' | sed 's/%/%25/g')"
+    echo "::error title=import::${msg}"
+  fi
   exit 1
 fi
 
@@ -37,6 +41,13 @@ for test in tests/*.gd; do
     failed+=("$name")
     printf 'FALLO %-32s %4ss (código %s)\n' "$name" "$secs" "$code"
     tail -n 15 "$LOG_DIR/$name.log" | sed 's/^/      /'
+    if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+      msg="$(grep -E '^(SCRIPT ERROR|ERROR|FALLO)|at: ' "$LOG_DIR/$name.log" | head -n 6 | tr '\n' ' ' | sed 's/%/%25/g')"
+      if [ -z "$msg" ]; then
+        msg="$(tail -n 6 "$LOG_DIR/$name.log" | tr '\n' ' ' | sed 's/%/%25/g')"
+      fi
+      echo "::error title=FALLO $name (${secs}s, code $code)::${msg}"
+    fi
   fi
 done
 

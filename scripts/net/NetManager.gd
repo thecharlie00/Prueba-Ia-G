@@ -55,6 +55,11 @@ func _ready() -> void:
 	Fusion.connected_to_photon.connect(_on_connected)
 
 
+func _exit_tree() -> void:
+	if is_available():
+		Fusion.unregister_broadcast_receiver(self)
+
+
 func is_available() -> bool:
 	return Engine.has_singleton("Fusion")
 
