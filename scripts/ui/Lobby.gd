@@ -705,7 +705,8 @@ func _render_room_list(source_rooms: Variant = null) -> void:
 		_room_list_box.add_child(empty_card)
 		return
 
-	for info in filtered:
+	for item in filtered:
+		var info: Dictionary = item
 		var code_str := str(info.get("code", ""))
 		var game_id := str(info.get("game", "Island"))
 		var panel := MenuStyle.make_card_panel(
@@ -723,7 +724,7 @@ func _render_room_list(source_rooms: Variant = null) -> void:
 		details.add_theme_constant_override("separation", 3)
 		row.add_child(details)
 
-		var locked := info.get("locked") == true
+		var locked: bool = info.get("locked") == true
 		var title_line := _row()
 		details.add_child(title_line)
 
@@ -753,7 +754,7 @@ func _render_room_list(source_rooms: Variant = null) -> void:
 		subtitle.add_theme_color_override("font_color", Palette.MUTED)
 		details.add_child(subtitle)
 
-		var can_join := (
+		var can_join: bool = (
 			info.get("is_open") != false
 			and info.get("started") != true
 			and int(info.get("players", 0)) < int(info.get("max_players", 4))
