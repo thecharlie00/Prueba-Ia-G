@@ -319,7 +319,8 @@ func _refresh_seats() -> void:
 	var local_id := Fusion.get_local_player_id()
 	var names: Array[String] = []
 	for player_id in Net.players:
-		names.append(str(Net.players[player_id]))
+		if player_id != local_id:
+			names.append(str(Net.players[player_id]))
 	var label := Label.new()
 	label.text = "J%d · %s%s" % [
 		local_id,
@@ -473,6 +474,11 @@ func _rpc_chat(text: String) -> void:
 
 @rpc("any_peer", "call_remote")
 func _rpc_start_announced(scene: String, seats: int) -> void:
+	# El host ya llamó Net.start_game() localmente; Fusion.rpc() reenvía
+	# el broadcast al host también, así que se salta para evitar doble cambio
+	# de escena.
+	if Net.room_started and Net.start_scene == scene:
+		return
 	Net.start_scene = scene
 	Net.start_seats = seats
 	Net.room_started = true
