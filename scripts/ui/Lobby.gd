@@ -980,7 +980,13 @@ func _refresh_seats() -> void:
 		var row := _row()
 		seat_card.add_child(row)
 
-		var seat_col: Color = Palette.PLAYERS[seat % Palette.PLAYERS.size()]
+		var seat_colors: Array[Color] = [
+			Palette.PLAYER_RED,
+			Palette.PLAYER_BLUE,
+			Palette.PLAYER_ORANGE,
+			Palette.PLAYER_GREEN,
+		]
+		var seat_col: Color = seat_colors[seat % seat_colors.size()]
 		var seat_fg := Palette.INK if seat_col.get_luminance() > 0.42 else Palette.PAPER
 		var badge := MenuStyle.make_pill("J%d" % pid, seat_col, seat_fg, 12, 9, 2)
 		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER

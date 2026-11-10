@@ -67,7 +67,7 @@ func _draw() -> void:
 	var rail_h := 12.0
 	draw_rect(Rect2(0.0, 0.0, w, rail_h), Palette.WOOD)
 	draw_rect(Rect2(0.0, rail_h - 3.0, w, 3.0), Palette.INK)
-	draw_rect(Rect2(0.0, h - rail_h, w, rail_h), Palette.WOOD_DARK)
+	draw_rect(Rect2(0.0, h - rail_h, w, rail_h), Palette.WOOD.darkened(0.28))
 	draw_rect(Rect2(0.0, h - rail_h, w, 3.0), Palette.INK)
 
 	for rx in [22.0, w - 22.0]:
