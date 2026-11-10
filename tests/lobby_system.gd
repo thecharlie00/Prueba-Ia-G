@@ -16,7 +16,19 @@ func _run() -> void:
 		quit(1)
 		return
 
-	# 1. Hash SHA-256 + salt y verificación de contraseñas
+	# 1. Hash SHA-256 + salt, UserId único de Photon y verificación de contraseñas
+	var uid1: String = net.ensure_session_user_id()
+	_check(
+		uid1.begins_with("u_") and uid1 != "Jugador" and uid1 == net.ensure_session_user_id(),
+		"session_user_id único y estable por instancia (no usa «Jugador» como UserId)"
+	)
+	net.session_user_id = ""
+	var uid2: String = net.ensure_session_user_id()
+	_check(uid1 != uid2, "dos instancias generan distinto UserId para evitar colisión en Photon")
+	_check(
+		net.clean_peer_name(uid2, 2) == "Jugador 2" and net.clean_peer_name("Carlos", 2) == "Carlos",
+		"clean_peer_name oculta UserId interno y conserva nombres reales"
+	)
 	var salt1: String = net.generate_salt()
 	var salt2: String = net.generate_salt()
 	_check(salt1.length() == 16 and salt1 != salt2, "salts aleatorios de 16 hex")

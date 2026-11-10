@@ -158,6 +158,12 @@ func _build() -> void:
 		else str(ProjectSettings.get_setting("net/user", "Jugador"))
 	)
 	_username.text = default_user
+	_username.text_changed.connect(
+		func(new_text: String) -> void:
+			var cleaned := new_text.strip_edges()
+			if not cleaned.is_empty():
+				Net.local_name = cleaned
+	)
 	_name_row.add_child(_username)
 	column.add_child(_name_row)
 

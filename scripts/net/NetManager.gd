@@ -54,6 +54,8 @@ const ONLINE_GAMES := [
 
 var players: Dictionary = {}  # player_id (Photon) -> display name
 var local_name: String = ""
+## Identificador único de sesión para Photon Cloud (evita colisiones cuando dos jugadores se llaman «Jugador»).
+var session_user_id: String = ""
 
 ## Escena que la sala indica cuando se empieza la partida.
 var start_scene: String = ""
@@ -107,9 +109,30 @@ func is_singleplayer() -> bool:
 	return singleplayer_room
 
 
+## Genera una vez por instancia un UserId único para Photon Cloud, separado del nombre visible.
+func ensure_session_user_id() -> String:
+	if session_user_id.is_empty():
+		session_user_id = "u_%x_%s" % [OS.get_process_id(), generate_salt()]
+	return session_user_id
+
+
+func display_name() -> String:
+	var clean := local_name.strip_edges()
+	if not clean.is_empty():
+		return clean
+	return str(ProjectSettings.get_setting("net/user", "Jugador"))
+
+
+func clean_peer_name(raw_name: String, player_id: int) -> String:
+	var clean := raw_name.strip_edges()
+	if clean.is_empty() or clean.begins_with("u_"):
+		return "Jugador %d" % player_id
+	return clean
+
+
 ## Arranca la sesión: con App ID se conecta a Photon Cloud; sin ella, sala offline.
 func start_session(user_name: String) -> void:
-	local_name = user_name
+	local_name = user_name.strip_edges()
 	if not is_available():
 		connection_failed.emit("El SDK Photon Fusion no está instalado. Instala el addon Fusion para Godot.")
 		return
@@ -123,7 +146,7 @@ func start_session(user_name: String) -> void:
 		return
 	Fusion.set_app_id(app_id)
 	Fusion.connect_to_photon.call_deferred(
-		user_name,
+		ensure_session_user_id(),
 		str(ProjectSettings.get_setting("net/region", "eu"))
 	)
 
@@ -140,7 +163,7 @@ func connect_or_retry() -> void:
 	if not app_id.is_empty():
 		Fusion.set_app_id(app_id)
 		Fusion.connect_to_photon.call_deferred(
-			local_name,
+			ensure_session_user_id(),
 			str(ProjectSettings.get_setting("net/region", "eu"))
 		)
 
@@ -208,8 +231,12 @@ func parse_room_listing(item: Variant) -> Dictionary:
 			"salt": str(props_d.get("salt", d.get("salt", ""))),
 			"pw_hash": pw_hash_d,
 		}
-	if item != null and item is Object and item.has_method("get_name"):
-		var code := str(item.call("get_name"))
+	if item != null and item is Object and (item.has_method("get_name") or item.has_method("get_room_name")):
+		var code := (
+			str(item.call("get_name"))
+			if item.has_method("get_name")
+			else str(item.call("get_room_name"))
+		)
 		var props: Dictionary = (
 			item.call("get_custom_properties")
 			if item.has_method("get_custom_properties")
@@ -308,14 +335,16 @@ func create_room(
 ) -> void:
 	if not is_available():
 		return
-	if not Fusion.is_in_room() and not Fusion.is_connected_to_photon():
+	if Fusion.is_in_room() or Fusion.get_connection_status() == Fusion.STATUS_JOINING_ROOM:
+		return
+	if not Fusion.is_connected_to_photon():
 		return
 	singleplayer_room = false
 	room_game = game_id
 	room_seats = clampi(seats, 2, SEATS_MAX)
 	room_public = is_public
 	var clean_title := custom_title.strip_edges()
-	var host_label := local_name if not local_name.is_empty() else "Anfitrión"
+	var host_label := display_name()
 	room_title = clean_title if not clean_title.is_empty() else ("Mesa de %s" % host_label)
 	var clean_pw := password.strip_edges()
 	room_locked = not clean_pw.is_empty()
@@ -335,7 +364,8 @@ func create_room(
 	options.max_players = room_seats
 	options.is_visible = is_public
 	options.is_open = true
-	options.player_ttl_ms = 60_000
+	if options.has_method("set_player_ttl_ms"):
+		options.call("set_player_ttl_ms", 60_000)
 	options.custom_properties = {
 		"title": room_title,
 		"host": host_label,
@@ -348,12 +378,14 @@ func create_room(
 		"host_edition": "demo" if is_demo else "full",
 	}
 	_configure_lobby_properties(options)
-	Fusion.create_room(room_code, options)
+	Fusion.join_or_create_room(room_code, options)
 
 
 ## Un invitado entra con el código de la sala (o desde el buscador público).
 func join_room(code: String, password: String = "") -> void:
 	if not is_available() or not Fusion.is_connected_to_photon():
+		return
+	if Fusion.is_in_room() or Fusion.get_connection_status() == Fusion.STATUS_JOINING_ROOM:
 		return
 	singleplayer_room = false
 	reset_room_bots()
@@ -364,7 +396,6 @@ func join_room(code: String, password: String = "") -> void:
 	pending_join_password = password.strip_edges()
 	_auth_sent_for_room = ""
 	var options := FusionRoomOptions.new()
-	options.max_players = SEATS_MAX
 	Fusion.join_room(room_code, options)
 
 
@@ -507,7 +538,9 @@ func start_game(scene: String, seats: int) -> void:
 		if room != null and room is Object:
 			if room.has_method("set_open"):
 				room.call("set_open", false)
-			if room.has_method("set_property"):
+			if room.has_method("set_properties"):
+				room.call("set_properties", {"started": true})
+			elif room.has_method("set_property"):
 				room.call("set_property", "started", true)
 	start_announced.emit(scene, seats)
 
@@ -568,16 +601,26 @@ func _sync_room_snapshot() -> void:
 			room_salt = str(props["salt"])
 		if props.has("pw_hash"):
 			room_pw_hash = str(props["pw_hash"])
+		if props.has("host") and room.has_method("get_master_client_id"):
+			var master_id := int(room.call("get_master_client_id"))
+			var host_name := str(props["host"]).strip_edges()
+			if master_id > 0 and not host_name.is_empty() and not players.has(master_id):
+				players[master_id] = host_name
 	if room.has_method("get_players"):
 		var plist: Array = room.call("get_players")
+		var my_id := local_id()
 		for p in plist:
 			if p != null and p is Object and p.has_method("get_number"):
 				var pnum := int(p.call("get_number"))
+				if pnum == my_id:
+					players[pnum] = display_name()
+					continue
+				if players.has(pnum) and not str(players[pnum]).is_empty():
+					continue
 				var pname := str(p.call("get_name")) if p.has_method("get_name") else ""
 				if pname.is_empty() and p.has_method("get_user_id"):
 					pname = str(p.call("get_user_id"))
-				if not pname.is_empty():
-					players[pnum] = pname
+				players[pnum] = clean_peer_name(pname, pnum)
 
 
 func _maybe_send_password_to_host() -> void:
@@ -593,6 +636,19 @@ func _maybe_send_password_to_host() -> void:
 
 
 #region RPCs
+
+@rpc("any_peer", "call_remote")
+func _rpc_hello(peer_name: String, reply: bool) -> void:
+	var sender := Fusion.get_rpc_sender()
+	if sender <= 0:
+		return
+	var cleaned := peer_name.strip_edges()
+	if not cleaned.is_empty():
+		players[sender] = cleaned
+	if reply and sender != local_id() and is_available() and Fusion.is_in_room() and not singleplayer_room:
+		Fusion.rpc_to_player(sender, _rpc_hello, display_name(), false)
+	room_info_received.emit()
+
 
 @rpc("any_peer", "call_remote")
 func _rpc_room_info_request() -> void:
@@ -697,6 +753,7 @@ func _on_room_list_updated(rooms: Array) -> void:
 
 
 func _on_room_joined() -> void:
+	players[local_id()] = display_name()
 	_sync_room_snapshot()
 	if is_host() or singleplayer_room:
 		var my_seat := local_seat()
@@ -705,6 +762,8 @@ func _on_room_joined() -> void:
 		authenticated_peers[local_id()] = true
 	else:
 		_maybe_send_password_to_host()
+	if is_available() and Fusion.is_in_room() and not singleplayer_room:
+		Fusion.rpc(_rpc_hello, display_name(), true)
 	room_joined.emit()
 
 
@@ -726,7 +785,7 @@ func _on_room_left() -> void:
 func _on_player_joined(player_id: int, user_id: String) -> void:
 	_sync_room_snapshot()
 	if not players.has(player_id) or str(players[player_id]).is_empty():
-		players[player_id] = user_id
+		players[player_id] = clean_peer_name(user_id, player_id)
 	var seat := player_id - 1
 	if seat >= 0 and seat < room_bots.size():
 		room_bots[seat] = false
@@ -734,7 +793,7 @@ func _on_player_joined(player_id: int, user_id: String) -> void:
 		room_ready[seat] = false
 	if not room_locked:
 		authenticated_peers[player_id] = true
-	player_joined.emit(player_id, str(players.get(player_id, user_id)))
+	player_joined.emit(player_id, str(players.get(player_id, clean_peer_name(user_id, player_id))))
 
 
 func _on_player_left(player_id: int, _is_inactive: bool) -> void:
