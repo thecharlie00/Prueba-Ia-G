@@ -137,8 +137,9 @@ func _run() -> void:
 			"Damas online aplica movimiento inicial de blancas"
 		)
 		var chk_snap := chk_net.snapshot()
+		var chk_moves: Array = chk_snap.get("moves", [])
 		_check(
-			chk_snap.get("moves", []).size() == 1 and checkers_view.sync_from_record(chk_snap),
+			chk_moves.size() == 1 and checkers_view.sync_from_record(chk_snap),
 			"Damas online reconstruye tablero desde snapshot"
 		)
 
@@ -230,7 +231,7 @@ func _run() -> void:
 		bri_net.brisca = brisca_view.rules
 		bri_net._on_sync(bri_snap)
 		_check(
-			brisca_view.rules.tricks_won[0] + brisca_view.rules.tricks_won[1] == 1,
+			int(brisca_view.rules.tricks_won[0]) + int(brisca_view.rules.tricks_won[1]) == 1,
 			"Brisca online sincroniza semilla y bazas jugadas"
 		)
 
@@ -243,8 +244,8 @@ func _run() -> void:
 
 
 func _frames() -> void:
-	await process_frame
-	await process_frame
+	for i in 4:
+		await process_frame
 
 
 func _check(condition: bool, message: String) -> void:

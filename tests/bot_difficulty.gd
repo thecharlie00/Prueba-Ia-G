@@ -222,6 +222,7 @@ func _check_seats_outside(view: Node, label: String) -> void:
 func _ticks(count: int) -> void:
 	for i in range(count):
 		await physics_frame
+	await process_frame
 
 
 func _check(condition: bool, message: String) -> void:

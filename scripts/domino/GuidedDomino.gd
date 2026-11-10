@@ -168,14 +168,15 @@ func _update_tile_privacy() -> void:
 		return
 	var my_seat := clampi(_local_seat(), 0, 1)
 	var game_over := rules.result != DominoRules.PLAYING
+	var hand0: Array = rules.hands[0]
+	var hand1: Array = rules.hands[1]
+	var my_hand: Array = rules.hands[my_seat]
 	for tile in tiles:
 		if not is_instance_valid(tile):
 			continue
 		var id: int = int(tile_ids[tile])
-		var in_chain := (
-			id not in rules.hands[0] and id not in rules.hands[1] and id not in rules.stock
-		)
-		var visible_pips := game_over or (id in rules.hands[my_seat]) or in_chain
+		var in_chain: bool = not hand0.has(id) and not hand1.has(id) and not rules.stock.has(id)
+		var visible_pips: bool = game_over or my_hand.has(id) or in_chain
 		var pips_node := tile.get_node_or_null("Visual/Pips") as Node3D
 		if pips_node != null:
 			pips_node.visible = visible_pips
@@ -266,7 +267,8 @@ func _on_grab_started(object: InteractiveTableObject) -> void:
 	if online:
 		var grabbed_id := int(tile_ids.get(_dragged, -1)) if is_instance_valid(_dragged) else -1
 		var my_seat := _local_seat()
-		if not is_local_turn() or my_seat < 0 or my_seat >= 2 or grabbed_id not in rules.hands[my_seat]:
+		var my_hand: Array = rules.hands[my_seat] if my_seat >= 0 and my_seat < 2 else []
+		if not is_local_turn() or not my_hand.has(grabbed_id):
 			grabber.call_deferred("_release", "cancelled")
 			_refresh_zones()
 			_help("Solo puedes jugar tus fichas cuando sea tu turno.")
