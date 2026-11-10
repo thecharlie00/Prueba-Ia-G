@@ -770,4 +770,6 @@ func _demo_banner(column: VBoxContainer) -> void:
 
 
 func _open(path: String) -> void:
+	if path.contains("Island") and not TableBots.solo:
+		IslandView.local_pass_privacy = true
 	get_tree().change_scene_to_file(path)

@@ -61,6 +61,11 @@ var _roll_should_submit := true
 var _suppress_roll_anim := false
 var _awaiting_roll_ack := false
 var _last_roll_note := ""
+var _last_engine_frame := -1
+var _last_roll_seat := -1
+var _last_roll_value := 0
+var dice_banner: PanelContainer
+var dice_banner_label: Label
 
 const TRAY_REST := Vector3(2.66, 1.052, 0.0)
 
@@ -133,7 +138,7 @@ func _is_awaiting_sync() -> bool:
 
 func is_local_turn() -> bool:
 	if not online:
-		return true
+		return not is_bot_turn()
 	if _is_awaiting_sync():
 		return false
 	var seat := _local_seat()
@@ -177,6 +182,8 @@ func apply_change(change: Dictionary) -> bool:
 			_awaiting_roll_ack = false
 		if net_table != null:
 			net_table.ludo = rules
+		_last_roll_seat = seat
+		_last_roll_value = val
 		_last_roll_note = "Última tirada: J%d sacó %d" % [seat + 1, val]
 		var skip_local_manual := (
 			manual
@@ -185,8 +192,12 @@ func apply_change(change: Dictionary) -> bool:
 		)
 		if not _suppress_roll_anim and not skip_local_manual:
 			_animate_remote_roll(val, seat)
+			_bot_wait = -0.55
 		elif die != null and val >= 1 and val <= 6:
 			die.set_top_face(val)
+			if not _suppress_roll_anim:
+				die.ensure_celebrated(val)
+			_bot_wait = -0.55
 		_refresh()
 		return true
 	if kind == "move":
@@ -226,6 +237,8 @@ func sync_from_rules() -> void:
 	_roll_should_submit = true
 	_remote_roll_expected = 0
 	_remote_roll_seat = -1
+	_last_roll_seat = -1
+	_last_roll_value = rules.die if rules != null else 0
 	if die != null and rules != null and rules.die >= 1 and rules.die <= 6:
 		die.global_position = TRAY_REST
 		die.set_top_face(rules.die)
@@ -571,6 +584,40 @@ func _make_ui() -> void:
 	new_game_confirmation.ok_button_text = "Nueva partida"
 	new_game_confirmation.confirmed.connect(_confirm_new_game)
 	layer.add_child(new_game_confirmation)
+	_build_dice_banner(layer, theme)
+
+
+func _build_dice_banner(layer: CanvasLayer, theme: Dictionary) -> void:
+	var top := CenterContainer.new()
+	top.name = "DiceBannerAnchor"
+	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	top.offset_left = 340
+	top.offset_top = 16
+	top.offset_right = -18
+	top.offset_bottom = 74
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(top)
+	dice_banner = PanelContainer.new()
+	dice_banner.name = "DiceBanner"
+	dice_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := GameThemes.panel_box(theme)
+	box.content_margin_left = 18
+	box.content_margin_right = 18
+	box.content_margin_top = 8
+	box.content_margin_bottom = 8
+	dice_banner.add_theme_stylebox_override("panel", box)
+	dice_banner.visible = false
+	top.add_child(dice_banner)
+	dice_banner_label = Label.new()
+	dice_banner_label.name = "DiceBannerText"
+	dice_banner_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dice_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dice_banner_label.add_theme_font_size_override("font_size", 20)
+	dice_banner_label.add_theme_color_override("font_color", Palette.SUN)
+	var style := get_node_or_null("/root/ToonStyle")
+	if style != null:
+		dice_banner_label.add_theme_font_override("font", style.DISPLAY_FONT)
+	dice_banner.add_child(dice_banner_label)
 
 
 func _label(parent: Node, text: String) -> Label:
@@ -606,8 +653,17 @@ func is_bot_turn() -> bool:
 
 
 func _process(delta: float) -> void:
+	var cur_frame := Engine.get_process_frames()
+	var manual_loop := (cur_frame == _last_engine_frame)
+	_last_engine_frame = cur_frame
+	if waiting_roll and not _roll_should_submit and die != null:
+		if manual_loop and die.is_forced_rolling():
+			die._step_forced_roll(delta)
+		if not die.is_forced_rolling():
+			_update_die(0.0)
 	if not is_bot_turn() or waiting_roll or grabber.held != null or not in_transit.is_empty():
-		_bot_wait = 0.0
+		if _bot_wait > 0.0:
+			_bot_wait = 0.0
 		return
 	_bot_wait += delta
 	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
@@ -632,21 +688,30 @@ func bot_step() -> bool:
 
 func _refresh() -> void:
 	_update_seats()
+	var shown_turn := _remote_roll_seat if (waiting_roll and _remote_roll_seat >= 0) else rules.turn
 	status.text = (
-		"%s · %d jugadores\nTurno J%d (%s)%s" % ["Parchís" if rules.is_parchis() else "Ludo", rules.players, rules.turn + 1, NAMES[rules.turn], " · bot" if is_bot_turn() else ""]
+		"%s · %d jugadores\nTurno J%d (%s)%s"
+		% [
+			"Parchís" if rules.is_parchis() else "Ludo",
+			rules.players,
+			shown_turn + 1,
+			NAMES[clampi(shown_turn, 0, NAMES.size() - 1)],
+			" · bot" if (shown_turn >= 0 and shown_turn < bots.size() and bots[shown_turn]) else "",
+		]
 	)
-	if rules.phase == LudoRules.FINISHED:
+	if rules.phase == LudoRules.FINISHED and not waiting_roll:
 		status.text = "¡Gana J%d (%s)!" % [rules.winner + 1, NAMES[rules.winner]]
+	elif waiting_roll or _awaiting_roll_ack:
+		status.text += " · 🎲 tirando el dado…"
 	elif rules.phase == LudoRules.MOVE and rules.bonus > 0:
 		status.text += " · premio de %d casillas" % rules.bonus
 	elif rules.phase == LudoRules.MOVE:
 		status.text += " · dado %d" % rules.die
 		if rules.steps() != rules.die:
 			status.text += " (cuenta %d)" % rules.steps()
-	elif waiting_roll or _awaiting_roll_ack:
-		status.text += " · esperando el dado…"
 	elif not _last_roll_note.is_empty():
 		status.text += "\n" + _last_roll_note
+	_update_dice_banner()
 	var can_act := is_local_turn()
 	roll_button.disabled = (
 		rules.phase != LudoRules.ROLL or waiting_roll or _awaiting_roll_ack or not can_act
@@ -661,26 +726,52 @@ func _refresh() -> void:
 		load_game_button.disabled = online
 	if new_game_button != null:
 		new_game_button.disabled = online
-	var legal := rules.legal_tokens()
+	var legal: Array[int] = []
+	if not waiting_roll:
+		legal = rules.legal_tokens()
 	for index in range(4):
-		token_buttons[index].disabled = (index not in legal) or not can_act
-		markers[index].visible = index in legal and (not online or can_act)
-		if index in legal:
+		token_buttons[index].disabled = (index not in legal) or not can_act or waiting_roll
+		markers[index].visible = (index in legal) and can_act and not waiting_roll
+		if index in legal and not waiting_roll:
 			markers[index].position = (
 				_token_position(rules.turn, index, rules.destination(index)) + Vector3.UP * 0.035
 			)
-	if online and not can_act and rules.phase != LudoRules.FINISHED and not waiting_roll:
+	if waiting_roll:
+		help.text = "El dado está rodando; espera a ver el resultado."
+	elif not can_act and rules.phase != LudoRules.FINISHED:
 		help.text = "Esperando el turno de J%d (%s)…" % [rules.turn + 1, NAMES[rules.turn]]
 	elif rules.phase == LudoRules.ROLL:
-		help.text = (
-			"Lanza o arrastra y suelta el dado." if not waiting_roll else "Espera a que se detenga."
-		)
+		help.text = "Lanza o arrastra y suelta el dado."
 	elif rules.phase == LudoRules.MOVE and rules.bonus > 0:
 		help.text = "Premio: mueve %d casillas con la ficha que quieras." % rules.bonus
 	elif rules.phase == LudoRules.MOVE:
 		help.text = "Elige una ficha disponible o arrástrala a su destino verde."
 	else:
 		help.text = "Partida terminada. Vuelve al menú para empezar otra."
+
+
+func _update_dice_banner() -> void:
+	if dice_banner == null or dice_banner_label == null:
+		return
+	if waiting_roll:
+		var roller := _remote_roll_seat if _remote_roll_seat >= 0 else rules.turn
+		dice_banner_label.text = "🎲 J%d (%s) tirando el dado…" % [
+			roller + 1,
+			NAMES[clampi(roller, 0, NAMES.size() - 1)],
+		]
+		dice_banner.visible = true
+		return
+	var val := _last_roll_value if _last_roll_value >= 1 else rules.die
+	if val >= 1 and val <= 6:
+		var seat := _last_roll_seat if _last_roll_seat >= 0 else rules.turn
+		dice_banner_label.text = "🎲 J%d (%s) sacó %d" % [
+			seat + 1,
+			NAMES[clampi(seat, 0, NAMES.size() - 1)],
+			val,
+		]
+		dice_banner.visible = true
+	else:
+		dice_banner.visible = false
 
 
 func _physics_process(delta: float) -> void:
@@ -771,6 +862,7 @@ func _update_die(delta: float) -> void:
 			_remote_roll_seat = -1
 			_roll_should_submit = true
 			waiting_roll = false
+			_bot_wait = -0.55
 			_refresh()
 		return
 	if (
@@ -813,19 +905,27 @@ func _update_die(delta: float) -> void:
 			die.ensure_celebrated(val)
 			if should_sub:
 				var submit_seat := rseat if rseat >= 0 else _local_seat()
+				_last_roll_seat = submit_seat
+				_last_roll_value = val
 				if net_table != null and not net_table.is_host():
 					_awaiting_roll_ack = true
 				submit_change(
 					{"type": "roll", "value": val, "seat": submit_seat, "manual": true},
 					submit_seat
 				)
+			_bot_wait = -0.55
 			_refresh()
 			return
 		var value := die.top_face()
+		var actor := rules.turn
 		waiting_roll = false
+		_remote_roll_seat = -1
 		die._awaiting_result = false
 		die.ensure_celebrated(value)
-		_last_roll_note = "Última tirada: J%d sacó %d" % [rules.turn + 1, value]
+		_last_roll_seat = actor
+		_last_roll_value = value
+		_last_roll_note = "Última tirada: J%d sacó %d" % [actor + 1, value]
+		_bot_wait = -0.55
 		rules.apply_roll(value)
 		_refresh()
 		if rules.phase == LudoRules.ROLL:
@@ -856,7 +956,7 @@ func _roll(actor_seat: int = -1) -> void:
 		or grabber.held != null
 	):
 		return
-	if online and actor_seat < 0 and not is_local_turn():
+	if actor_seat < 0 and not is_local_turn():
 		return
 	if online:
 		var submit_seat := actor_seat if actor_seat >= 0 else _local_seat()
@@ -884,7 +984,7 @@ func _begin_roll() -> void:
 func _reset_die() -> void:
 	if rules.phase != LudoRules.ROLL or grabber.held != null or _awaiting_roll_ack:
 		return
-	if online and (not is_local_turn() or not _roll_should_submit):
+	if not is_local_turn() or (online and not _roll_should_submit):
 		return
 	if die != null and die.is_forced_rolling():
 		return
@@ -899,7 +999,7 @@ func _reset_die() -> void:
 
 
 func _on_grab_started(object: InteractiveTableObject) -> void:
-	if not online:
+	if not online and not bots.has(true):
 		return
 	if not is_local_turn() or _awaiting_roll_ack or (waiting_roll and not _roll_should_submit):
 		grabber.call_deferred("_release", "cancelled")
@@ -908,9 +1008,13 @@ func _on_grab_started(object: InteractiveTableObject) -> void:
 		grabber.call_deferred("_release", "cancelled")
 		return
 	for player in range(rules.players):
-		if object in tokens[player] and player != _local_seat():
-			grabber.call_deferred("_release", "cancelled")
-			return
+		if object in tokens[player]:
+			if online and player != _local_seat():
+				grabber.call_deferred("_release", "cancelled")
+				return
+			if not online and player < bots.size() and bots[player]:
+				grabber.call_deferred("_release", "cancelled")
+				return
 
 
 func _on_release(object: InteractiveTableObject, target: Vector3, reason: String) -> void:
@@ -921,7 +1025,7 @@ func _on_release(object: InteractiveTableObject, target: Vector3, reason: String
 			and not waiting_roll
 			and not _awaiting_roll_ack
 		):
-			if online and not is_local_turn():
+			if not is_local_turn():
 				return
 			_remote_roll_expected = 0
 			_remote_roll_seat = -1
@@ -934,7 +1038,7 @@ func _on_release(object: InteractiveTableObject, target: Vector3, reason: String
 			if object != token:
 				continue
 			var dest := rules.destination(index) if player == rules.turn else -2
-			if reason == "released" and dest >= 0 and (not online or is_local_turn()):
+			if reason == "released" and dest >= 0 and is_local_turn() and not waiting_roll:
 				var goal := _token_position(player, index, dest)
 				var aim := Vector2(target.x - goal.x, target.z - goal.z).length()
 				var actual := (
@@ -950,11 +1054,11 @@ func _on_release(object: InteractiveTableObject, target: Vector3, reason: String
 
 
 func _choose_token(index: int, actor_seat: int = -1) -> void:
-	if grabber.held != null:
+	if grabber.held != null or (waiting_roll and actor_seat < 0):
+		return
+	if actor_seat < 0 and not is_local_turn():
 		return
 	if online:
-		if actor_seat < 0 and not is_local_turn():
-			return
 		var submit_seat := actor_seat if actor_seat >= 0 else _local_seat()
 		if submit_change({"type": "move", "token": index, "seat": submit_seat}, submit_seat):
 			help.text = "Movimiento aceptado; las fichas se desplazan con fuerzas."

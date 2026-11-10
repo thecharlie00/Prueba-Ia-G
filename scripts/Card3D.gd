@@ -4,6 +4,7 @@ extends InteractiveTableObject
 @export var flip_duration := 0.35
 @export var card_label := "A"
 
+var concealed := false
 var _flipping := false
 var _front_mat: ShaderMaterial
 var _back_mat: ShaderMaterial
@@ -37,6 +38,7 @@ func _ready() -> void:
 
 
 func set_card_label(value: String) -> void:
+	concealed = false
 	card_label = value
 	_apply_art()
 	display_name = "Carta " + CustomDecks.pretty(value) + " · F para voltear"
@@ -49,8 +51,25 @@ func set_card_label(value: String) -> void:
 			corner.text = value
 
 
+func set_concealed(hidden: bool) -> void:
+	concealed = hidden
+	if hidden:
+		card_label = ""
+		display_name = "Carta oculta"
+		var label := get_node_or_null("Visual/FaceLabel") as Label3D
+		if label:
+			label.text = ""
+			label.visible = false
+		for index in range(2):
+			var corner := get_node_or_null("Visual/Corner%d" % index) as Label3D
+			if corner:
+				corner.text = ""
+				corner.visible = false
+	_apply_art()
+
+
 func flip() -> void:
-	if _flipping or is_grabbed or freeze:
+	if concealed or _flipping or is_grabbed or freeze:
 		return
 	_flipping = true
 	var sfx := get_node_or_null("/root/Sfx")
@@ -136,4 +155,7 @@ func _apply_art() -> void:
 		if label != null:
 			label.visible = false
 	if _front_mat != null:
-		_front_mat.set_shader_parameter("card_tex", CardArt.texture("playing", card_label))
+		if concealed:
+			_front_mat.set_shader_parameter("card_tex", CardArt.texture("back"))
+		else:
+			_front_mat.set_shader_parameter("card_tex", CardArt.texture("playing", card_label))

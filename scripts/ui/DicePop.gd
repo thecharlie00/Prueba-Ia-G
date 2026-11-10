@@ -59,6 +59,12 @@ func _ready() -> void:
 var text_value := 0
 
 
+func _exit_tree() -> void:
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	_tween = null
+
+
 func show_value(value: int, follow: Node3D, calm: bool) -> void:
 	anchor = follow
 	text_value = value
@@ -71,13 +77,13 @@ func show_value(value: int, follow: Node3D, calm: bool) -> void:
 	_tween = create_tween()
 	if calm:
 		pop_scale = 1.0
-		_tween.tween_interval(1.0)
+		_tween.tween_interval(1.25)
 	else:
 		pop_scale = 0.2
 		_tween.tween_property(self, "pop_scale", 1.25, 0.16).set_ease(Tween.EASE_OUT)
 		_tween.parallel().tween_property(self, "rise", RISE, 0.5)
 		_tween.tween_property(self, "pop_scale", 1.0, 0.18).set_trans(Tween.TRANS_BACK)
-		_tween.tween_interval(0.6)
+		_tween.tween_interval(0.95)
 	_tween.tween_property(self, "modulate:a", 0.0, 0.3)
 	_tween.tween_callback(hide)
 	_follow()
