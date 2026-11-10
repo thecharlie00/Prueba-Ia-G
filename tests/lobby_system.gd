@@ -113,16 +113,20 @@ func _run() -> void:
 	# 3. Máscaras de bots y estado «Listo»
 	net.reset_room_bots()
 	net.reset_room_ready()
-	net.room_bots = [false, true, false, true]
-	net.room_ready = [true, false, true, false]
+	net.room_bots[1] = true
+	net.room_bots[3] = true
+	net.room_ready[0] = true
+	net.room_ready[2] = true
 	var bmask: int = net._bots_mask()
 	var rmask: int = net._ready_mask()
 	net.reset_room_bots()
 	net.reset_room_ready()
 	net._apply_bots_mask(bmask)
 	net._apply_ready_mask(rmask)
+	var expected_bots: Array[bool] = [false, true, false, true]
+	var expected_ready: Array[bool] = [true, false, true, false]
 	_check(
-		net.room_bots == [false, true, false, true] and net.room_ready == [true, false, true, false],
+		net.room_bots == expected_bots and net.room_ready == expected_ready,
 		"máscaras enteras de bots y listo se serializan sin pérdida"
 	)
 	_check(
@@ -177,12 +181,14 @@ func _run() -> void:
 		lobby.set("_pw_dialog_room", locked_info)
 		var dialog_input := lobby.find_child("DialogPasswordInput", true, false) as LineEdit
 		var status_lbl := lobby.find_child("Status", true, false) as Label
-		dialog_input.text = "clave_mala"
-		lobby.call("_confirm_password_dialog")
-		_check(
-			status_lbl.text.contains("Contraseña incorrecta"),
-			"el diálogo rechaza una contraseña incorrecta antes de conectar a la sala"
-		)
+		_check(dialog_input != null and status_lbl != null, "controles del diálogo de clave presentes")
+		if dialog_input != null and status_lbl != null:
+			dialog_input.text = "clave_mala"
+			lobby.call("_confirm_password_dialog")
+			_check(
+				status_lbl.text.contains("Contraseña incorrecta"),
+				"el diálogo rechaza una contraseña incorrecta antes de conectar a la sala"
+			)
 		net.room_listings.clear()
 
 	if failures > 0:
