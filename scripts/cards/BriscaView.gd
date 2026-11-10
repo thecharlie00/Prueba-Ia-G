@@ -35,6 +35,17 @@ var _table_cards: Array[Card3D] = []
 @onready var help_label: Label = $UI/Panel/Margin/Content/Help
 var result_label: Label
 var bot_toggle: CheckBox
+var online := false
+var net_table: BriscaNetTable
+
+
+func _net() -> Node:
+	return get_node_or_null("/root/Net")
+
+
+func _local_seat() -> int:
+	var net := _net()
+	return int(net.local_seat()) if net != null else -1
 
 
 func _ready() -> void:
@@ -50,6 +61,66 @@ func _ready() -> void:
 	_still(stock_deck)
 	objects.add_child(stock_deck)
 	TableHud.attach.call_deferred(self)
+	_start_online()
+	refresh()
+
+
+func _start_online() -> void:
+	var net := _net()
+	if net == null or str(net.room_game) != "BriscaOnline":
+		return
+	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+		return
+	online = true
+	net_table = BriscaNetTable.new()
+	net_table.name = "NetTable"
+	net_table.view_node = self
+	net_table.brisca = rules
+	add_child(net_table)
+	if net_table.is_host():
+		var rbots: Array = net.room_bots
+		set_vs_bot(rbots.size() > 1 and bool(rbots[1]))
+	else:
+		set_vs_bot(false)
+		if bot_toggle != null:
+			bot_toggle.disabled = true
+		net_table.request_sync()
+	net.player_left.connect(_on_net_player_left)
+
+
+func _on_net_player_left(player_id: int) -> void:
+	if online and net_table != null and net_table.is_host() and player_id == 2:
+		set_vs_bot(true)
+
+
+func is_local_turn() -> bool:
+	if not online:
+		return viewer == rules.turn and not is_bot_turn()
+	return _local_seat() == rules.turn and not is_bot_turn()
+
+
+func submit_change(action: Dictionary, acting_seat: int = -1) -> bool:
+	if not online or net_table == null:
+		return false
+	return net_table.submit(action, acting_seat)
+
+
+func apply_change(change: Dictionary) -> bool:
+	if str(change.get("type", "")) != "play":
+		return false
+	if not showing.is_empty():
+		finish_showing()
+	var ok := play(str(change.get("card", "")))
+	if ok and net_table != null:
+		net_table.brisca = rules
+	return ok
+
+
+func sync_from_rules(replayed: BriscaRules) -> void:
+	rules = replayed
+	showing = {}
+	_show_time = 0.0
+	hand.set_cards([])
 	refresh()
 
 
@@ -135,6 +206,8 @@ func new_game() -> void:
 
 
 func is_bot_turn() -> bool:
+	if online and (net_table == null or not net_table.is_host()):
+		return false
 	return vs_bot and rules.phase == BriscaRules.PLAYING and rules.turn == 1
 
 
@@ -159,10 +232,13 @@ func _on_hand_played(index: int) -> void:
 	if hand.faces_hidden:
 		help_label.text = "Pulsa «Mostrar» para ver tu mano."
 		return
-	if viewer != rules.turn or is_bot_turn():
+	if not is_local_turn():
 		help_label.text = "Espera tu turno."
 		return
 	if not showing.is_empty():
+		return
+	if online:
+		submit_change({"type": "play", "card": hand.cards[index]})
 		return
 	play(hand.cards[index])
 
@@ -184,14 +260,21 @@ func _process(delta: float) -> void:
 		_bot_wait += delta
 		if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 			_bot_wait = 0.0
-			play(TableBots.brisca_choice(rules, TableBots.difficulty))
+			var chosen := TableBots.brisca_choice(rules, TableBots.difficulty)
+			if online:
+				submit_change({"type": "play", "card": chosen}, 1)
+			else:
+				play(chosen)
 
 
 func refresh() -> void:
 	if rules == null or hand == null:
 		return
 	var previous_viewer := viewer
-	viewer = 0 if vs_bot else (rules.turn if rules.phase == BriscaRules.PLAYING else viewer)
+	if online:
+		viewer = clampi(_local_seat(), 0, 1)
+	else:
+		viewer = 0 if vs_bot else (rules.turn if rules.phase == BriscaRules.PLAYING else viewer)
 	_sync_hand(previous_viewer != viewer)
 	_sync_table()
 	var trump: String = BriscaRules.SUIT_NAMES[rules.trump_suit]
@@ -211,6 +294,8 @@ func refresh() -> void:
 		var on_table := rules.card_to_beat()
 		if is_bot_turn():
 			help_label.text = "El bot está pensando…"
+		elif online and not is_local_turn():
+			help_label.text = "Esperando a %s…" % _name(rules.turn)
 		elif on_table.is_empty():
 			help_label.text = "Sales tú: juega cualquier carta. Triunfo: %s." % trump
 		else:
@@ -234,8 +319,11 @@ func _sync_hand(changed_player: bool) -> void:
 			kept.append(card)
 	if kept != hand.cards:
 		hand.set_cards(kept)
+	if online:
+		if hand.faces_hidden:
+			hand.set_faces_hidden(false)
 	# Dos personas en el mismo equipo: la mano se tapa al cambiar de jugador.
-	if changed_player and not vs_bot:
+	elif changed_player and not vs_bot:
 		hand.set_faces_hidden(true)
 	elif vs_bot and hand.faces_hidden:
 		hand.set_faces_hidden(false)

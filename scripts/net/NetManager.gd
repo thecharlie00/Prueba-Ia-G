@@ -41,6 +41,15 @@ const ONLINE_GAMES := [
 	{"id": "IslandTwo", "title": "Isla de recursos · 2 jugadores", "scene": "res://scenes/IslandTwo.tscn", "seats": 2},
 	{"id": "Island", "title": "Isla de recursos · 3 jugadores", "scene": "res://scenes/Island.tscn", "seats": 3},
 	{"id": "IslandFour", "title": "Isla de recursos · 4 jugadores", "scene": "res://scenes/IslandFour.tscn", "seats": 4},
+	{"id": "Parchis2", "title": "Parchís · 2 jugadores", "scene": "res://scenes/Parchis2.tscn", "seats": 2},
+	{"id": "Parchis", "title": "Parchís · 4 jugadores", "scene": "res://scenes/Parchis.tscn", "seats": 4},
+	{"id": "Ludo", "title": "Ludo · 2 jugadores", "scene": "res://scenes/Ludo.tscn", "seats": 2},
+	{"id": "Ludo3", "title": "Ludo · 3 jugadores", "scene": "res://scenes/Ludo3.tscn", "seats": 3},
+	{"id": "Ludo4", "title": "Ludo · 4 jugadores", "scene": "res://scenes/Ludo4.tscn", "seats": 4},
+	{"id": "ChessOnline", "title": "Ajedrez · 2 jugadores", "scene": "res://scenes/GuidedPhysicalChess.tscn", "seats": 2},
+	{"id": "CheckersOnline", "title": "Damas · 2 jugadores", "scene": "res://scenes/GuidedPhysicalCheckers.tscn", "seats": 2},
+	{"id": "DominoOnline", "title": "Dominó · 2 jugadores", "scene": "res://scenes/GuidedDomino.tscn", "seats": 2},
+	{"id": "BriscaOnline", "title": "Brisca · 2 jugadores", "scene": "res://scenes/Brisca.tscn", "seats": 2},
 ]
 
 var players: Dictionary = {}  # player_id (Photon) -> display name

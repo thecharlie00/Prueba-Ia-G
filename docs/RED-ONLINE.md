@@ -32,8 +32,20 @@ de online muestra un aviso y el juego local sigue funcionando.
   client (anfitrión) es autoritativo**: valida, aplica y difunde; los clientes
   solo aplican lo recibido. RPCs: `req_action`, `rule_event`, `sync_request`,
   `sync_state`, `net_chat`. Sync con reintentos (10 × 2 s).
-- **`IslandNetTable`** (`scripts/net/IslandNetTable.gd`): validación por fase
-  (turno, descarte, víctimas, ofertas…) y replay del registro para sync.
+- **`IslandNetTable`**, **`LudoNetTable`**, **`ChessNetTable`**,
+  **`CheckersNetTable`**, **`DominoNetTable`** y **`BriscaNetTable`**
+  (`scripts/net/*NetTable.gd`): adaptadores autoritativos para las **12 mesas
+  con reglas** del catálogo online:
+  - **Isla de recursos** (2, 3 y 4 jugadores), con tirada física sincronizada.
+  - **Parchís** (2 y 4 jugadores) y **Ludo** (2, 3 y 4 jugadores), con tirada
+    física sincronizada y movimiento de fichas con fuerzas.
+  - **Ajedrez** (2 jugadores: blancas vs negras, promoción, enroque, al paso y
+    reclamación de tablas).
+  - **Damas** (2 jugadores: blancas vs oscuras, capturas múltiples y coronación).
+  - **Dominó** (2 jugadores: ocultación visual de los puntos de las fichas del
+    rival y del pozo hasta que se juegan o acaba la ronda).
+  - **Brisca** (2 jugadores: abanico propio siempre boca arriba por butaca y
+    cartas del rival boca abajo).
 - **`Lobby`** (`scripts/ui/Lobby.gd` + `scenes/Lobby.tscn`):
   - **Crear sala** (solo juego completo): modo 2/3/4 jugadores, título
     opcional, casilla «Sala pública» y contraseña opcional (hash SHA-256 + salt).

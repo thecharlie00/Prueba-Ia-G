@@ -285,7 +285,7 @@ func _build() -> void:
 	_filter_game.name = "FilterGame"
 	_filter_game.add_item("Todas las mesas")
 	for entry in Net.ONLINE_GAMES:
-		_filter_game.add_item("%d jugadores" % int(entry["seats"]))
+		_filter_game.add_item(str(entry["title"]))
 	_filter_game.item_selected.connect(func(_idx: int) -> void: _render_room_list())
 	filter_top.add_child(_filter_game)
 	_browser_box.add_child(filter_top)
