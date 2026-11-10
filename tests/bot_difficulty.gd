@@ -135,14 +135,18 @@ func _run() -> void:
 								current_scene.scene_file_path == "res://scenes/Brisca.tscn",
 								"la mesa elegida se abre"
 							)
-							current_scene.queue_free()
 							change_scene_to_file("res://scenes/BotSelect.tscn")
 							await _ticks(3)
+							var bot_select := root.get_node_or_null("BotSelect")
 							_check(
-								root.get_node_or_null("BotSelect") != null,
+								bot_select != null,
 								"al volver, se está en la selección de bots"
 							)
-							var back := root.get_node_or_null("BotSelect").find_child("Back", true, false) as Button
+							var back := (
+								bot_select.find_child("Back", true, false) as Button
+								if bot_select != null
+								else null
+							)
 							_check(back != null, "la selección tiene volver")
 							if back != null:
 								back.pressed.emit()
@@ -218,6 +222,7 @@ func _check_seats_outside(view: Node, label: String) -> void:
 func _ticks(count: int) -> void:
 	for i in range(count):
 		await physics_frame
+	await process_frame
 
 
 func _check(condition: bool, message: String) -> void:

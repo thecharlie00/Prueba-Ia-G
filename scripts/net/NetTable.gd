@@ -48,8 +48,13 @@ func is_host() -> bool:
 	return Engine.has_singleton("Fusion") and Fusion.is_master_client()
 
 
+func _net() -> Node:
+	return get_node_or_null("/root/Net")
+
+
 func local_seat() -> int:
-	return Net.local_seat()
+	var net := _net()
+	return int(net.local_seat()) if net != null else -1
 
 
 ## El jugador local pide aplicar una acción. Devuelve true si se aceptó (en el
@@ -63,15 +68,16 @@ func submit(action: Dictionary, acting_seat: int = -1) -> bool:
 			_host_apply(action, acting_seat)
 			return true
 		return false
-	if Engine.has_singleton("Fusion"):
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
 		Fusion.rpc_to(Fusion.TARGET_MASTER, req_action, action, acting_seat)
 	return true
 
 
 ## El anfitrión aplica, difunde y avisa.
-func _host_apply(action: Dictionary, seat: int) -> void:
+func _host_apply(action: Dictionary, _seat: int) -> void:
 	if _apply(action) and _event_for(action) != null:
-		Fusion.rpc(rule_event, _event_for(action))
+		if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+			Fusion.rpc(rule_event, _event_for(action))
 		_on_applied(_event_for(action))
 
 
@@ -84,7 +90,7 @@ func request_sync() -> void:
 func _request_sync() -> void:
 	if is_host():
 		return
-	if Engine.has_singleton("Fusion"):
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
 		Fusion.rpc_to(Fusion.TARGET_MASTER, sync_request)
 	_sync_tries += 1
 	if _sync_tries >= SYNC_TRIES and _sync_timer != null:
@@ -127,8 +133,9 @@ func net_chat(sender_id: int, text: String) -> void:
 
 
 func send_chat(text: String) -> void:
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
-		Fusion.rpc(net_chat, Net.local_id(), text)
+	var net := _net()
+	if net != null and Engine.has_singleton("Fusion") and Fusion.is_in_room():
+		Fusion.rpc(net_chat, int(net.local_id()), text)
 
 
 #endregion

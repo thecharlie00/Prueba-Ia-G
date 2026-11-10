@@ -2,7 +2,7 @@
 
 Estado: implementación de piloto. El protocolo y el ciclo de vida de sala
 funcionan sin App ID usando sala offline; la partida en red se prueba con la
-mesa de la Isla (3 o 4 jugadores).
+mesa de la Isla (2, 3 o 4 jugadores, con soporte de bots en butacas libres).
 
 ## Instalación del SDK
 
@@ -22,7 +22,9 @@ de online muestra un aviso y el juego local sigue funcionando.
 ## Arquitectura
 
 - **`Net`** (autoload `scripts/net/NetManager.gd`): sesión, conexión a Photon,
-  ciclo de vida de salas, inventario de butacas y señales
+  buscador de salas públicas (`room_listings`, `room_list_changed`,
+  `LOBBY_PROP_KEYS`), validación de contraseñas con hash SHA-256 + salt,
+  ciclo de vida de salas, inventario de butacas/bots/«Listo» y señales
   (`room_joined/left`, `player_joined/left`, `start_announced`,
   `room_info_received`). También es receptor de broadcast permanente, para que
   el handshake de sala funcione aunque el anfitrión ya esté en partida.
@@ -30,10 +32,31 @@ de online muestra un aviso y el juego local sigue funcionando.
   client (anfitrión) es autoritativo**: valida, aplica y difunde; los clientes
   solo aplican lo recibido. RPCs: `req_action`, `rule_event`, `sync_request`,
   `sync_state`, `net_chat`. Sync con reintentos (10 × 2 s).
-- **`IslandNetTable`** (`scripts/net/IslandNetTable.gd`): validación por fase
-  (turno, descarte, víctimas, ofertas…) y replay del registro para sync.
-- **`Lobby`** (`scripts/ui/Lobby.gd` + `scenes/Lobby.tscn`): nombre, crear sala
-  (solo full edition), entrar por código, butacas, chat y «Empezar» (anfitrión).
+- **`IslandNetTable`**, **`LudoNetTable`**, **`ChessNetTable`**,
+  **`CheckersNetTable`**, **`DominoNetTable`** y **`BriscaNetTable`**
+  (`scripts/net/*NetTable.gd`): adaptadores autoritativos para las **12 mesas
+  con reglas** del catálogo online:
+  - **Isla de recursos** (2, 3 y 4 jugadores), con tirada física sincronizada.
+  - **Parchís** (2 y 4 jugadores) y **Ludo** (2, 3 y 4 jugadores), con tirada
+    física sincronizada y movimiento de fichas con fuerzas.
+  - **Ajedrez** (2 jugadores: blancas vs negras, promoción, enroque, al paso y
+    reclamación de tablas).
+  - **Damas** (2 jugadores: blancas vs oscuras, capturas múltiples y coronación).
+  - **Dominó** (2 jugadores: ocultación visual de los puntos de las fichas del
+    rival y del pozo hasta que se juegan o acaba la ronda).
+  - **Brisca** (2 jugadores: abanico propio siempre boca arriba por butaca y
+    cartas del rival boca abajo).
+- **`Lobby`** (`scripts/ui/Lobby.gd` + `scenes/Lobby.tscn`):
+  - **Crear sala** (solo juego completo): modo 2/3/4 jugadores, título
+    opcional, casilla «Sala pública» y contraseña opcional (hash SHA-256 + salt).
+  - **Unirse por código**: entrada a salas públicas o privadas de 6 caracteres.
+  - **Salas públicas disponibles**: lista en tiempo real vía `Fusion.get_room_list()` /
+    `room_list_updated`, botón «Actualizar» con enfriamiento y filtros por
+    texto (título, anfitrión o código), jugadores, hueco disponible y sin clave.
+  - **Sala de espera**: butacas con estado «Listo» por invitado (`ReadyToggle`),
+    bots configurables en huecos libres (`SeatBot<N>`), expulsión por el
+    anfitrión (`KickSeat<N>`), chat en vivo y botón «Empezar partida» bloqueado
+    hasta que todos los invitados estén listos.
 - **`IslandView`** (online): `submit_change` envía al anfitrión; `apply_change`
   aplica cambios recibidos por el mismo camino que el replay del guardado
   (`IslandRules._apply_saved_event`), para que todos los clientes coincidan.
@@ -81,7 +104,7 @@ tiene restricción (testing local).
   (`_active_hand_player` = `Net.local_seat()`); privacidad de manos es fase
   futura.
 - Chat solo en el Lobby (el de mesa `net_chat` está disponible para mesas).
-- Dados remotos: el resultado aparece en el estado; la animación física de
-  dados es local.
+- Dados remotos y de bots: se lanzan físicamente en todas las pantallas y, al
+  detenerse, se ajustan a la cara exacta (`Dice3D.set_top_face`).
 - Sin re-entrada de butacas durante la partida (late-join solo antes del inicio
   o reconexión por sync).

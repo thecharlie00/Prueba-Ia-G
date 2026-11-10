@@ -13,6 +13,7 @@ const DEMO_SCENES := [
 	"res://scenes/BotMenu.tscn",
 	"res://scenes/ModeSelect.tscn",
 	"res://scenes/BotSelect.tscn",
+	"res://scenes/Lobby.tscn",
 	"res://scenes/Main.tscn",
 	"res://scenes/Brisca.tscn",
 	"res://scenes/Parchis.tscn",
@@ -40,6 +41,17 @@ func allows(path: String) -> bool:
 func _on_scene_changed() -> void:
 	var scene := get_tree().current_scene
 	if scene == null or allows(scene.scene_file_path):
+		return
+	var net := get_node_or_null("/root/Net")
+	if (
+		net != null
+		and Engine.has_singleton("Fusion")
+		and Fusion.is_in_room()
+		and not net.is_singleplayer()
+		and not net.is_host()
+		and net.room_started
+		and scene.scene_file_path == net.start_scene
+	):
 		return
 	notice = "Esa mesa está en el juego completo. La demo incluye la mesa libre, la brisca y el parchís."
 	get_tree().paused = false

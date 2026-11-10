@@ -42,6 +42,7 @@ var stuck_time := 0.0
 var nudges := 0
 var status: Label
 var help: Label
+var title_label: Label
 var roll_button: Button
 var reset_button: Button
 var token_buttons: Array[Button] = []
@@ -50,10 +51,25 @@ var new_game_confirmation: ConfirmationDialog
 var bots: Array[bool] = [false, false, false, false]
 var bot_toggles: Array[CheckBox] = []
 var _bot_wait := 0.0
+var online := false
+var net_table: LudoNetTable
+var _remote_roll_expected := 0
+var _remote_roll_seat := -1
+var _roll_should_submit := true
+var _suppress_roll_anim := false
 
 @onready var objects: Node3D = $Objects
 @onready var grabber: PhysicsGrabber3D = $PhysicsGrabber3D
 @onready var camera: Camera3D = $CameraRig/Camera3D
+
+
+func _net() -> Node:
+	return get_node_or_null("/root/Net")
+
+
+func _local_seat() -> int:
+	var net := _net()
+	return int(net.local_seat()) if net != null else -1
 
 
 func _ready() -> void:
@@ -67,7 +83,118 @@ func _ready() -> void:
 	_apply_solo_bots()
 	_make_seats()
 	grabber.dice_shortcuts_enabled = false
+	grabber.grab_started.connect(_on_grab_started)
 	grabber.grab_finished.connect(_on_release)
+	_start_online()
+	_refresh()
+
+
+func _start_online() -> void:
+	var net := _net()
+	if net == null or str(net.room_game) not in ["Parchis2", "Parchis", "Ludo", "Ludo3", "Ludo4"]:
+		return
+	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+		return
+	online = true
+	net_table = LudoNetTable.new()
+	net_table.name = "NetTable"
+	net_table.view_node = self
+	net_table.ludo = rules
+	add_child(net_table)
+	if title_label != null:
+		title_label.text = "PARCHÍS · MESA ONLINE" if rules.is_parchis() else "LUDO · MESA ONLINE"
+	if net_table.is_host():
+		var rbots: Array = net.room_bots
+		for seat in range(mini(rules.players, rbots.size())):
+			if bool(rbots[seat]):
+				set_bot(true, seat)
+	else:
+		for toggle in bot_toggles:
+			if is_instance_valid(toggle):
+				toggle.disabled = true
+		net_table.request_sync()
+	net.player_left.connect(_on_net_player_left)
+
+
+func _on_net_player_left(player_id: int) -> void:
+	if online and net_table != null and net_table.is_host():
+		set_bot(true, player_id - 1)
+
+
+func is_local_turn() -> bool:
+	if not online:
+		return true
+	var seat := _local_seat()
+	return seat >= 0 and seat < rules.players and rules.turn == seat and not is_bot_turn()
+
+
+func submit_change(action: Dictionary, acting_seat: int = -1) -> bool:
+	if not online or net_table == null:
+		return false
+	return net_table.submit(action, acting_seat)
+
+
+func apply_change(change: Dictionary) -> bool:
+	var kind := str(change.get("type", ""))
+	if kind == "roll":
+		var val := int(change.get("value", 0))
+		var seat := int(change.get("seat", rules.turn))
+		if not rules.apply_roll(val):
+			return false
+		if net_table != null:
+			net_table.ludo = rules
+		if not _suppress_roll_anim and not (seat == _local_seat() and (seat < 0 or seat >= bots.size() or not bots[seat])):
+			_animate_remote_roll(val, seat)
+		_refresh()
+		return true
+	if kind == "move":
+		if waiting_roll and not _roll_should_submit:
+			if _remote_roll_expected >= 1:
+				die.set_top_face(_remote_roll_expected)
+			_remote_roll_expected = 0
+			_remote_roll_seat = -1
+			waiting_roll = false
+			die._awaiting_result = false
+		var tok := int(change.get("token", -1))
+		var previous := rules.positions.duplicate(true)
+		if not rules.move(tok):
+			return false
+		if net_table != null:
+			net_table.ludo = rules
+		for player in range(rules.players):
+			for token_index in range(4):
+				if previous[player][token_index] != rules.positions[player][token_index]:
+					in_transit[tokens[player][token_index]] = false
+		_refresh()
+		return true
+	return false
+
+
+func _animate_remote_roll(value: int, seat: int) -> void:
+	_remote_roll_expected = value
+	_remote_roll_seat = seat
+	_roll_should_submit = false
+	waiting_roll = true
+	stable_time = 0.0
+	stuck_time = 0.0
+	nudges = 0
+	die.roll(0.55)
+
+
+func sync_from_rules() -> void:
+	in_transit.clear()
+	waiting_roll = false
+	_remote_roll_expected = 0
+	_remote_roll_seat = -1
+	_update_token_activity()
+	for player in range(rules.players):
+		for index in range(4):
+			var token: Token3D = tokens[player][index]
+			token.global_position = (
+				_token_position(player, index, rules.positions[player][index]) + Vector3.UP * 0.1
+			)
+			token.linear_velocity = Vector3.ZERO
+			token.angular_velocity = Vector3.ZERO
 	_refresh()
 
 
@@ -344,6 +471,7 @@ func _make_ui() -> void:
 	column.add_child(header)
 	header.add_child(GameThemes.emblem(theme, 36.0))
 	var title := _label(header, "PARCHÍS · MESA LOCAL" if rules.is_parchis() else "LUDO · MESA LOCAL")
+	title_label = title
 	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	title.add_theme_font_size_override("font_size", 20)
 	title.add_theme_color_override("font_color", theme["accent"].lightened(0.2))
@@ -428,6 +556,8 @@ func set_bot(enabled: bool, player: int) -> void:
 
 
 func is_bot_turn() -> bool:
+	if online and (net_table == null or not net_table.is_host()):
+		return false
 	return rules.phase != LudoRules.FINISHED and rules.turn < bots.size() and bots[rules.turn]
 
 
@@ -443,13 +573,14 @@ func _process(delta: float) -> void:
 
 ## Una acción del bot: tirar el dado o mover la ficha que elige TableBots.
 func bot_step() -> bool:
+	var seat := rules.turn
 	if rules.phase == LudoRules.ROLL:
-		_roll()
+		_roll(seat)
 		return true
 	if rules.phase == LudoRules.MOVE:
 		var token := TableBots.ludo_choice(rules, TableBots.difficulty)
 		if token >= 0:
-			_choose_token(token)
+			_choose_token(token, seat)
 			help.text = tr("El bot mueve su ficha %d.") % (token + 1)
 			return true
 	return false
@@ -470,17 +601,20 @@ func _refresh() -> void:
 			status.text += " (cuenta %d)" % rules.steps()
 	elif waiting_roll:
 		status.text += " · esperando el dado…"
-	roll_button.disabled = rules.phase != LudoRules.ROLL or waiting_roll
-	reset_button.disabled = rules.phase != LudoRules.ROLL
+	var can_act := is_local_turn()
+	roll_button.disabled = rules.phase != LudoRules.ROLL or waiting_roll or not can_act
+	reset_button.disabled = rules.phase != LudoRules.ROLL or not can_act
 	var legal := rules.legal_tokens()
 	for index in range(4):
-		token_buttons[index].disabled = index not in legal
-		markers[index].visible = index in legal
+		token_buttons[index].disabled = (index not in legal) or not can_act
+		markers[index].visible = index in legal and (not online or can_act)
 		if index in legal:
 			markers[index].position = (
 				_token_position(rules.turn, index, rules.destination(index)) + Vector3.UP * 0.035
 			)
-	if rules.phase == LudoRules.ROLL:
+	if online and not can_act and rules.phase != LudoRules.FINISHED and not waiting_roll:
+		help.text = "Esperando el turno de J%d (%s)…" % [rules.turn + 1, NAMES[rules.turn]]
+	elif rules.phase == LudoRules.ROLL:
 		help.text = (
 			"Lanza o arrastra y suelta el dado." if not waiting_roll else "Espera a que se detenga."
 		)
@@ -602,6 +736,24 @@ func _update_die(delta: float) -> void:
 		stuck_time = 0.0
 	stable_time = stable_time + delta if not die.is_grabbed and slow and upright >= 0.96 else 0.0
 	if stable_time >= 1.0:
+		if online:
+			if _remote_roll_expected >= 1:
+				die.set_top_face(_remote_roll_expected)
+			var val := die.top_face()
+			var rseat := _remote_roll_seat
+			var should_sub := _roll_should_submit
+			_remote_roll_expected = 0
+			_remote_roll_seat = -1
+			_roll_should_submit = true
+			waiting_roll = false
+			die._awaiting_result = false
+			if should_sub:
+				var submit_seat := rseat if rseat >= 0 else _local_seat()
+				_suppress_roll_anim = true
+				submit_change({"type": "roll", "value": val, "seat": submit_seat}, submit_seat)
+				_suppress_roll_anim = false
+			_refresh()
+			return
 		var value := die.top_face()
 		waiting_roll = false
 		die._awaiting_result = false
@@ -627,9 +779,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _roll() -> void:
+func _roll(actor_seat: int = -1) -> void:
 	if rules.phase != LudoRules.ROLL or waiting_roll or grabber.held != null:
 		return
+	if online and actor_seat < 0 and not is_local_turn():
+		return
+	_remote_roll_expected = 0
+	_remote_roll_seat = actor_seat
+	_roll_should_submit = true
 	_begin_roll()
 	die.roll(0.55)
 
@@ -645,6 +802,8 @@ func _begin_roll() -> void:
 func _reset_die() -> void:
 	if rules.phase != LudoRules.ROLL or grabber.held != null:
 		return
+	if online and not is_local_turn():
+		return
 	waiting_roll = false
 	die._awaiting_result = false
 	die.global_position = Vector3(2.66, 1.2, 0)
@@ -655,9 +814,29 @@ func _reset_die() -> void:
 	help.text = "Dado recolocado; la tirada anterior no cuenta."
 
 
+func _on_grab_started(object: InteractiveTableObject) -> void:
+	if not online:
+		return
+	if not is_local_turn():
+		grabber.call_deferred("_release", "cancelled")
+		return
+	if object == die and rules.phase != LudoRules.ROLL:
+		grabber.call_deferred("_release", "cancelled")
+		return
+	for player in range(rules.players):
+		if object in tokens[player] and player != _local_seat():
+			grabber.call_deferred("_release", "cancelled")
+			return
+
+
 func _on_release(object: InteractiveTableObject, target: Vector3, reason: String) -> void:
 	if object == die:
 		if reason == "released" and rules.phase == LudoRules.ROLL and not waiting_roll:
+			if online and not is_local_turn():
+				return
+			_remote_roll_expected = 0
+			_remote_roll_seat = -1
+			_roll_should_submit = true
 			_begin_roll()
 		return
 	for player in range(rules.players):
@@ -666,7 +845,7 @@ func _on_release(object: InteractiveTableObject, target: Vector3, reason: String
 			if object != token:
 				continue
 			var dest := rules.destination(index) if player == rules.turn else -2
-			if reason == "released" and dest >= 0:
+			if reason == "released" and dest >= 0 and (not online or is_local_turn()):
 				var goal := _token_position(player, index, dest)
 				var aim := Vector2(target.x - goal.x, target.z - goal.z).length()
 				var actual := (
@@ -681,8 +860,15 @@ func _on_release(object: InteractiveTableObject, target: Vector3, reason: String
 			return
 
 
-func _choose_token(index: int) -> void:
+func _choose_token(index: int, actor_seat: int = -1) -> void:
 	if grabber.held != null:
+		return
+	if online:
+		if actor_seat < 0 and not is_local_turn():
+			return
+		var submit_seat := actor_seat if actor_seat >= 0 else _local_seat()
+		if submit_change({"type": "move", "token": index, "seat": submit_seat}, submit_seat):
+			help.text = "Movimiento aceptado; las fichas se desplazan con fuerzas."
 		return
 	var previous := rules.positions.duplicate(true)
 	if rules.move(index):

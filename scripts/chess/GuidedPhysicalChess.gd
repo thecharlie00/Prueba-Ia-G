@@ -32,6 +32,17 @@ var _light: Material
 var _dark: Material
 var _selected: Material
 var _legal: Material
+var online := false
+var net_table: ChessNetTable
+
+
+func _net() -> Node:
+	return get_node_or_null("/root/Net")
+
+
+func _local_seat() -> int:
+	var net := _net()
+	return int(net.local_seat()) if net != null else -1
 
 
 func _ready() -> void:
@@ -82,7 +93,99 @@ func _ready() -> void:
 		_open_free,
 		_can_leave_table
 	)
+	_start_online()
 	_refresh()
+
+
+func _start_online() -> void:
+	var net := _net()
+	if net == null or str(net.room_game) != "ChessOnline":
+		return
+	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+		return
+	online = true
+	net_table = ChessNetTable.new()
+	net_table.name = "NetTable"
+	net_table.view_node = self
+	net_table.chess = rules
+	add_child(net_table)
+	if net_table.is_host():
+		var rbots: Array = net.room_bots
+		if rbots.size() > 1 and bool(rbots[1]):
+			rules.opponent_mode = ChessRules.OPPONENT_AI_CASUAL
+		else:
+			rules.opponent_mode = ChessRules.OPPONENT_LOCAL
+	else:
+		rules.opponent_mode = ChessRules.OPPONENT_LOCAL
+		net_table.request_sync()
+	net.player_left.connect(_on_net_player_left)
+
+
+func _on_net_player_left(player_id: int) -> void:
+	if online and net_table != null and net_table.is_host() and player_id == 2:
+		rules.opponent_mode = ChessRules.OPPONENT_AI_CASUAL
+		_refresh()
+
+
+func is_local_turn() -> bool:
+	if not online:
+		return not _is_ai_turn()
+	var active_seat := 0 if rules.turn == ChessRules.WHITE else 1
+	return _local_seat() == active_seat and not _is_ai_turn()
+
+
+func submit_change(action: Dictionary, acting_seat: int = -1) -> bool:
+	if not online or net_table == null:
+		return false
+	return net_table.submit(action, acting_seat)
+
+
+func apply_change(change: Dictionary) -> bool:
+	var kind := str(change.get("type", ""))
+	if kind == "move":
+		var snapshot := _move_with_mapping(
+			rules,
+			piece_squares,
+			homes,
+			capture_counts,
+			int(change.get("from", -1)),
+			int(change.get("to", -1)),
+			int(change.get("promotion", ChessRules.QUEEN))
+		)
+		if snapshot.is_empty():
+			return false
+		_snapshots.append(snapshot)
+		_update_models()
+		_refresh()
+		return true
+	if kind == "claim":
+		var from_sq := int(change.get("from", -1))
+		var ok := (
+			rules.claim_draw()
+			if from_sq < 0
+			else rules.claim_draw(
+				from_sq,
+				int(change.get("to", -1)),
+				int(change.get("promotion", ChessRules.QUEEN))
+			)
+		)
+		if ok:
+			_claim_mode = false
+			_refresh()
+		return ok
+	return false
+
+
+func sync_from_record(record: Dictionary) -> bool:
+	if not _restore_record(record):
+		return false
+	_dragged = null
+	_drag_from = -1
+	_destinations.clear()
+	_claim_mode = false
+	_update_models()
+	_refresh()
+	return true
 
 
 func _physics_process(_delta: float) -> void:
@@ -102,6 +205,11 @@ func _on_grab_started(object: InteractiveTableObject) -> void:
 		grabber.call_deferred("_release", "cancelled")
 		_refresh()
 		_help("Espera a que termine el turno de la IA.")
+		return
+	if online and not is_local_turn():
+		grabber.call_deferred("_release", "cancelled")
+		_refresh()
+		_help("Espera el turno de tu rival.")
 		return
 	if _drag_from >= 0 and rules.status() in ["playing", "check"]:
 		for move in rules.legal_moves_from(_drag_from):
@@ -126,7 +234,16 @@ func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: 
 		)
 		if offset.length() <= CELL * 0.55:
 			var promotion: int = $UI/Panel/Margin/Content/Promotion.get_selected_id()
-			if _claim_mode:
+			if online:
+				if _claim_mode:
+					announced_claim = submit_change(
+						{"type": "claim", "from": _drag_from, "to": destination, "promotion": promotion}
+					)
+				else:
+					accepted = submit_change(
+						{"type": "move", "from": _drag_from, "to": destination, "promotion": promotion}
+					)
+			elif _claim_mode:
 				announced_claim = rules.claim_draw(_drag_from, destination, promotion)
 			else:
 				var snapshot := _move_with_mapping(
@@ -290,9 +407,14 @@ func _undo() -> void:
 func _claim() -> void:
 	if _is_ai_turn() or _ai_thinking:
 		return
+	if online and not is_local_turn():
+		return
 	if rules.can_claim_draw():
 		if is_instance_valid(grabber.held):
 			_help("Suelta la pieza antes de reclamar tablas en la posición actual.")
+			return
+		if online:
+			submit_change({"type": "claim", "from": -1, "to": -1, "promotion": ChessRules.QUEEN})
 			return
 		rules.claim_draw()
 		_claim_mode = false
@@ -417,13 +539,13 @@ func _refresh() -> void:
 		"threefold_repetition":
 			status_label.text = "Tablas reclamadas · tres repeticiones"
 	var active := state in ["playing", "check"]
-	$UI/Panel/Margin/Content/Actions/Undo.disabled = _snapshots.is_empty()
+	$UI/Panel/Margin/Content/Actions/Undo.disabled = online or _snapshots.is_empty()
 	var claim_button: Button = $UI/Panel/Margin/Content/Actions/Claim
-	claim_button.disabled = not active or _is_ai_turn() or _ai_thinking
+	claim_button.disabled = not active or _is_ai_turn() or _ai_thinking or (online and not is_local_turn())
 	claim_button.text = "Cancelar anuncio" if _claim_mode else "Reclamar tablas"
 	var opponent: OptionButton = $UI/Panel/Margin/Content/Opponent
 	opponent.select(opponent.get_item_index(rules.opponent_mode))
-	opponent.disabled = _ai_thinking or is_instance_valid(grabber.held)
+	opponent.disabled = online or _ai_thinking or is_instance_valid(grabber.held)
 	claim_button.tooltip_text = (
 		"Arrastra una pieza a una jugada legal que produciría 50 movimientos o una tercera repetición."
 		if _claim_mode
@@ -434,6 +556,8 @@ func _refresh() -> void:
 
 
 func _on_opponent_selected(index: int) -> void:
+	if online:
+		return
 	rules.opponent_mode = $UI/Panel/Margin/Content/Opponent.get_item_id(index)
 	_ai_failed = false
 	_claim_mode = false
@@ -441,6 +565,8 @@ func _on_opponent_selected(index: int) -> void:
 
 
 func _is_ai_turn() -> bool:
+	if online and (net_table == null or not net_table.is_host()):
+		return false
 	return rules.opponent_mode != ChessRules.OPPONENT_LOCAL and rules.turn == ChessRules.BLACK
 
 
@@ -468,6 +594,14 @@ func _play_ai_turn(request_id: int) -> void:
 		_ai_failed = true
 		_refresh()
 		_help("La IA no encontró una jugada legal.")
+		return
+	if online:
+		_ai_thinking = false
+		if submit_change(
+			{"type": "move", "from": int(move["from"]), "to": int(move["to"]), "promotion": ChessRules.QUEEN},
+			1
+		):
+			_help("La IA ha movido.")
 		return
 	var snapshot := _move_with_mapping(
 		rules,

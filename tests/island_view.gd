@@ -1,7 +1,6 @@
 extends SceneTree
 
-const ISLAND_SCENE := load("res://scenes/Island.tscn")
-
+var island_scene: PackedScene
 var failures := 0
 
 
@@ -10,7 +9,8 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	var view := ISLAND_SCENE.instantiate() as IslandView
+	island_scene = load("res://scenes/Island.tscn") as PackedScene
+	var view := island_scene.instantiate() as IslandView
 	root.add_child(view)
 	await _ticks(3)
 	_check(view.dice.size() == 2 and view.homes.size() == 1, "dos dados y ladrón físicos")
@@ -268,6 +268,7 @@ func _run() -> void:
 	_check(absf(building.global_position.x - home.x) < 0.15, "retorno físico de pueblo")
 	view.queue_free()
 	await process_frame
+	await _two_player_view()
 	await _four_player_view()
 	await _bot_match()
 	if failures:
@@ -276,6 +277,50 @@ func _run() -> void:
 	else:
 		print("Island view tests OK")
 		quit(0)
+
+
+func _two_player_view() -> void:
+	var view := load("res://scenes/IslandTwo.tscn").instantiate() as IslandView
+	root.add_child(view)
+	await _ticks(2)
+	_check(
+		view.rules.players == 2 and view.game_title.text.contains("2 jugadores"),
+		"escena de dos jugadores"
+	)
+	for face in range(1, 7):
+		view.dice[0].set_top_face(face)
+		_check(view.dice[0].top_face() == face, "snap de cara %d en dado 3D" % face)
+	var order: Array[int] = []
+	for step in range(4):
+		order.append(view.rules.turn)
+		var vertex := -1
+		for i in range(54):
+			if view.rules.can_settlement(i):
+				vertex = i
+				break
+		if vertex < 0:
+			_check(false, "preparación dos jugadores")
+			break
+		view._select_board(view._vertex_position(vertex))
+		for edge in view.rules.board.vertex_edges[vertex]:
+			if view.rules.can_road(edge):
+				view._select_board(view._edge_position(edge))
+				break
+	_check(
+		order == [0, 1, 1, 0] and view.rules.phase == IslandRules.ROLL,
+		"orden para dos"
+	)
+	view.save_path = "user://test_island_two.json"
+	_clean_save(view.save_path)
+	view._save_game()
+	view._load_game()
+	_check(
+		view.rules.players == 2 and view.building_nodes.size() == 4,
+		"guardar y cargar dos jugadores"
+	)
+	_clean_save(view.save_path)
+	view.queue_free()
+	await process_frame
 
 
 func _four_player_view() -> void:
@@ -323,7 +368,7 @@ func _four_player_view() -> void:
 func _bot_match() -> void:
 	TableBots.solo = true
 	TableBots.difficulty = TableBots.Difficulty.FACIL
-	var view := ISLAND_SCENE.instantiate() as IslandView
+	var view := island_scene.instantiate() as IslandView
 	root.add_child(view)
 	await _ticks(2)
 	_check(view.bots[1] and view.bots[2], "solo bots marca J2 y J3")

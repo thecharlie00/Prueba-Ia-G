@@ -33,7 +33,6 @@ var players := 3
 var turn := 0
 var phase := SETUP_SETTLEMENT
 var setup_order: Array[int] = []
-var setup_vertices: Array[int] = []
 var setup_index := 0
 var last_setup_vertex := -1
 var resources: Array = []
@@ -64,7 +63,7 @@ var _rng := RandomNumberGenerator.new()
 
 
 func _init(seed_value: int = -1, player_count: int = 3) -> void:
-	players = clampi(player_count, 3, 4)
+	players = clampi(player_count, 2, 4)
 	for player in range(players):
 		setup_order.append(player)
 	for player in range(players - 1, -1, -1):
@@ -134,15 +133,9 @@ func place_settlement(vertex: int) -> bool:
 	building_level[vertex] = 1
 	if phase == SETUP_SETTLEMENT:
 		last_setup_vertex = vertex
-		setup_vertices.append(vertex)
-		setup_index += 1
 		if setup_index >= players:
-			_grant_setup_resources()
-			phase = SETUP_ROAD
-			turn = setup_order[setup_index]
-		else:
-			turn = setup_order[setup_index]
-			phase = SETUP_SETTLEMENT
+			_grant_setup_resources(vertex, turn)
+		phase = SETUP_ROAD
 	else:
 		_update_longest_road()
 		_check_winner()
@@ -187,7 +180,7 @@ func place_road(edge_id: int) -> bool:
 			phase = ROLL
 		else:
 			turn = setup_order[setup_index]
-			phase = SETUP_ROAD
+			phase = SETUP_SETTLEMENT
 	_update_longest_road()
 	if phase == FREE_ROADS:
 		free_roads_left -= 1
@@ -395,14 +388,12 @@ func _produce(number: int) -> void:
 		bank[resource] -= total
 
 
-func _grant_setup_resources() -> void:
-	for vertex in setup_vertices:
-		var player: int = building_owner[vertex]
-		for tile_id in board.vertex_tiles[vertex]:
-			var resource: int = board.tiles[tile_id]["terrain"]
-			if resource != IslandBoard.DESERT and bank[resource] > 0:
-				resources[player][resource] += 1
-				bank[resource] -= 1
+func _grant_setup_resources(vertex: int, player: int) -> void:
+	for tile_id in board.vertex_tiles[vertex]:
+		var resource: int = board.tiles[tile_id]["terrain"]
+		if resource != IslandBoard.DESERT and bank[resource] > 0:
+			resources[player][resource] += 1
+			bank[resource] -= 1
 
 
 func _can_pay(player: int, cost: Array) -> bool:
@@ -660,7 +651,7 @@ static func from_record(data: Variant) -> IslandRules:
 	if not saved is Array or saved.size() > MAX_EVENTS:
 		return null
 	var player_count: Variant = data.get("players", 3)
-	if not _valid_integer(player_count, 3, 4):
+	if not _valid_integer(player_count, 2, 4):
 		return null
 	var game := IslandRules.new(int(data["seed"]), int(player_count))
 	for event in saved:

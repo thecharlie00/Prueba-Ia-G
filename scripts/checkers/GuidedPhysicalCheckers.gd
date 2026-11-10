@@ -31,6 +31,17 @@ var _legal: Material
 var bot_enabled := false
 var _bot_wait := 0.0
 var _bot_toggle: CheckBox
+var online := false
+var net_table: CheckersNetTable
+
+
+func _net() -> Node:
+	return get_node_or_null("/root/Net")
+
+
+func _local_seat() -> int:
+	var net := _net()
+	return int(net.local_seat()) if net != null else -1
 
 
 func _ready() -> void:
@@ -80,7 +91,72 @@ func _ready() -> void:
 		# Menú de bots: la mesa empieza en solitario contra el bot de las oscuras.
 		TableBots.solo = false
 		set_bot_enabled(true)
+	_start_online()
 	_refresh_guides()
+
+
+func _start_online() -> void:
+	var net := _net()
+	if net == null or str(net.room_game) != "CheckersOnline":
+		return
+	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+		return
+	online = true
+	net_table = CheckersNetTable.new()
+	net_table.name = "NetTable"
+	net_table.view_node = self
+	net_table.checkers = rules
+	add_child(net_table)
+	if net_table.is_host():
+		var rbots: Array = net.room_bots
+		if rbots.size() > 1 and bool(rbots[1]):
+			set_bot_enabled(true)
+	else:
+		if _bot_toggle != null:
+			_bot_toggle.disabled = true
+		net_table.request_sync()
+	net.player_left.connect(_on_net_player_left)
+
+
+func _on_net_player_left(player_id: int) -> void:
+	if online and net_table != null and net_table.is_host() and player_id == 2:
+		set_bot_enabled(true)
+
+
+func is_local_turn() -> bool:
+	if not online:
+		return not is_bot_turn()
+	var active_seat := 0 if rules.turn == CheckersRules.WHITE else 1
+	return _local_seat() == active_seat and not is_bot_turn()
+
+
+func submit_change(action: Dictionary, acting_seat: int = -1) -> bool:
+	if not online or net_table == null:
+		return false
+	return net_table.submit(action, acting_seat)
+
+
+func apply_change(change: Dictionary) -> bool:
+	if str(change.get("type", "")) != "move":
+		return false
+	var from_sq := int(change.get("from", -1))
+	var to_sq := int(change.get("to", -1))
+	var mover := _token_at_square(from_sq)
+	if not _apply_move(from_sq, to_sq, mover):
+		return false
+	_refresh_guides()
+	return true
+
+
+func sync_from_record(record: Dictionary) -> bool:
+	if not _restore_record(record):
+		return false
+	_dragged = null
+	_drag_from = -1
+	_legal_destinations.clear()
+	_update_kings()
+	_refresh_guides()
+	return true
 
 
 func set_bot_enabled(enabled: bool) -> void:
@@ -92,6 +168,8 @@ func set_bot_enabled(enabled: bool) -> void:
 
 
 func is_bot_turn() -> bool:
+	if online and (net_table == null or not net_table.is_host()):
+		return false
 	return bot_enabled and rules.turn == CheckersRules.BLACK and rules.status() == "playing"
 
 
@@ -110,6 +188,11 @@ func bot_step() -> bool:
 	var move := TableBots.checkers_choice(rules, TableBots.difficulty)
 	if move.is_empty():
 		return false
+	if online:
+		if not submit_change({"type": "move", "from": int(move["from"]), "to": int(move["to"])}, 1):
+			return false
+		$UI/Panel/Margin/Content/Help.text = "El bot ha movido."
+		return true
 	var mover := _token_at_square(int(move["from"]))
 	if not _apply_move(int(move["from"]), int(move["to"]), mover):
 		return false
@@ -130,6 +213,11 @@ func _on_grab_started(object: InteractiveTableObject) -> void:
 	_dragged = object as Token3D
 	_drag_from = int(token_squares.get(_dragged, -1))
 	_legal_destinations.clear()
+	if online and not is_local_turn():
+		grabber.call_deferred("_release", "cancelled")
+		_refresh_guides()
+		$UI/Panel/Margin/Content/Help.text = "Espera el turno de tu rival."
+		return
 	if _drag_from >= 0 and rules.status() == "playing":
 		for move in rules.legal_moves_from(_drag_from):
 			_legal_destinations.append(int(move["to"]))
@@ -150,7 +238,10 @@ func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: 
 		)
 		# No confirmar una casilla a la que el cuerpo todavía no ha llegado.
 		if offset.length() <= CELL * 0.55:
-			accepted = _apply_move(_drag_from, destination)
+			if online:
+				accepted = submit_change({"type": "move", "from": _drag_from, "to": destination})
+			else:
+				accepted = _apply_move(_drag_from, destination)
 	_dragged = null
 	_drag_from = -1
 	_legal_destinations.clear()
@@ -378,7 +469,7 @@ func _refresh_guides() -> void:
 			status_label.text += " · continúa la captura"
 		elif rules.has_any_capture():
 			status_label.text += " · captura obligatoria"
-	$UI/Panel/Margin/Content/Undo.disabled = _snapshots.is_empty()
+	$UI/Panel/Margin/Content/Undo.disabled = online or _snapshots.is_empty()
 
 
 func _on_selection_changed(_object: InteractiveTableObject) -> void:

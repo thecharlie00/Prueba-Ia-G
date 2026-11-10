@@ -13,6 +13,8 @@ const ROWS := [
 	["Tutorial jugable", "Playable tutorial", "Tutorial jugable"],
 	["ISLA DE RECURSOS", "RESOURCE ISLAND", "ILLA DE RECURSOS"],
 	["Tres o cuatro jugadores · estrategia inspirada en Catán.", "Three or four players · strategy inspired by Catan.", "Tres o quatre jugadors · estratègia inspirada en Catan."],
+	["Dos, tres o cuatro jugadores · estrategia inspirada en Catán.", "Two, three or four players · strategy inspired by Catan.", "Dos, tres o quatre jugadors · estratègia inspirada en Catan."],
+	["Isla de recursos · 2 jugadores   →", "Resource island · 2 players   →", "Illa de recursos · 2 jugadors   →"],
 	["Isla de recursos · 3 jugadores   →", "Resource island · 3 players   →", "Illa de recursos · 3 jugadors   →"],
 	["Isla de recursos · 4 jugadores   →", "Resource island · 4 players   →", "Illa de recursos · 4 jugadors   →"],
 	["MESA LIBRE", "FREE TABLE", "TAULA LLIURE"],
