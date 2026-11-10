@@ -16,6 +16,10 @@ class_name NetTable
 
 signal chat_received(sender_id: int, text: String)
 signal sync_received()
+signal cursor_received(seat: int, world_pos: Vector3, state: int)
+signal emote_received(seat: int, emote_id: String)
+signal ping_received(seat: int, world_pos: Vector3)
+signal rule_applied(change: Dictionary)
 
 ## Intentos de resync antes de darse por vencido.
 const SYNC_TRIES := 12
@@ -113,9 +117,11 @@ func submit(action: Dictionary, acting_seat: int = -1) -> bool:
 ## El anfitrión aplica, difunde y avisa.
 func _host_apply(action: Dictionary, _seat: int) -> void:
 	if _apply(action) and _event_for(action) != null:
+		var ev := _event_for(action)
 		if Engine.has_singleton("Fusion") and Fusion.is_in_room():
-			Fusion.rpc(rule_event, _event_for(action))
-		_on_applied(_event_for(action))
+			Fusion.rpc(rule_event, ev)
+		_on_applied(ev)
+		rule_applied.emit(ev)
 
 
 ## Pide el registro completo al anfitrión (entrada tardía o reconexión).
@@ -155,6 +161,8 @@ func rule_event(change: Dictionary) -> void:
 		if _sync_timer != null and _sync_timer.is_stopped():
 			_sync_timer.start()
 		_request_sync()
+	else:
+		rule_applied.emit(change)
 
 
 @rpc("any_peer", "call_remote")
@@ -179,6 +187,91 @@ func send_chat(text: String) -> void:
 	var net := _net()
 	if net != null and Engine.has_singleton("Fusion") and Fusion.is_in_room():
 		Fusion.rpc(net_chat, int(net.local_id()), text)
+
+
+var _last_emote_ms: Dictionary = {}
+var _last_ping_ms: Dictionary = {}
+
+
+@rpc("any_peer", "call_remote")
+func net_cursor(sender_id: int, seat: int, qx: int, qy: int, qz: int, state: int) -> void:
+	if seat < 0 or seat > 7:
+		return
+	var net := _net()
+	if net != null and sender_id != 0 and sender_id == int(net.local_id()):
+		return
+	var pos := Vector3(
+		clampf(float(qx) * 0.01, -18.0, 18.0),
+		clampf(float(qy) * 0.01, -2.0, 6.0),
+		clampf(float(qz) * 0.01, -18.0, 18.0)
+	)
+	cursor_received.emit(seat, pos, clampi(state, 0, 3))
+
+
+func send_cursor(world_pos: Vector3, state: int = 0, seat_override: int = -1) -> void:
+	var net := _net()
+	var seat := seat_override if seat_override >= 0 else local_seat()
+	if seat < 0 or net == null:
+		return
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+		var qx := clampi(int(round(world_pos.x * 100.0)), -1800, 1800)
+		var qy := clampi(int(round(world_pos.y * 100.0)), -200, 600)
+		var qz := clampi(int(round(world_pos.z * 100.0)), -1800, 1800)
+		Fusion.rpc(net_cursor, int(net.local_id()), seat, qx, qy, qz, clampi(state, 0, 3))
+
+
+@rpc("any_peer", "call_remote")
+func net_emote(sender_id: int, seat: int, emote_id: String) -> void:
+	if seat < 0 or seat > 7 or emote_id.length() > 24:
+		return
+	var net := _net()
+	if net != null and sender_id != 0 and sender_id == int(net.local_id()):
+		return
+	var now := Time.get_ticks_msec()
+	if now - int(_last_emote_ms.get(seat, -5000)) < 800:
+		return
+	_last_emote_ms[seat] = now
+	emote_received.emit(seat, emote_id)
+
+
+func send_emote(emote_id: String, seat_override: int = -1) -> void:
+	var net := _net()
+	var seat := seat_override if seat_override >= 0 else local_seat()
+	if seat < 0 or net == null:
+		return
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+		Fusion.rpc(net_emote, int(net.local_id()), seat, emote_id)
+
+
+@rpc("any_peer", "call_remote")
+func net_ping(sender_id: int, seat: int, qx: int, qy: int, qz: int) -> void:
+	if seat < 0 or seat > 7:
+		return
+	var net := _net()
+	if net != null and sender_id != 0 and sender_id == int(net.local_id()):
+		return
+	var now := Time.get_ticks_msec()
+	if now - int(_last_ping_ms.get(seat, -5000)) < 700:
+		return
+	_last_ping_ms[seat] = now
+	var pos := Vector3(
+		clampf(float(qx) * 0.01, -18.0, 18.0),
+		clampf(float(qy) * 0.01, -2.0, 6.0),
+		clampf(float(qz) * 0.01, -18.0, 18.0)
+	)
+	ping_received.emit(seat, pos)
+
+
+func send_ping(world_pos: Vector3, seat_override: int = -1) -> void:
+	var net := _net()
+	var seat := seat_override if seat_override >= 0 else local_seat()
+	if seat < 0 or net == null:
+		return
+	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+		var qx := clampi(int(round(world_pos.x * 100.0)), -1800, 1800)
+		var qy := clampi(int(round(world_pos.y * 100.0)), -200, 600)
+		var qz := clampi(int(round(world_pos.z * 100.0)), -1800, 1800)
+		Fusion.rpc(net_ping, int(net.local_id()), seat, qx, qy, qz)
 
 
 #endregion

@@ -66,6 +66,7 @@ Ambas con licencia SIL Open Font License, incluida en `assets/fonts/`.
 - Al soltarla, se aplasta (×0,84) y rebota.
 - Solo cambia la malla visual: el colisionador y la física no se deforman.
 - **Reducir animaciones** en el menú principal desactiva los rebotes; se guarda en `user://diceon_controls.cfg`.
+- La especificación completa de avatares expresivos, abanicos 3D de rivales, *shaders* de borde/flexión, iluminación cálida y punteros/emotes multijugador se detalla en [`docs/GUIA_DIRECCION_ARTE_Y_JUICE_3D.md`](GUIA_DIRECCION_ARTE_Y_JUICE_3D.md).
 
 ## Cómo se aplica
 

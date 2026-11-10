@@ -590,12 +590,14 @@ func _make_seats() -> void:
 	add_child(seats)
 	seats.setup(spots)
 	seats.center = Vector3.ZERO
+	SocialOverlay3D.attach(self, seats, net_table)
 
 
 func _update_seats() -> void:
 	if seats == null:
 		return
 	seats.set_active(rules.turn)
+	var viewer_seat := _active_hand_player()
 	for player in range(rules.players):
 		var points: int = (
 			rules.score(player) if rules.phase == IslandRules.FINISHED else rules.public_score(player)
@@ -603,7 +605,15 @@ func _update_seats() -> void:
 		var cards := 0
 		for amount in rules.resources[player]:
 			cards += int(amount)
+		var hidden_devs := 0
+		if player < rules.dev_ready.size():
+			for dev_amt in rules.dev_ready[player]:
+				hidden_devs += int(dev_amt)
+		if player < rules.dev_new.size():
+			for new_amt in rules.dev_new[player]:
+				hidden_devs += int(new_amt)
 		seats.set_status(player, "%d puntos · %d cartas" % [points, cards])
+		seats.set_card_count(player, 0 if player == viewer_seat else (cards + hidden_devs))
 
 
 func _make_board() -> void:

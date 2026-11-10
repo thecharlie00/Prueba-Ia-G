@@ -381,5 +381,12 @@ const ROWS := [
 	["Salir de la sala", "Leave room", "Surt de la sala"],
 	["SESIÓN EN CURSO", "ACTIVE SESSION", "SESSIÓ EN CURS"],
 	["CÁMARA Y VISTAS", "CAMERA & VIEWS", "CÀMERA I VISTES"],
+	["Reacciones rápidas (G)", "Quick reactions (G)", "Reaccions ràpides (G)"],
+	["¡TOMA!", "BOOM!", "TOMA!"],
+	["¡¿QUÉ?!", "WHAT?!", "QUÈ?!"],
+	["¡JAJA!", "HAHA!", "JAJA!"],
+	["¡TU TURNO!", "YOUR TURN!", "EL TEU TORN!"],
+	["¡BUENA!", "NICE!", "BONA!"],
+	["¡UPS!", "OOPS!", "UPS!"],
 ]
 

@@ -253,6 +253,13 @@ func play(card: String) -> bool:
 	var sfx := get_node_or_null("/root/Sfx")
 	if sfx != null:
 		sfx.play("card")
+	if is_inside_tree():
+		var is_trump := card.ends_with(" " + rules.trump_suit)
+		var pts := BriscaRules.card_points(card)
+		if is_trump or pts >= 10:
+			TableVfx.spawn_hero_impact(self, Vector3(0.22, TABLE_Y, 0.0), Palette.SUN, 0.20)
+		else:
+			TableVfx.spawn_drop(self, Vector3(0.22, TABLE_Y, 0.0), 0.9, Palette.PAPER)
 	if rules.trick.is_empty():
 		showing = rules.last_trick
 		_show_time = TRICK_PAUSE
@@ -478,3 +485,9 @@ func hud_active_seat() -> int:
 
 func hud_seat_status(index: int) -> String:
 	return "%d puntos" % rules.points[index]
+
+
+func hud_seat_cards(index: int) -> int:
+	if index < 0 or index >= rules.hands.size() or index == viewer:
+		return 0
+	return rules.hands[index].size()

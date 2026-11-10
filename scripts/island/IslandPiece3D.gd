@@ -144,7 +144,12 @@ func _update_highlight() -> void:
 	var visual := get_node_or_null("Visual") as MeshInstance3D
 	if visual == null:
 		return
-	var overlay: Material = _highlight if hovered or is_grabbed else null
+	var active_state := hovered or is_grabbed or _invalid_timer > 0.0
+	if _highlight != null:
+		var tint := _state_tint()
+		var alpha := 0.26 if _invalid_timer > 0.0 else (0.18 if is_grabbed else 0.14)
+		_highlight.albedo_color = Color(tint.r, tint.g, tint.b, alpha)
+	var overlay: Material = _highlight if active_state else null
 	for child in visual.get_children():
-		if child is MeshInstance3D:
+		if child is MeshInstance3D and child.name != "RimGlow":
 			child.material_overlay = overlay

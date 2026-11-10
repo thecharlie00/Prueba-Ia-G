@@ -283,6 +283,8 @@ func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: 
 	_legal_destinations.clear()
 	_refresh_guides()
 	if not accepted and reason == "released":
+		if is_instance_valid(object):
+			object.flash_invalid()
 		$UI/Panel/Margin/Content/Help.text = ("Movimiento rechazado: la ficha vuelve a su casilla.")
 	elif reason in ["cancelled", "recovered"]:
 		$UI/Panel/Margin/Content/Help.text = "Movimiento cancelado; la ficha vuelve a su casilla."

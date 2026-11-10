@@ -22,6 +22,7 @@ func _ready() -> void:
 		($Visual.material_override as StandardMaterial3D).albedo_color = Color("ff6b5e")
 	_add_page_lines()
 	_add_back_art()
+	_update_highlight()
 	if initial_cards.is_empty():
 		for number in range(1, maxi(cards_remaining, 0) + 1):
 			_cards.append(str(number))

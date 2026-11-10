@@ -48,6 +48,7 @@ var _seat_check := 0.0
 ## Identidad del juego (GameThemes): acento, nombre y emblema.
 var game_theme: Dictionary = {}
 var brush: TableBrush
+var social: SocialOverlay3D
 
 
 static func attach(target: Node) -> TableHud:
@@ -63,6 +64,9 @@ func _ready() -> void:
 	_discover()
 	_build()
 	_build_seats()
+	if view is Node3D:
+		var found_net := view.get_node_or_null("NetTable") as NetTable
+		social = SocialOverlay3D.attach(view as Node3D, seats, found_net)
 	_tint_drawer()
 	set_drawer_open(false)
 	# Pincel en todas las mesas con piezas físicas (queja 16 de TTS).
@@ -299,6 +303,8 @@ func _build_seats() -> void:
 		view.add_child(seats)
 	seats.setup(_place_seats(list))
 	seats.center = _table_bounds().get_center()
+	if social != null:
+		social.bind_targets(seats, view.get_node_or_null("NetTable") as NetTable)
 	_plaque_signature = ""
 
 
@@ -402,6 +408,9 @@ func _sync() -> void:
 		if view.has_method("hud_seat_status"):
 			for i in seats.seats.size():
 				seats.set_status(i, view.hud_seat_status(i))
+		if view.has_method("hud_seat_cards"):
+			for i in seats.seats.size():
+				seats.set_card_count(i, int(view.hud_seat_cards(i)))
 	_sync_plaques()
 
 

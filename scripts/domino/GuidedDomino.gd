@@ -335,6 +335,8 @@ func _on_grab_finished(object: InteractiveTableObject, target: Vector3, reason: 
 	elif reason in ["cancelled", "recovered"]:
 		_help("Jugada cancelada; la ficha volverá a su sitio.")
 	elif reason == "released":
+		if is_instance_valid(object):
+			object.flash_invalid()
 		_help("Jugada rechazada; la ficha volverá a su sitio.")
 
 

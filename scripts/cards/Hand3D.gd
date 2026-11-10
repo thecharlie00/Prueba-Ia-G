@@ -47,6 +47,9 @@ var _icon_textures := {}
 var _press_index := -1
 var _press_position := Vector2.ZERO
 var _dragging := false
+var _last_drag_x := 0.0
+var _drag_tilt := 0.0
+var _hover_phase := 0.0
 
 
 func _init() -> void:
@@ -190,30 +193,62 @@ func _pointer_x(point: Vector2) -> float:
 
 func _process(delta: float) -> void:
 	var hovered := -1
+	var mouse_pos := get_viewport().get_mouse_position()
 	if is_visible_in_tree() and not _blocked_by_gui():
 		# También las cartas que no se pueden usar ahora se amplían para leerlas.
-		hovered = card_at(get_viewport().get_mouse_position())
+		hovered = card_at(mouse_pos)
 	if _dragging:
 		hovered = -1
+	if hovered != _hovered and hovered >= 0:
+		var sfx := get_node_or_null("/root/Sfx")
+		if sfx != null:
+			sfx.play("ui", -8.0)
 	_hovered = hovered
-	var weight := clampf(delta * 14.0, 0.0, 1.0)
+	var style := get_node_or_null("/root/ToonStyle")
+	var reduce: bool = style != null and style.get("reduce_motion") == true
+	if not reduce:
+		_hover_phase += delta * 4.2
+	var weight := clampf(delta * 15.0, 0.0, 1.0)
+	var cur_drag_x := _pointer_x(mouse_pos) if _dragging else 0.0
+	if _dragging and delta > 0.0001 and not reduce:
+		var vel_x := clampf((cur_drag_x - _last_drag_x) / delta, -12.0, 12.0)
+		_drag_tilt = lerpf(_drag_tilt, -vel_x * 0.032, clampf(delta * 18.0, 0.0, 1.0))
+	else:
+		_drag_tilt = lerpf(_drag_tilt, 0.0, clampf(delta * 14.0, 0.0, 1.0))
+	_last_drag_x = cur_drag_x
+
 	for i in _cards.size():
 		var target: Transform3D = _cards[i].get_meta("rest")
 		if i == _hovered:
-			target = _zoomed(target)
+			target = _zoomed(target, mouse_pos, reduce)
 		elif _dragging and i == _press_index:
-			# La carta arrastrada sigue al ratón, levantada y delante de las demás.
-			target.origin.x = _pointer_x(get_viewport().get_mouse_position())
-			target.origin.y += 0.3
-			target.origin.z += 0.5
+			# La carta arrastrada sigue al ratón, levantada, delante e inclinada por la inercia.
+			target.origin.x = cur_drag_x
+			target.origin.y += 0.32
+			target.origin.z += 0.52
+			if not reduce:
+				target.basis = Basis(Vector3.FORWARD, _drag_tilt) * target.basis
+		elif _hovered >= 0 and not reduce:
+			# Las cartas vecinas se abren ligeramente como un abanico vivo (estilo Hearthstone).
+			var dist := i - _hovered
+			var push := (0.11 / float(absi(dist))) * signf(float(dist))
+			target.origin.x += push
 		_cards[i].transform = _cards[i].transform.interpolate_with(target, weight)
 
 
-## Carta ampliada: recta, al doble de tamaño, más alta y delante de las demás para leerla.
-func _zoomed(rest: Transform3D) -> Transform3D:
-	var basis := Basis(Vector3.RIGHT, PI / 2.0).scaled(Vector3.ONE * ZOOM)
+## Carta ampliada: al doble de tamaño, elevada y con inclinación magnética hacia el cursor.
+func _zoomed(rest: Transform3D, mouse_pos: Vector2, reduce: bool) -> Transform3D:
 	var origin := rest.origin + Vector3(0, CARD.z * (ZOOM - 1.0) * 0.5 + 0.35, 0.9)
-	return Transform3D(basis, origin)
+	var basis := Basis(Vector3.RIGHT, PI / 2.0)
+	if not reduce:
+		var local_mouse := mouse_pos - get_global_rect().position
+		var center_2d := _camera.unproject_position(origin)
+		var offset := (local_mouse - center_2d) / Vector2(130.0, 175.0)
+		var tilt_x := clampf(offset.y, -1.0, 1.0) * deg_to_rad(8.5)
+		var tilt_z := clampf(-offset.x, -1.0, 1.0) * deg_to_rad(10.0)
+		basis = Basis(Vector3.FORWARD, tilt_z) * Basis(Vector3.RIGHT, PI / 2.0 + tilt_x)
+		origin.y += sin(_hover_phase) * 0.018
+	return Transform3D(basis.scaled(Vector3.ONE * ZOOM), origin)
 
 
 # Un control 2D bajo el ratón (paneles, botones de la barra) tiene prioridad sobre la mano.

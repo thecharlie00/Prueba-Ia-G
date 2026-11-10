@@ -39,16 +39,26 @@ func _rebuild_model() -> void:
 	_update_highlight()
 
 
+func on_release() -> void:
+	super.on_release()
+	trigger_settle_wobble(0.08)
+
+
 func _update_highlight() -> void:
 	var visual := get_node_or_null("Visual") as MeshInstance3D
 	if visual == null:
 		return
-	var overlay: Material = _highlight if hovered or is_grabbed else null
+	var active_state := hovered or is_grabbed or _invalid_timer > 0.0
+	if _highlight != null:
+		var tint := _state_tint()
+		var alpha := 0.26 if _invalid_timer > 0.0 else (0.18 if is_grabbed else 0.14)
+		_highlight.albedo_color = Color(tint.r, tint.g, tint.b, alpha)
+	var overlay: Material = _highlight if active_state else null
 	_apply_overlay(visual, overlay)
 
 
 func _apply_overlay(parent: Node, overlay: Material) -> void:
-	if parent is MeshInstance3D:
+	if parent is MeshInstance3D and parent.name != "RimGlow":
 		(parent as MeshInstance3D).material_overlay = overlay
 	for child in parent.get_children():
 		_apply_overlay(child, overlay)
