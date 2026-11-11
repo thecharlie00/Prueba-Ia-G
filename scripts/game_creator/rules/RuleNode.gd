@@ -15,7 +15,8 @@ func _init(p_guid: String = "", p_name: String = ""):
 # Ejecuta el nodo dentro del motor de reglas.
 # input_args: argumentos recibidos desde nodos predecesores.
 # Devuelve un Array de Variant para pasar a nodos sucesores (puede estar vacío).
-func execute(engine: RuleEngine, input_args: Array) -> Array:
+# engine se tipa como Node para evitar dependencia circular de class_name con RuleEngine.
+func execute(engine: Node, input_args: Array) -> Array:
 	return input_args
 
 # Serialización específica (llamada por RuleGraph).
