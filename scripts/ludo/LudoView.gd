@@ -1162,9 +1162,10 @@ func _physics_process(delta: float) -> void:
 			var token: Token3D = tokens[player][index]
 			if token == grabber.held:
 				continue
-			var target := _token_position(player, index, rules.positions[player][index])
+			var progress: int = rules.positions[player][index]
+			var target := _token_position(player, index, progress)
 			if in_transit.has(token):
-				_steer_in_transit(token, target)
+				_steer_in_transit(token, target, progress == LudoRules.YARD)
 				continue
 			var displacement := Vector3(
 				target.x - token.global_position.x, 0, target.z - token.global_position.z
@@ -1194,30 +1195,47 @@ func _physics_process(delta: float) -> void:
 				)
 
 
-func _steer_in_transit(token: Token3D, target: Vector3) -> void:
+func _steer_in_transit(token: Token3D, target: Vector3, is_returning: bool = false) -> void:
+	var parchis := _is_parchis_board()
 	# Sube primero para no quedar atascada en las demás fichas de la casa.
 	var traveling: bool = in_transit[token]
+	var transit_limit := 1.6 if parchis else TRANSIT_LIMIT
 	_transit_time[token] = float(_transit_time.get(token, 0.0)) + get_physics_process_delta_time()
-	if _transit_time[token] >= TRANSIT_LIMIT:
-		token.global_position = target + Vector3.UP * 0.12
+	if _transit_time[token] >= transit_limit:
+		token.global_position = target + Vector3.UP * 0.10
 		token.linear_velocity = Vector3.ZERO
 		token.angular_velocity = Vector3.ZERO
 		_finish_transit(token)
 		return
 	if not traveling:
 		_lift_wait[token] = float(_lift_wait.get(token, 0.0)) + get_physics_process_delta_time()
-	if not traveling and (token.global_position.y >= 1.02 or _lift_wait[token] >= LIFT_PATIENCE):
+	var lift_ready_y := (0.98 if is_returning else 0.885) if parchis else 1.02
+	var patience := 0.25 if parchis else LIFT_PATIENCE
+	if not traveling and (token.global_position.y >= lift_ready_y or _lift_wait[token] >= patience):
 		traveling = true
 		in_transit[token] = true
 		_lift_wait.erase(token)
 	var displacement := Vector3(
 		target.x - token.global_position.x, 0, target.z - token.global_position.z
 	)
-	if traveling and displacement.length() < 0.035:
+	var arrive_dist := 0.042 if parchis else 0.035
+	if traveling and displacement.length() < arrive_dist:
+		if parchis:
+			token.linear_velocity.x *= 0.25
+			token.linear_velocity.z *= 0.25
 		_finish_transit(token)
 		return
 	if not traveling:
 		displacement = Vector3.ZERO
+	if parchis:
+		var cruise_y := 1.08 if is_returning else 0.95
+		var pull_p := displacement * 260.0
+		var acc_p := pull_p - Vector3(token.linear_velocity.x, 0, token.linear_velocity.z) * 32.5
+		acc_p.y = (cruise_y - token.global_position.y) * 110.0 - token.linear_velocity.y * 21.0
+		acc_p.y += float(ProjectSettings.get_setting("physics/3d/default_gravity", 9.8))
+		token.sleeping = false
+		token.apply_central_force(acc_p.limit_length(195.0) * token.mass)
+		return
 	var pull := displacement * 28.0
 	if traveling and token.global_position.y < 1.0 and displacement.length() > 0.035:
 		# Deslizándose (no pudo subir): empuje mínimo para vencer el rozamiento de otra ficha encima.

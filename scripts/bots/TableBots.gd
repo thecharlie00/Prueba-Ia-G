@@ -59,11 +59,14 @@ static func _ludo_score(rules: LudoRules, token: int, level: Difficulty) -> floa
 	var dest := rules.destination(token)
 	var lane_start := rules.corridor_start()
 	var total_track := rules.track_length()
-	var score := float(dest) * 0.1
+	var score := float(dest) * (0.35 if rules.is_parchis() else 0.1)
 	if dest == rules.finish_progress():
-		score += 100.0
+		score += 120.0 if rules.is_parchis() else 100.0
 	elif dest >= lane_start:
-		score += 40.0  # Pasillo de meta: ya nadie la puede comer.
+		if rules.is_parchis() and current >= lane_start:
+			score += 8.0
+		else:
+			score += 50.0 if rules.is_parchis() else 40.0  # Pasillo de meta: ya nadie la puede comer.
 	if current == LudoRules.YARD:
 		score += 30.0
 	if dest >= 0 and dest < lane_start:
