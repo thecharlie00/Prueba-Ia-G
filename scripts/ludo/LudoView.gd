@@ -862,17 +862,30 @@ func _update_die(delta: float) -> void:
 			_remote_roll_seat = -1
 			_roll_should_submit = true
 			waiting_roll = false
+			_roll_elapsed = 0.0
 			_bot_wait = -0.55
 			_refresh()
 		return
+	if die.is_grabbed:
+		_roll_elapsed = 0.0
+	else:
+		_roll_elapsed += delta
 	if (
 		absf(die.global_position.x) > 3.4
 		or absf(die.global_position.z) > 2.3
 		or die.global_position.y < 0.75
 	):
-		stable_time = 0.0
-		help.text = "El dado salió de la mesa. Usa Recolocar dado."
-		return
+		if is_bot_turn() or _roll_elapsed >= 4.5:
+			var fallback_face := clampi(die.top_face(), 1, 6)
+			die.global_position = TRAY_REST
+			die.linear_velocity = Vector3.ZERO
+			die.angular_velocity = Vector3.ZERO
+			die.set_top_face(fallback_face)
+			stable_time = 1.0
+		else:
+			stable_time = 0.0
+			help.text = "El dado salió de la mesa. Usa Recolocar dado."
+			return
 	var basis := die.global_basis.orthonormalized()
 	var upright := maxf(absf(basis.x.dot(Vector3.UP)), absf(basis.y.dot(Vector3.UP)))
 	upright = maxf(upright, absf(basis.z.dot(Vector3.UP)))
@@ -889,10 +902,36 @@ func _update_die(delta: float) -> void:
 				Vector3(randf_range(-0.7, 0.7), 0.25, randf_range(-0.7, 0.7)) * die.mass
 			)
 			help.text = "Dado inclinado: se aplica un pequeño impulso físico."
+		elif stuck_time >= 1.2:
+			stuck_time = 0.0
+			var settled_face := clampi(die.top_face(), 1, 6)
+			die.global_position = Vector3(
+				clampf(die.global_position.x, 2.15, 3.15),
+				TRAY_REST.y,
+				clampf(die.global_position.z, -0.8, 0.8)
+			)
+			die.linear_velocity = Vector3.ZERO
+			die.angular_velocity = Vector3.ZERO
+			die.set_top_face(settled_face)
+			upright = 1.0
+			slow = true
 	else:
 		stuck_time = 0.0
-	stable_time = stable_time + delta if not die.is_grabbed and slow and upright >= 0.96 else 0.0
+	if not die.is_grabbed and _roll_elapsed >= 4.5 and stable_time < 1.0:
+		var cap_face := clampi(die.top_face(), 1, 6)
+		die.global_position = Vector3(
+			clampf(die.global_position.x, 2.15, 3.15),
+			TRAY_REST.y,
+			clampf(die.global_position.z, -0.8, 0.8)
+		)
+		die.linear_velocity = Vector3.ZERO
+		die.angular_velocity = Vector3.ZERO
+		die.set_top_face(cap_face)
+		stable_time = 1.0
+	else:
+		stable_time = stable_time + delta if not die.is_grabbed and slow and upright >= 0.96 else 0.0
 	if stable_time >= 1.0:
+		_roll_elapsed = 0.0
 		if online:
 			var val := die.top_face()
 			var rseat := _remote_roll_seat
@@ -925,7 +964,6 @@ func _update_die(delta: float) -> void:
 		_last_roll_seat = actor
 		_last_roll_value = value
 		_last_roll_note = "Última tirada: J%d sacó %d" % [actor + 1, value]
-		_bot_wait = -0.55
 		rules.apply_roll(value)
 		_refresh()
 		if rules.phase == LudoRules.ROLL:
