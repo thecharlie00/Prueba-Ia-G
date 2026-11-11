@@ -10,8 +10,11 @@ enum EditorState { BUILD, PLAYTEST }
 @export var current_state: EditorState = EditorState.BUILD
 
 # Instancias del motor de reglas y exportador de mods (asignadas por nodos hijos).
-var rule_engine: RuleEngine = null
-var mod_exporter: ModBundleExporter = null
+# Tipado débil (sin tipo de clase) para evitar errores de orden de carga:
+# Godot parsea los scripts por orden alfabético y GameCreatorCore.gd carga
+# antes que RuleEngine.gd / ModBundleExporter.gd / PropEntity.gd.
+var rule_engine = null
+var mod_exporter = null
 
 # ID del mod activo (si se está editando un mod cargado).
 var active_mod_id: String = ""
@@ -76,7 +79,7 @@ func unload_mod() -> void:
 	if active_mod_id != "":
 		# Remover hijos del mod (excepto nodos del editor core).
 		for child in get_children():
-			if child is PropEntity:
+			if child.get_class() == "PropEntity":
 				child.queue_free()
 		active_mod_id = ""
 		mod_unloaded.emit()

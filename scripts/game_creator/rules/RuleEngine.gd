@@ -5,7 +5,9 @@
 extends Node
 
 # Grafo de reglas actualmente cargado.
-@export var graph: RuleGraph = null
+# Tipado débil (sin tipo de clase) para evitar errores de orden de carga:
+# RuleEngine.gd se parsea antes que RuleGraph.gd / RuleNode.gd alfabéticamente.
+@export var graph = null
 
 # Variables globales de partida.
 var global_variables: Dictionary = {}
@@ -54,11 +56,11 @@ func trigger_event(event_name: String, args: Array = []) -> void:
 	event_triggered.emit(event_name, args)
 	if graph != null:
 		for node in graph.nodes:
-			if node is RuleEventNode and node.event_name == event_name:
+			if node.get_class() == "RuleEventNode" and node.event_name == event_name:
 				_execute_node(node, args)
 
 # Ejecuta un nodo y propaga el resultado a sus sucesores según las conexiones.
-func _execute_node(node: RuleNode, input_args: Array) -> void:
+func _execute_node(node, input_args: Array) -> void:
 	if not _is_running:
 		return
 	var output_args: Array = node.execute(self, input_args)
@@ -66,7 +68,7 @@ func _execute_node(node: RuleNode, input_args: Array) -> void:
 	if graph != null:
 		for conn in graph.connections:
 			if conn.get("from_guid") == node.guid:
-				var target: RuleNode = _nodes_by_id.get(conn.get("to_guid"), null)
+				var target = _nodes_by_id.get(conn.get("to_guid"), null)
 				if target != null:
 					_execute_node(target, output_args)
 
@@ -89,7 +91,7 @@ func set_player_variable(player_id: int, name: String, value: Variant) -> void:
 
 # --- Nodos de acción específicos integrados ---
 # Mover una entidad a una posición.
-func _action_move_object(entity: PropEntity, target_position: Vector3, duration: float = 0.5) -> void:
+func _action_move_object(entity, target_position: Vector3, duration: float = 0.5) -> void:
 	if entity == null:
 		return
 	var tween: Tween = get_tree().create_tween()
@@ -105,7 +107,6 @@ func _action_modify_score(player_id: int, delta: float) -> void:
 
 # Finalizar turno actual.
 func _action_end_turn(current_player: int, total_players: int) -> void:
-class_name RuleEngine
 	var next_player: int = (current_player + 1) % total_players
 	set_global_variable("current_turn", next_player)
 	trigger_event("OnTurnStarted", [next_player])
