@@ -31,9 +31,19 @@ var stuck_times: Array[float] = [0.0, 0.0]
 var nudge_counts: Array[int] = [0, 0]
 var _remote_roll_expected: Array[int] = [0, 0]
 var _remote_roll_seat: int = -1
+## Cuando se abre desde el catálogo local (varias personas en un equipo), activa manos privadas.
+static var local_pass_privacy := false
+
 var _roll_should_submit: bool = true
 var _suppress_roll_anim: bool = false
 var _awaiting_roll_ack: bool = false
+var _pending_bot_roll: bool = false
+var _last_engine_frame: int = -1
+var _last_human_viewer: int = 0
+var _last_roll_seat: int = -1
+var _last_roll_values: Vector2i = Vector2i.ZERO
+var dice_banner: PanelContainer
+var dice_banner_label: Label
 
 const DICE_REST_A := Vector3(2.97, 1.052, -0.58)
 const DICE_REST_B := Vector3(2.97, 1.052, 0.58)
@@ -146,13 +156,35 @@ func _is_awaiting_sync() -> bool:
 	return online and net_table != null and not net_table.synced
 
 
+func _has_any_bot() -> bool:
+	for p in range(mini(rules.players, bots.size())):
+		if bots[p]:
+			return true
+	return false
+
+
+func _current_actor_seat() -> int:
+	if rules.phase == IslandRules.DISCARD:
+		return rules.discard_player
+	if rules.phase == IslandRules.TRADE_RESPONSE:
+		return int(rules.trade_offer.get("to", rules.turn))
+	return rules.turn
+
+
+func _is_bot_actor() -> bool:
+	var actor := _current_actor_seat()
+	return actor >= 0 and actor < bots.size() and bots[actor]
+
+
 func is_local_turn() -> bool:
 	if not online:
-		return true
+		return not _is_bot_actor()
 	if _is_awaiting_sync():
 		return false
 	var seat := _local_seat()
 	if seat < 0 or seat >= rules.players:
+		return false
+	if seat < bots.size() and bots[seat]:
 		return false
 	if rules.phase == IslandRules.DISCARD:
 		return rules.discard_player == seat
@@ -162,19 +194,28 @@ func is_local_turn() -> bool:
 
 
 func _finish_forced_dice() -> void:
+	var exp_a := _remote_roll_expected[0]
+	var exp_b := _remote_roll_expected[1]
+	var exp_seat := _remote_roll_seat
+	var apply_local := _pending_bot_roll
+	_pending_bot_roll = false
 	if dice.size() == 2:
 		if dice[0].is_forced_rolling() or dice[1].is_forced_rolling():
 			dice[0].finish_forced_roll(true)
 			dice[1].finish_forced_roll(true)
 		elif waiting_roll and not _roll_should_submit:
-			if _remote_roll_expected[0] >= 1:
+			if exp_a >= 1:
 				dice[0].global_position = DICE_REST_A
-				dice[0].set_top_face(_remote_roll_expected[0])
-				dice[0].ensure_celebrated(_remote_roll_expected[0])
-			if _remote_roll_expected[1] >= 1:
+				dice[0].set_top_face(exp_a)
+				dice[0].ensure_celebrated(exp_a)
+			if exp_b >= 1:
 				dice[1].global_position = DICE_REST_B
-				dice[1].set_top_face(_remote_roll_expected[1])
-				dice[1].ensure_celebrated(_remote_roll_expected[1])
+				dice[1].set_top_face(exp_b)
+				dice[1].ensure_celebrated(exp_b)
+	if apply_local and exp_a >= 1 and exp_b >= 1:
+		rules.roll(exp_a, exp_b)
+		_last_roll_seat = exp_seat
+		_last_roll_values = Vector2i(exp_a, exp_b)
 	if not _roll_should_submit:
 		_remote_roll_expected = [0, 0]
 		_remote_roll_seat = -1
@@ -182,6 +223,36 @@ func _finish_forced_dice() -> void:
 		waiting_roll = false
 		for die in dice:
 			die._awaiting_result = false
+
+
+func _check_forced_roll_done() -> bool:
+	if not waiting_roll or _roll_should_submit or dice.size() != 2:
+		return false
+	if dice[0].is_forced_rolling() or dice[1].is_forced_rolling():
+		return false
+	var a := dice[0].top_face()
+	var b := dice[1].top_face()
+	dice[0].ensure_celebrated(a)
+	dice[1].ensure_celebrated(b)
+	roll_results = [a, b]
+	var remote_seat := _remote_roll_seat
+	var apply_local := _pending_bot_roll
+	_pending_bot_roll = false
+	_remote_roll_expected = [0, 0]
+	_remote_roll_seat = -1
+	_roll_should_submit = true
+	waiting_roll = false
+	if apply_local:
+		rules.roll(a, b)
+	_last_roll_seat = remote_seat
+	_last_roll_values = Vector2i(a, b)
+	_bot_wait = -0.60
+	if remote_seat >= 0:
+		_help("J%d tira %d + %d = %d." % [remote_seat + 1, a, b, a + b])
+	else:
+		_help("Dados: %d + %d = %d." % [a, b, a + b])
+	_refresh()
+	return true
 
 
 ## Cambio validado por el anfitrión (o recibido por red). Se aplica por el
@@ -227,6 +298,8 @@ func _apply_change_effects(change: Dictionary) -> void:
 			var b := int(change.get("b", 0))
 			var seat := int(change.get("seat", -1))
 			var manual := bool(change.get("manual", false))
+			_last_roll_seat = seat
+			_last_roll_values = Vector2i(a, b)
 			var skip_local_manual := (
 				online
 				and manual
@@ -237,19 +310,32 @@ func _apply_change_effects(change: Dictionary) -> void:
 				if dice.size() == 2 and a >= 1 and a <= 6 and b >= 1 and b <= 6:
 					dice[0].set_top_face(a)
 					dice[1].set_top_face(b)
-				_help("Dados aceptados: %d + %d." % [a, b])
+					if skip_local_manual and not _suppress_roll_anim:
+						dice[0].ensure_celebrated(a)
+						dice[1].ensure_celebrated(b)
+				_bot_wait = -0.60
+				if seat >= 0:
+					_help("J%d tira %d + %d = %d." % [seat + 1, a, b, a + b])
+				else:
+					_help("Dados aceptados: %d + %d = %d." % [a, b, a + b])
 				return
 			_animate_remote_roll(a, b, seat)
 
 
-## Tirar los dados con animación 3D determinista hacia las caras exactas recibidas por red.
-func _animate_remote_roll(a: int, b: int, seat: int = -1) -> void:
+## Tirar los dados con animación 3D determinista hacia las caras exactas recibidas por red o bot.
+func _animate_remote_roll(a: int, b: int, seat: int = -1, apply_on_land: bool = false) -> void:
 	if dice.size() != 2:
+		if apply_on_land:
+			rules.roll(a, b)
+		_last_roll_seat = seat
+		_last_roll_values = Vector2i(a, b)
 		if seat >= 0:
-			_help("J%d tira %d + %d." % [seat + 1, a, b])
+			_help("J%d tira %d + %d = %d." % [seat + 1, a, b, a + b])
 		else:
-			_help("Dados: %d + %d." % [a, b])
+			_help("Dados: %d + %d = %d." % [a, b, a + b])
+		_refresh()
 		return
+	_pending_bot_roll = apply_on_land
 	_remote_roll_expected = [a, b]
 	_remote_roll_seat = seat
 	_roll_should_submit = false
@@ -320,6 +406,7 @@ func _ready() -> void:
 	robber_node = _spawn_piece("robber", Palette.PANEL, desert + Vector3.UP * 0.12)
 	homes[robber_node] = desert
 	_build_ui()
+	_apply_local_pass_privacy()
 	_apply_solo_bots()
 	_make_seats()
 	grabber.dice_shortcuts_enabled = false
@@ -333,18 +420,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if waiting_roll and dice.size() == 2:
 		if not _roll_should_submit:
-			if not dice[0].is_forced_rolling() and not dice[1].is_forced_rolling():
-				roll_results = [dice[0].top_face(), dice[1].top_face()]
-				var remote_seat := _remote_roll_seat
-				_remote_roll_expected = [0, 0]
-				_remote_roll_seat = -1
-				_roll_should_submit = true
-				waiting_roll = false
-				if remote_seat >= 0:
-					_help("J%d tira %d + %d." % [remote_seat + 1, roll_results[0], roll_results[1]])
-				else:
-					_help("Dados: %d + %d." % [roll_results[0], roll_results[1]])
-				_refresh()
+			_check_forced_roll_done()
 		else:
 			var stable := true
 			for index in range(dice.size()):
@@ -384,13 +460,33 @@ func _physics_process(delta: float) -> void:
 
 ## Turno automatico de los bots: juegan solos con la pausa de la dificultad elegida.
 func _process(delta: float) -> void:
+	var cur_frame := Engine.get_process_frames()
+	var manual_loop := (cur_frame == _last_engine_frame)
+	_last_engine_frame = cur_frame
+	if waiting_roll and not _roll_should_submit:
+		if manual_loop:
+			for die in dice:
+				if die.is_forced_rolling():
+					die._step_forced_roll(delta)
+		_check_forced_roll_done()
 	if not _bot_turn_active():
-		_bot_wait = 0.0
+		if _bot_wait > 0.0:
+			_bot_wait = 0.0
 		return
 	_bot_wait += delta
 	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 		_bot_wait = 0.0
 		_bot_step()
+
+
+func _apply_local_pass_privacy() -> void:
+	if not IslandView.local_pass_privacy:
+		return
+	IslandView.local_pass_privacy = false
+	if not TableBots.solo:
+		privacy_enabled = true
+		privacy_owner = 0
+		privacy_locked = false
 
 
 ## Aplica el modo «Jugar con bots»: el humano es siempre J1 y el resto son bots.
@@ -475,16 +571,16 @@ func _bot_step() -> void:
 			_help("El bot no encontró acción válida; espera al siguiente turno.")
 
 
-## El bot tira los dados: en línea difunde el resultado para animarlo a la vez en toda la sala.
+## El bot tira los dados: tanto en solitario/local como en línea se ven rodar los dados 3D
+## en la bandeja y salta su resultado en pantalla antes de continuar el turno.
 func _bot_roll(seat: int) -> void:
 	var a := randi_range(1, 6)
 	var b := randi_range(1, 6)
 	if online:
 		submit_change({"type": "roll", "a": a, "b": b, "seat": seat}, seat)
-	else:
-		rules.roll(a, b)
-		_help("Dados aceptados: %d + %d." % [a, b])
-	_refresh()
+		_refresh()
+		return
+	_animate_remote_roll(a, b, seat, true)
 
 
 ## El bot aplica (offline) o envía (online) una acción simple.
@@ -772,7 +868,7 @@ func _set_mode(mode: String) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if online and not _input_allowed():
+	if not _input_allowed():
 		return
 	if not privacy_locked and event is InputEventKey and event.pressed and not event.echo:
 		var focus := get_viewport().gui_get_focus_owner()
@@ -907,7 +1003,7 @@ func _nearest(point: Vector3, mode: String) -> int:
 
 
 func _update_markers() -> void:
-	var allowed := not online or _input_allowed()
+	var allowed := _input_allowed() and not waiting_roll
 	for i in range(markers_vertex.size()):
 		var visible_now := allowed and selection_mode in ["settlement", "city"]
 		if visible_now:
@@ -973,6 +1069,7 @@ func _build_ui() -> void:
 	_build_trade_tab(_tab_page("Comercio"))
 	_build_development_tab(_tab_page("Cartas"))
 	_build_options_tab(_tab_page("Partida"))
+	_build_dice_banner(layer, theme)
 	_build_hand(layer)
 	_build_privacy_overlay(layer)
 	new_game_confirmation = ConfirmationDialog.new()
@@ -1135,55 +1232,100 @@ func _build_options_tab(column: VBoxContainer) -> void:
 		bot_toggles.append(toggle)
 
 
+func _build_dice_banner(layer: CanvasLayer, theme: Dictionary) -> void:
+	var top := CenterContainer.new()
+	top.name = "DiceBannerAnchor"
+	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	top.offset_left = 360
+	top.offset_top = 16
+	top.offset_right = -18
+	top.offset_bottom = 74
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(top)
+	dice_banner = PanelContainer.new()
+	dice_banner.name = "DiceBanner"
+	dice_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := _panel_style(Palette.PANEL)
+	box.border_color = theme["accent"]
+	box.set_border_width_all(3)
+	box.content_margin_left = 18
+	box.content_margin_right = 18
+	box.content_margin_top = 8
+	box.content_margin_bottom = 8
+	dice_banner.add_theme_stylebox_override("panel", box)
+	dice_banner.visible = false
+	top.add_child(dice_banner)
+	dice_banner_label = Label.new()
+	dice_banner_label.name = "DiceBannerText"
+	dice_banner_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dice_banner_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dice_banner_label.add_theme_font_size_override("font_size", 20)
+	dice_banner_label.add_theme_color_override("font_color", Palette.SUN)
+	var style := get_node_or_null("/root/ToonStyle")
+	if style != null:
+		dice_banner_label.add_theme_font_override("font", style.DISPLAY_FONT)
+	dice_banner.add_child(dice_banner_label)
+
+
 func _build_hand(layer: CanvasLayer) -> void:
-	# Las cartas se ven en 3D sujetas en la mano (Hand3D). Debajo de los paneles 2D.
+	# Las cartas propias se ven en 3D sujetas en la mano (Hand3D). Debajo de los paneles 2D.
 	hand3d = Hand3D.new()
 	hand3d.lift = 0.45
 	hand3d.shift = 1.1
 	layer.add_child(hand3d)
 	layer.move_child(hand3d, 0)
 	hand3d.item_pressed.connect(_hand_pressed)
-	# Rótulo de la mano: de quién es y qué hacer con ella.
+	# La pestaña flotante «RECURSOS · J1» permanece desactivada durante la partida.
 	var panel := PanelContainer.new()
 	panel.name = "ResourceHand"
-	panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	panel.offset_left = 0
-	panel.offset_right = 330
-	panel.offset_top = -252
-	panel.offset_bottom = -218
-	panel.add_theme_stylebox_override("panel", _panel_style(Palette.PANEL))
+	panel.position = Vector2(-9999, -9999)
+	panel.size = Vector2.ZERO
+	panel.custom_minimum_size = Vector2.ZERO
+	panel.visible = false
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(panel)
-	hand_heading = _label(panel, "RECURSOS")
-	hand_heading.add_theme_font_size_override("font_size", 13)
-	hand_heading.add_theme_color_override("font_color", Palette.PAPER)
+	hand_heading = _label(panel, "")
+	hand_heading.visible = false
 
 
-## Cartas de la mano del jugador activo: recursos agrupados y cartas de desarrollo.
+## Cartas de la mano del jugador visor: únicamente su propia mano (nunca la de bots ni rivales).
 func _update_hand(player: int) -> void:
 	var items := []
 	hand_keys.clear()
-	if rules.phase in [IslandRules.PLENTY, IslandRules.MONOPOLY]:
-		# Elegir recurso: una carta de cada tipo, tenga o no el jugador.
+	if player < 0 or player >= rules.players or _is_awaiting_sync():
+		hand3d.set_items([])
+		return
+	var can_act_here := is_local_turn() and not waiting_roll
+	if (
+		rules.phase in [IslandRules.PLENTY, IslandRules.MONOPOLY]
+		and rules.turn == player
+		and can_act_here
+	):
+		# Elegir recurso propio: una carta de cada tipo, tenga o no el jugador.
 		for resource in range(5):
 			var empty_bank: bool = rules.phase == IslandRules.PLENTY and rules.bank[resource] == 0
 			items.append({"face": "resource", "resource": resource, "disabled": empty_bank})
 			hand_keys.append({"resource": resource})
 		hand3d.set_items(items)
 		return
+	var can_discard_here := (
+		rules.phase == IslandRules.DISCARD
+		and rules.discard_player == player
+		and can_act_here
+	)
 	for resource in range(5):
-		var disabled: bool = (
-			rules.phase not in [IslandRules.DISCARD, IslandRules.PLENTY, IslandRules.MONOPOLY]
-		)
-		if rules.phase == IslandRules.PLENTY and rules.bank[resource] == 0:
-			disabled = true
 		for i in int(rules.resources[player][resource]):
-			items.append({"face": "resource", "resource": resource, "disabled": disabled})
+			items.append({"face": "resource", "resource": resource, "disabled": not can_discard_here})
 			hand_keys.append({"resource": resource})
 	for kind in range(IslandRules.DEV_NAMES.size()):
 		for i in int(rules.dev_ready[player][kind]):
-			items.append({"face": "development", "text": IslandRules.DEV_NAMES[kind]})
+			items.append(
+				{
+					"face": "development",
+					"text": IslandRules.DEV_NAMES[kind],
+					"disabled": not can_act_here,
+				}
+			)
 			hand_keys.append({"dev": kind})
 		for i in int(rules.dev_new[player][kind]):
 			items.append(
@@ -1249,13 +1391,33 @@ func _build_privacy_overlay(layer: CanvasLayer) -> void:
 
 func _active_hand_player() -> int:
 	if online:
-		# Piloto: solo se muestra la mano de la butaca local.
-		return clampi(_local_seat(), 0, rules.players - 1)
-	if rules.phase == IslandRules.DISCARD:
-		return rules.discard_player
-	if rules.phase == IslandRules.TRADE_RESPONSE:
-		return int(rules.trade_offer.get("to", rules.turn))
-	return rules.turn
+		if _is_awaiting_sync():
+			return -1
+		var in_room := Engine.has_singleton("Fusion") and Fusion.is_in_room()
+		var seat := _local_seat() if in_room else maxi(0, _local_seat())
+		if seat < 0 or seat >= rules.players:
+			return -1
+		if seat < bots.size() and bots[seat]:
+			return -1
+		return seat
+	if _has_any_bot():
+		var human_seats: Array[int] = []
+		for i in range(rules.players):
+			if i >= bots.size() or not bots[i]:
+				human_seats.append(i)
+		if human_seats.is_empty():
+			return -1
+		if human_seats.size() == 1:
+			_last_human_viewer = human_seats[0]
+			return human_seats[0]
+		var actor := _current_actor_seat()
+		if actor in human_seats:
+			_last_human_viewer = actor
+			return actor
+		if _last_human_viewer not in human_seats:
+			_last_human_viewer = human_seats[0]
+		return _last_human_viewer
+	return _current_actor_seat()
 
 
 func _toggle_privacy() -> void:
@@ -1276,13 +1438,19 @@ func _unlock_privacy() -> void:
 
 
 func _update_privacy(player: int) -> void:
+	if player < 0:
+		$IslandUI/Panel.visible = true
+		$IslandUI/ResourceHand.visible = false
+		hand3d.visible = false
+		privacy_overlay.visible = false
+		return
 	var just_locked := false
 	if privacy_enabled and privacy_owner != player:
 		privacy_owner = player
 		privacy_locked = true
 		just_locked = true
 	$IslandUI/Panel.visible = not privacy_locked
-	$IslandUI/ResourceHand.visible = not privacy_locked
+	$IslandUI/ResourceHand.visible = false
 	hand3d.visible = not privacy_locked
 	privacy_overlay.visible = privacy_locked
 	if just_locked:
@@ -1387,14 +1555,18 @@ func _refresh() -> void:
 		"J%d responde a la oferta" % int(rules.trade_offer.get("to", 0) + 1),
 		IslandRules.FINISHED: "Victoria de J%d" % (rules.winner + 1),
 	}
-	var last := (
-		""
-		if rules.last_dice == Vector2i.ZERO
-		else " · dados %d + %d" % [rules.last_dice.x, rules.last_dice.y]
-	)
-	status.text = "Turno J%d · %s%s" % [rules.turn + 1, phases[rules.phase], last]
+	var last := ""
+	if rules.last_dice != Vector2i.ZERO and not waiting_roll:
+		last = " · dados %d + %d" % [rules.last_dice.x, rules.last_dice.y]
 	if waiting_roll:
-		status.text += "\nEsperando a que ambos dados se detengan…"
+		var roller := _remote_roll_seat if _remote_roll_seat >= 0 else rules.turn
+		status.text = "Turno J%d · Lanza los dos dados\n🎲 J%d tirando los dados…" % [
+			roller + 1,
+			roller + 1,
+		]
+	else:
+		status.text = "Turno J%d · %s%s" % [rules.turn + 1, phases[rules.phase], last]
+	_update_dice_banner()
 	game_title.text = "ISLA DE RECURSOS · %d jugadores" % rules.players
 	trade_partner.set_item_disabled(3, rules.players < 4)
 	if trade_partner.get_selected_id() >= rules.players:
@@ -1412,40 +1584,53 @@ func _refresh() -> void:
 	_update_seats()
 	var active_hand := _active_hand_player()
 	_update_privacy(active_hand)
-	hand_heading.text = "RECURSOS · J%d" % (active_hand + 1)
-	if rules.phase == IslandRules.DISCARD:
-		hand_heading.text += " · toca una carta para descartar"
-	elif rules.phase in [IslandRules.PLENTY, IslandRules.MONOPOLY]:
-		hand_heading.text += " · toca el recurso que eliges"
+	if active_hand >= 0:
+		hand_heading.text = "RECURSOS · J%d" % (active_hand + 1)
+		if rules.phase == IslandRules.DISCARD and rules.discard_player == active_hand:
+			hand_heading.text += " · toca una carta para descartar"
+		elif rules.phase in [IslandRules.PLENTY, IslandRules.MONOPOLY] and rules.turn == active_hand:
+			hand_heading.text += " · toca el recurso que eliges"
+	else:
+		hand_heading.text = ""
 	_update_hand(active_hand)
 	bank_status.text = "Banco: " + _resource_summary(rules.bank)
-	var cards: Array = rules.dev_ready[active_hand]
-	var fresh: Array = rules.dev_new[active_hand]
-	dev_status.text = (
-		(
-			"J%d · Disponibles: Caballeros %d · Caminos %d\n"
-			+ "Abundancia %d · Monopolio %d · Puntos %d\n"
-			+ "Nuevas (próximo turno): Caballeros %d · Caminos %d\n"
-			+ "Abundancia %d · Monopolio %d · Puntos %d\n"
-			+ "Mazo %d · Ruta: %s · Ejército: %s"
+	if active_hand >= 0:
+		var cards: Array = rules.dev_ready[active_hand]
+		var fresh: Array = rules.dev_new[active_hand]
+		dev_status.text = (
+			(
+				"J%d · Disponibles: Caballeros %d · Caminos %d\n"
+				+ "Abundancia %d · Monopolio %d · Puntos %d\n"
+				+ "Nuevas (próximo turno): Caballeros %d · Caminos %d\n"
+				+ "Abundancia %d · Monopolio %d · Puntos %d\n"
+				+ "Mazo %d · Ruta: %s · Ejército: %s"
+			)
+			% [
+				active_hand + 1,
+				cards[0],
+				cards[2],
+				cards[3],
+				cards[4],
+				cards[1],
+				fresh[0],
+				fresh[2],
+				fresh[3],
+				fresh[4],
+				fresh[1],
+				rules.development_deck.size(),
+				_award_text(rules.longest_road),
+				_award_text(rules.largest_army)
+			]
 		)
-		% [
-			active_hand + 1,
-			cards[0],
-			cards[2],
-			cards[3],
-			cards[4],
-			cards[1],
-			fresh[0],
-			fresh[2],
-			fresh[3],
-			fresh[4],
-			fresh[1],
-			rules.development_deck.size(),
-			_award_text(rules.longest_road),
-			_award_text(rules.largest_army)
-		]
-	)
+	else:
+		dev_status.text = (
+			"Cartas ocultas · Mazo %d · Ruta: %s · Ejército: %s"
+			% [
+				rules.development_deck.size(),
+				_award_text(rules.longest_road),
+				_award_text(rules.largest_army),
+			]
+		)
 	if rules.phase == IslandRules.TRADE_RESPONSE:
 		trade_description.text = (
 			"J%d ofrece %s; pide %s a J%d."
@@ -1459,18 +1644,19 @@ func _refresh() -> void:
 	else:
 		trade_description.text = "Sin oferta pendiente."
 	buttons["trade"].text = "Cambiar %d por 1" % rules.bank_rate(rules.turn, give.get_selected_id())
+	var can_act_local := is_local_turn()
 	buttons["roll"].disabled = (
 		rules.phase != IslandRules.ROLL
 		or waiting_roll
 		or _awaiting_roll_ack
-		or (online and not is_local_turn())
+		or not can_act_local
 	)
 	if buttons.has("reset_dice"):
 		buttons["reset_dice"].disabled = (
 			rules.phase != IslandRules.ROLL
 			or _awaiting_roll_ack
 			or (waiting_roll and not _roll_should_submit)
-			or (online and not is_local_turn())
+			or not can_act_local
 		)
 	if buttons.has("load"):
 		buttons["load"].disabled = online
@@ -1479,7 +1665,7 @@ func _refresh() -> void:
 	var can_cancel_roll := (
 		((waiting_roll and _roll_should_submit) or manual_roll)
 		and not _awaiting_roll_ack
-		and (not online or is_local_turn())
+		and can_act_local
 	)
 	buttons["cancel_roll"].visible = can_cancel_roll
 	buttons["cancel_roll"].disabled = not can_cancel_roll
@@ -1499,11 +1685,11 @@ func _refresh() -> void:
 		)
 	buttons["cancel_selection"].visible = action and not selection_mode.is_empty()
 	buttons["cancel_selection"].disabled = not action or selection_mode.is_empty()
-	buttons["steal"].disabled = rules.phase != IslandRules.STEAL
+	buttons["steal"].disabled = rules.phase != IslandRules.STEAL or waiting_roll or not can_act_local
 	var playable := -1
 	for index in range(dev_choice.item_count):
 		var card := dev_choice.get_item_id(index)
-		var amount: int = rules.dev_ready[active_hand][card]
+		var amount := int(rules.dev_ready[active_hand][card]) if active_hand >= 0 else 0
 		dev_choice.set_item_text(index, "%s · %d" % [IslandRules.DEV_NAMES[card], amount])
 		dev_choice.set_item_disabled(index, amount == 0)
 		if amount > 0 and playable < 0:
@@ -1516,34 +1702,32 @@ func _refresh() -> void:
 	buttons["play_dev"].disabled = (
 		waiting_roll
 		or manual_roll
+		or not can_act_local
+		or active_hand != rules.turn
 		or rules.phase not in [IslandRules.ROLL, IslandRules.ACTION]
 		or rules.dev_played
 		or playable < 0
 	)
-	buttons["accept"].disabled = rules.phase != IslandRules.TRADE_RESPONSE
-	buttons["reject"].disabled = rules.phase != IslandRules.TRADE_RESPONSE
+	buttons["accept"].disabled = rules.phase != IslandRules.TRADE_RESPONSE or waiting_roll or not can_act_local
+	buttons["reject"].disabled = rules.phase != IslandRules.TRADE_RESPONSE or waiting_roll or not can_act_local
 	victim.clear()
 	for player in rules.eligible_victims:
 		victim.add_item("J%d" % (player + 1), player)
 	if victim.item_count == 0:
 		victim.add_item("Sin víctima", -1)
-	victim.disabled = rules.phase != IslandRules.STEAL
-	if online and not is_local_turn():
-		buttons["steal"].disabled = true
-		buttons["accept"].disabled = true
-		buttons["reject"].disabled = true
-		victim.disabled = true
-		trade_partner.disabled = true
-	turn_controls["roll"].visible = rules.phase == IslandRules.ROLL
-	turn_controls["build"].visible = rules.phase == IslandRules.ACTION
+	victim.disabled = rules.phase != IslandRules.STEAL or waiting_roll or not can_act_local
+	trade_partner.disabled = not can_act_local or waiting_roll
+	turn_controls["roll"].visible = rules.phase == IslandRules.ROLL or waiting_roll
+	turn_controls["build"].visible = rules.phase == IslandRules.ACTION and not waiting_roll
 	turn_controls["resource"].visible = (
 		rules.phase in [IslandRules.DISCARD, IslandRules.PLENTY, IslandRules.MONOPOLY]
+		and not waiting_roll
 	)
-	turn_controls["steal"].visible = rules.phase == IslandRules.STEAL
+	turn_controls["steal"].visible = rules.phase == IslandRules.STEAL and not waiting_roll
 	turn_controls["bank"].visible = rules.phase != IslandRules.TRADE_RESPONSE
 	turn_controls["offer"].visible = rules.phase != IslandRules.TRADE_RESPONSE
 	turn_controls["response"].visible = rules.phase == IslandRules.TRADE_RESPONSE
-	if rules.phase != previous_phase:
+	if rules.phase != previous_phase and not waiting_roll:
 		tabs.current_tab = 1 if rules.phase == IslandRules.TRADE_RESPONSE else 0
 		previous_phase = rules.phase
 		_help(_phase_guidance())
@@ -1552,6 +1736,28 @@ func _refresh() -> void:
 	if trade_partner.get_selected_id() == rules.turn:
 		trade_partner.select((rules.turn + 1) % rules.players)
 	_update_markers()
+
+
+func _update_dice_banner() -> void:
+	if dice_banner == null or dice_banner_label == null:
+		return
+	if waiting_roll:
+		var roller := _remote_roll_seat if _remote_roll_seat >= 0 else rules.turn
+		dice_banner_label.text = "🎲 J%d lanzando dados…" % (roller + 1)
+		dice_banner.visible = true
+		return
+	var shown := _last_roll_values if _last_roll_values != Vector2i.ZERO else rules.last_dice
+	if shown.x >= 1 and shown.y >= 1:
+		var seat := _last_roll_seat if _last_roll_seat >= 0 else rules.turn
+		dice_banner_label.text = "🎲 J%d sacó %d + %d = %d" % [
+			seat + 1,
+			shown.x,
+			shown.y,
+			shown.x + shown.y,
+		]
+		dice_banner.visible = true
+	else:
+		dice_banner.visible = false
 
 
 func _has_build_option(kind: String) -> bool:
@@ -1762,7 +1968,7 @@ func _cancel_selection() -> void:
 func _roll() -> void:
 	if rules.phase != IslandRules.ROLL or waiting_roll or _awaiting_roll_ack:
 		return
-	if online and not is_local_turn():
+	if not is_local_turn():
 		_help("Espera tu turno para lanzar los dados.")
 		return
 	if grabber.held != null:
@@ -1800,7 +2006,7 @@ func _reset_dice() -> void:
 	if rules.phase != IslandRules.ROLL or grabber.held != null or _awaiting_roll_ack:
 		_help("Suelta cualquier objeto antes de recolocar los dados.")
 		return
-	if online and (not is_local_turn() or not _roll_should_submit):
+	if not is_local_turn() or (online and not _roll_should_submit):
 		return
 	for die in dice:
 		if die.is_forced_rolling():
@@ -1816,7 +2022,7 @@ func _reset_dice() -> void:
 
 
 func _on_grab_started(object: InteractiveTableObject) -> void:
-	if not online:
+	if not online and not _has_any_bot():
 		return
 	if not is_local_turn() or _awaiting_roll_ack or (waiting_roll and not _roll_should_submit):
 		grabber.call_deferred("_release", "cancelled")
@@ -1835,7 +2041,7 @@ func _on_physical_release(object: InteractiveTableObject, _target: Vector3, reas
 		or reason != "released"
 	):
 		return
-	if online and not is_local_turn():
+	if not is_local_turn():
 		return
 	var index := dice.find(object)
 	if index < 0:
@@ -1876,13 +2082,17 @@ func _finish_roll() -> void:
 	var remote_seat := _remote_roll_seat
 	_remote_roll_expected = [0, 0]
 	_remote_roll_seat = -1
+	var local_actor := rules.turn
 	waiting_roll = false
 	manually_thrown = [false, false]
+	_pending_bot_roll = false
 	for die in dice:
 		die._awaiting_result = false
 	if online:
 		if _roll_should_submit:
 			var roll_seat := remote_seat if remote_seat >= 0 else _local_seat()
+			_last_roll_seat = roll_seat
+			_last_roll_values = Vector2i(roll_results[0], roll_results[1])
 			if net_table != null and not net_table.is_host():
 				_awaiting_roll_ack = true
 			var sent := submit_change(
@@ -1896,6 +2106,7 @@ func _finish_roll() -> void:
 				roll_seat
 			)
 			if sent:
+				_bot_wait = -0.60
 				if remote_seat >= 0:
 					_help("J%d tira %d + %d." % [remote_seat + 1, roll_results[0], roll_results[1]])
 				else:
@@ -1904,11 +2115,17 @@ func _finish_roll() -> void:
 				_awaiting_roll_ack = false
 				_help("La tirada no fue aceptada: otra butaca tiene el turno.")
 		else:
+			_last_roll_seat = remote_seat if remote_seat >= 0 else local_actor
+			_last_roll_values = Vector2i(roll_results[0], roll_results[1])
+			_bot_wait = -0.60
 			if remote_seat >= 0:
 				_help("J%d tira %d + %d." % [remote_seat + 1, roll_results[0], roll_results[1]])
 			else:
 				_help("Dados: %d + %d." % [roll_results[0], roll_results[1]])
 	elif rules.roll(roll_results[0], roll_results[1]):
+		_last_roll_seat = remote_seat if remote_seat >= 0 else local_actor
+		_last_roll_values = Vector2i(roll_results[0], roll_results[1])
+		_bot_wait = -0.60
 		_help("Dados aceptados: %d + %d." % [roll_results[0], roll_results[1]])
 	_roll_should_submit = true
 	_refresh()
@@ -1917,13 +2134,14 @@ func _finish_roll() -> void:
 func _cancel_roll() -> void:
 	if not waiting_roll and not manual_roll:
 		return
-	if online and (not is_local_turn() or not _roll_should_submit):
+	if not is_local_turn() or (online and not _roll_should_submit):
 		return
 	for die in dice:
 		if die.is_forced_rolling():
 			return
 	_remote_roll_expected = [0, 0]
 	_remote_roll_seat = -1
+	_pending_bot_roll = false
 	_roll_should_submit = true
 	waiting_roll = false
 	manual_roll = false
@@ -2091,9 +2309,12 @@ func _rebuild_loaded_board() -> void:
 	waiting_roll = false
 	manual_roll = false
 	_awaiting_roll_ack = false
+	_pending_bot_roll = false
 	_roll_should_submit = true
 	_remote_roll_expected = [0, 0]
 	_remote_roll_seat = -1
+	_last_roll_seat = -1
+	_last_roll_values = rules.last_dice
 	if dice.size() == 2 and rules.last_dice.x >= 1 and rules.last_dice.y >= 1:
 		dice[0].global_position = DICE_REST_A
 		dice[0].set_top_face(rules.last_dice.x)

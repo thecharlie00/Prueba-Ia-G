@@ -328,7 +328,9 @@ func refresh() -> void:
 		return
 	var previous_viewer := viewer
 	if online:
-		viewer = clampi(_local_seat(), 0, 1)
+		var in_room := Engine.has_singleton("Fusion") and Fusion.is_in_room()
+		var seat := _local_seat() if in_room else maxi(0, _local_seat())
+		viewer = seat if (seat >= 0 and seat < 2 and not _online_bots[seat]) else -1
 	else:
 		viewer = 0 if vs_bot else (rules.turn if rules.phase == BriscaRules.PLAYING else viewer)
 	_sync_hand(previous_viewer != viewer)
@@ -364,6 +366,10 @@ func _name(player: int) -> String:
 
 # Mano del abanico: conserva el orden que haya puesto el jugador y añade las nuevas al final.
 func _sync_hand(changed_player: bool) -> void:
+	if viewer < 0 or viewer >= rules.hands.size():
+		if not hand.cards.is_empty():
+			hand.set_cards([])
+		return
 	var cards: Array = rules.hands[viewer]
 	var kept: Array[String] = []
 	if not changed_player:
@@ -408,10 +414,10 @@ func _sync_table() -> void:
 		var card := _place(play_item["card"], spot, true)
 		card.rotation_degrees.y = -8 if player == 0 else 10
 		card.name = "Trick%d" % player
-	# Cartas del rival boca abajo (o del jugador que no mira, con dos personas).
-	var other := 1 - viewer
+	# Cartas del rival o bot: siempre boca abajo mostrando únicamente el dorso.
+	var other := 1 - clampi(viewer, 0, 1)
 	for i in rules.hands[other].size():
-		var back := _place(rules.hands[other][i], Vector3(-0.55 + i * 0.55, TABLE_Y, -1.35), false)
+		var back := _place("", Vector3(-0.55 + i * 0.55, TABLE_Y, -1.35), false)
 		back.name = "Rival%d" % i
 
 
@@ -422,7 +428,10 @@ func _place(label: String, spot: Vector3, face_up: bool) -> Card3D:
 	if not face_up:
 		card.rotation_degrees.z = 180
 	objects.add_child(card)
-	card.set_card_label(label)
+	if face_up:
+		card.set_card_label(label)
+	else:
+		card.set_concealed(true)
 	_table_cards.append(card)
 	return card
 
