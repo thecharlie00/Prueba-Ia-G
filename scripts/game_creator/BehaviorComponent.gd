@@ -15,7 +15,8 @@ extends RefCounted
 @export var enabled: Boolean = true
 
 # Referencia a la entidad propietaria (establecida por PropEntity al agregar).
-var owner: PropEntity = null
+# Tipado débil (Node) para evitar dependencia circular de class_name con PropEntity.
+var owner: Node = null
 
 func _init(p_component_id: String = "", p_display_name: String = ""):
 	component_id = p_component_id if p_component_id != "" else str(Time.get_ticks_msec())
