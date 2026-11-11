@@ -1,7 +1,9 @@
 class_name LudoRules
 extends RefCounted
 
-## Ludo local y, con variant = PARCHIS, las reglas del parchís español sobre el mismo tablero:
+## Ludo local (52 casillas) y, con variant = PARCHIS, el parchís español clásico de 68 casillas:
+## - tablero tradicional numerado del 1 al 68 (salidas en 5, 22, 39 y 56; 12 seguros, pasillo
+##   de 7 casillas de color y meta central);
 ## - se sale de casa con un 5 (obligatorio si se puede) y, al salir, se come al rival que esté
 ##   en la casilla de salida aunque sea seguro;
 ## - dos fichas en una casilla forman una barrera que nadie puede pasar; en los seguros pueden
@@ -18,6 +20,12 @@ const SAFE := [0, 8, 13, 21, 26, 34, 39, 47]
 const MAX_EVENTS := 10000
 const LUDO := "ludo"
 const PARCHIS := "parchis"
+const PARCHIS_TRACK := 68
+const PARCHIS_CORRIDOR := 64
+const PARCHIS_FINISH := 71
+## Casillas seguras clásicas del parchís español (0-indexadas: casillas 5, 12, 17, 22, 29, 34,
+## 39, 46, 51, 56, 63 y 68).
+const PARCHIS_SAFE := [4, 11, 16, 21, 28, 33, 38, 45, 50, 55, 62, 67]
 const PARCHIS_EXIT := 5
 const CAPTURE_BONUS := 20
 const HOME_BONUS := 10
@@ -50,6 +58,34 @@ static func track_square(player: int, progress: int) -> int:
 
 func is_parchis() -> bool:
 	return variant == PARCHIS
+
+
+func track_length() -> int:
+	return PARCHIS_TRACK if is_parchis() else 52
+
+
+func corridor_start() -> int:
+	return PARCHIS_CORRIDOR if is_parchis() else 52
+
+
+func finish_progress() -> int:
+	return PARCHIS_FINISH if is_parchis() else FINISH
+
+
+func player_house(player: int) -> int:
+	if is_parchis() and players == 2:
+		return 0 if player == 0 else 2
+	return player
+
+
+func player_square(player: int, progress: int) -> int:
+	if is_parchis():
+		return (4 + player_house(player) * 17 + progress) % PARCHIS_TRACK
+	return track_square(player, progress)
+
+
+func is_safe_square(square: int) -> bool:
+	return square in (PARCHIS_SAFE if is_parchis() else SAFE)
 
 
 ## Casillas que avanza la ficha ahora: el premio pendiente o el dado (en parchís, el 6 vale 7
@@ -92,38 +128,39 @@ func destination(token: int) -> int:
 ## Fichas en una casilla del recorrido común (sin contar la que se mueve).
 func tokens_on(square: int, skip_player := -1, skip_token := -1) -> Array[Vector2i]:
 	var found: Array[Vector2i] = []
+	var lane_start := corridor_start()
 	for player in range(players):
 		for other in range(4):
 			if player == skip_player and other == skip_token:
 				continue
 			var progress: int = positions[player][other]
-			if progress >= 0 and progress < 52 and track_square(player, progress) == square:
+			if progress >= 0 and progress < lane_start and player_square(player, progress) == square:
 				found.append(Vector2i(player, other))
 	return found
 
 
 func _parchis_destination(token: int) -> int:
 	var current: int = positions[turn][token]
-	if current == FINISH:
+	if current == PARCHIS_FINISH:
 		return -2
 	if current == YARD:
 		if bonus > 0 or die != PARCHIS_EXIT:
 			return -2
-		var exit := tokens_on(track_square(turn, 0), turn, token)
+		var exit := tokens_on(player_square(turn, 0), turn, token)
 		var own := exit.filter(func(item: Vector2i) -> bool: return item.x == turn).size()
 		# Dos fichas propias en la salida la cierran; un rival se come al salir.
 		if own >= 2:
 			return -2
 		return 0
 	var dest := current + steps()
-	if dest > FINISH:
+	if dest > PARCHIS_FINISH:
 		return -2
 	# Barreras: ninguna casilla del camino (ni la de llegada) puede tener ya dos fichas.
 	for progress in range(current + 1, dest + 1):
-		if progress < 52:
-			if tokens_on(track_square(turn, progress), turn, token).size() >= 2:
+		if progress < PARCHIS_CORRIDOR:
+			if tokens_on(player_square(turn, progress), turn, token).size() >= 2:
 				return -2
-		elif progress < FINISH:
+		elif progress < PARCHIS_FINISH:
 			var own_lane := 0
 			for other in range(4):
 				if other != token and positions[turn][other] == progress:
@@ -158,7 +195,7 @@ func apply_roll(value: int) -> bool:
 			# Tercer 6 seguido: la última ficha movida vuelve a casa y pasa el turno.
 			if last_moved >= 0:
 				var progress: int = positions[turn][last_moved]
-				if progress >= 0 and progress < 52:
+				if progress >= 0 and progress < PARCHIS_CORRIDOR:
 					positions[turn][last_moved] = YARD
 			die = 0
 			_pass_turn()
@@ -197,9 +234,9 @@ func move(token: int) -> bool:
 func _parchis_move(token: int, dest: int) -> bool:
 	var exiting: bool = positions[turn][token] == YARD
 	var gained := 0
-	if dest < 52:
-		var square := track_square(turn, dest)
-		if exiting or square not in SAFE:
+	if dest < PARCHIS_CORRIDOR:
+		var square := player_square(turn, dest)
+		if exiting or not is_safe_square(square):
 			for item in tokens_on(square, turn, token):
 				if item.x != turn:
 					positions[item.x][item.y] = YARD
@@ -208,9 +245,9 @@ func _parchis_move(token: int, dest: int) -> bool:
 	positions[turn][token] = dest
 	last_moved = token
 	events.append({"type": "move", "token": token})
-	if dest == FINISH:
+	if dest == PARCHIS_FINISH:
 		gained = HOME_BONUS
-	if positions[turn].count(FINISH) == 4:
+	if positions[turn].count(PARCHIS_FINISH) == 4:
 		winner = turn
 		phase = FINISHED
 		bonus = 0

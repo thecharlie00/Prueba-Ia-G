@@ -30,6 +30,7 @@ Gamepad="*res://scripts/ui/Gamepad.gd"
 PerfMeter="*res://scripts/ui/PerfMeter.gd"
 SmokeTest="*res://scripts/ui/SmokeTest.gd"
 Net="*res://scripts/net/NetManager.gd"
+GameCreatorCore="*res://scripts/game_creator/GameCreatorCore.gd"
 
 [display]
 
