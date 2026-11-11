@@ -506,6 +506,28 @@ func _build_catalog_entries(list: VBoxContainer) -> void:
 		"res://scenes/PhysicalDomino.tscn"
 	)
 
+	# Estudio de creación de juegos (Game Creator Studio).
+	var creator_grid := _family_section(
+		list,
+		"ESTUDIO DE CREACIÓN",
+		"Diseña, programa visualmente y publica tus propios juegos de mesa, tablero, cartas y arcade ligero.",
+		"sandbox",
+		"Herramienta de autor",
+		"creator",
+		1
+	)
+	_game_card(
+		creator_grid,
+		"GameCreator",
+		"Editor de juegos",
+		"Crea tableros, reglas visuales, barajas y dados sin código",
+		"Game Creator Studio",
+		"creator",
+		"res://scenes/game_creator/GameCreatorEditor.tscn",
+		true,
+		true
+	)
+
 
 func _build_settings_sidebar(parent: HBoxContainer) -> void:
 	var sidebar := MenuStyle.make_card_panel(
