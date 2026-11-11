@@ -32,6 +32,12 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if not _forced_active:
 		return
+	_step_forced_roll(delta)
+
+
+func _step_forced_roll(delta: float) -> void:
+	if not _forced_active:
+		return
 	_forced_elapsed += delta
 	var u := clampf(_forced_elapsed / maxf(_forced_duration, 0.05), 0.0, 1.0)
 	var pos := _forced_start_pos.lerp(_forced_rest_pos, u)

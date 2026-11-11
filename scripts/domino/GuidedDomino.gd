@@ -183,21 +183,32 @@ func sync_from_record(record: Dictionary) -> bool:
 	return true
 
 
+func _viewer_seat() -> int:
+	if online:
+		if _is_awaiting_sync():
+			return -1
+		var in_room := Engine.has_singleton("Fusion") and Fusion.is_in_room()
+		var seat := _local_seat() if in_room else maxi(0, _local_seat())
+		if seat < 0 or seat >= 2 or _online_bots[seat]:
+			return -1
+		return seat
+	if bot_enabled:
+		return 0
+	return rules.turn
+
+
 func _update_tile_privacy() -> void:
-	if not online:
-		return
 	var awaiting := _is_awaiting_sync()
-	var my_seat := clampi(_local_seat(), 0, 1)
-	var game_over := not awaiting and rules.result != DominoRules.PLAYING
+	var my_seat := _viewer_seat()
 	var hand0: Array = rules.hands[0]
 	var hand1: Array = rules.hands[1]
-	var my_hand: Array = rules.hands[my_seat]
+	var my_hand: Array = rules.hands[my_seat] if my_seat >= 0 and my_seat < 2 else []
 	for tile in tiles:
 		if not is_instance_valid(tile):
 			continue
 		var id: int = int(tile_ids[tile])
 		var in_chain: bool = not hand0.has(id) and not hand1.has(id) and not rules.stock.has(id)
-		var visible_pips: bool = not awaiting and (game_over or my_hand.has(id) or in_chain)
+		var visible_pips: bool = not awaiting and (my_hand.has(id) or in_chain)
 		var pips_node := tile.get_node_or_null("Visual/Pips") as Node3D
 		if pips_node != null:
 			pips_node.visible = visible_pips
@@ -290,17 +301,17 @@ func _physics_process(_delta: float) -> void:
 func _on_grab_started(object: InteractiveTableObject) -> void:
 	_dragged = object as Domino3D
 	_legal_ends.clear()
-	if online:
-		var grabbed_id := int(tile_ids.get(_dragged, -1)) if is_instance_valid(_dragged) else -1
-		var my_seat := _local_seat()
+	var grabbed_id := int(tile_ids.get(_dragged, -1)) if is_instance_valid(_dragged) else -1
+	if online or bot_enabled:
+		var my_seat := _viewer_seat()
 		var my_hand: Array = rules.hands[my_seat] if my_seat >= 0 and my_seat < 2 else []
 		if not is_local_turn() or not my_hand.has(grabbed_id):
 			grabber.call_deferred("_release", "cancelled")
 			_refresh_zones()
 			_help("Solo puedes jugar tus fichas cuando sea tu turno.")
 			return
-	if is_instance_valid(_dragged):
-		_legal_ends = rules.legal_ends(int(tile_ids.get(_dragged, -1)))
+	if is_instance_valid(_dragged) and rules.hands[rules.turn].has(grabbed_id):
+		_legal_ends = rules.legal_ends(grabbed_id)
 	_refresh_zones()
 	if _legal_ends.is_empty():
 		_help("Esa ficha no se puede jugar en este turno.")

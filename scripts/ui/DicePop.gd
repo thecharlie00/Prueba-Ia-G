@@ -59,6 +59,12 @@ func _ready() -> void:
 var text_value := 0
 
 
+func _exit_tree() -> void:
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	_tween = null
+
+
 func show_value(value: int, follow: Node3D, calm: bool) -> void:
 	anchor = follow
 	text_value = value
