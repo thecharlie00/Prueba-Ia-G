@@ -40,6 +40,7 @@ var waiting_roll := false
 var stable_time := 0.0
 var stuck_time := 0.0
 var nudges := 0
+var _roll_elapsed := 0.0
 var status: Label
 var help: Label
 var title_label: Label
@@ -233,6 +234,7 @@ func sync_from_rules() -> void:
 	if die != null and die.is_forced_rolling():
 		die.cancel_forced_roll()
 	waiting_roll = false
+	_roll_elapsed = 0.0
 	_awaiting_roll_ack = false
 	_roll_should_submit = true
 	_remote_roll_expected = 0
@@ -1016,6 +1018,7 @@ func _begin_roll() -> void:
 	stable_time = 0.0
 	stuck_time = 0.0
 	nudges = 0
+	_roll_elapsed = 0.0
 	_refresh()
 
 
@@ -1027,6 +1030,7 @@ func _reset_die() -> void:
 	if die != null and die.is_forced_rolling():
 		return
 	waiting_roll = false
+	_roll_elapsed = 0.0
 	die._awaiting_result = false
 	die.global_position = Vector3(2.66, 1.2, 0)
 	die.linear_velocity = Vector3.ZERO
