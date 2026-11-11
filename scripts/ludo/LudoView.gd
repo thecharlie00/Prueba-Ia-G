@@ -11,6 +11,25 @@ const DICE := preload("res://scenes/Dice3D.tscn")
 # Rojo, azul, amarillo y verde de la paleta (docs/ARTE.md); los textos usan estos nombres.
 const COLORS := [Palette.PLAYER_RED, Palette.PLAYER_BLUE, Palette.PLAYER_YELLOW, Palette.PLAYER_GREEN]
 const NAMES := ["rojo", "azul", "amarillo", "verde"]
+# Casas tradicionales del parchís español (salidas en 5, 22, 39 y 56).
+const PARCHIS_COLORS := [
+	Palette.PLAYER_YELLOW,
+	Palette.PLAYER_BLUE,
+	Palette.PLAYER_RED,
+	Palette.PLAYER_GREEN,
+]
+const PARCHIS_NAMES := ["amarillo", "azul", "rojo", "verde"]
+const PARCHIS_TWO_HOUSES := [0, 2, 1, 3]
+const PARCHIS_META_SLOTS := [
+	Vector2(-0.20, 0.40),
+	Vector2(0.0, 0.40),
+	Vector2(0.20, 0.40),
+	Vector2(0.0, 0.23),
+]
+const PARCHIS_COL_W := 0.34
+const PARCHIS_ROW_D := 0.19
+const PARCHIS_META_HALF := 0.51
+const PARCHIS_BOARD_SIZE := 4.24
 const CENTER := Vector3(-0.62, 0.83, 0)
 const TRACK_RADIUS := 1.37
 const MAX_SAVE_BYTES := 500000
@@ -269,6 +288,32 @@ func _apply_solo_bots() -> void:
 		set_bot(true, player)
 
 
+func _is_parchis_board() -> bool:
+	return (rules != null and rules.is_parchis()) or variant == LudoRules.PARCHIS
+
+
+func _player_house(player: int) -> int:
+	var p := clampi(player, 0, 3)
+	if not _is_parchis_board():
+		return p
+	var count := rules.players if rules != null else player_count
+	if count == 2:
+		return int(PARCHIS_TWO_HOUSES[p])
+	return p
+
+
+func _player_color(player: int) -> Color:
+	if _is_parchis_board():
+		return PARCHIS_COLORS[_player_house(player)]
+	return COLORS[clampi(player, 0, 3)]
+
+
+func _player_name(player: int) -> String:
+	if _is_parchis_board():
+		return PARCHIS_NAMES[_player_house(player)]
+	return NAMES[clampi(player, 0, 3)]
+
+
 func _make_seats() -> void:
 	var list := []
 	# Asientos fuera de la mesa física: el radio fijo anterior clavaba los personajes
@@ -286,7 +331,7 @@ func _make_seats() -> void:
 		list.append(
 			{
 				"name": "Jugador %d" % (player + 1),
-				"color": COLORS[player],
+				"color": _player_color(player),
 				"bot": bots[player],
 				"position": spot,
 				"look_at": Vector3(CENTER.x, -0.15, CENTER.z),
@@ -305,11 +350,12 @@ func _update_seats() -> void:
 	if seats == null:
 		return
 	seats.set_active(rules.turn if rules.phase != LudoRules.FINISHED else rules.winner)
+	var finish_goal := rules.finish_progress()
 	for player in range(rules.players):
 		var done := 0
 		var waiting := 0
 		for progress in rules.positions[player]:
-			if progress == LudoRules.FINISH:
+			if progress == finish_goal:
 				done += 1
 			elif progress == LudoRules.YARD:
 				waiting += 1
@@ -319,6 +365,9 @@ func _update_seats() -> void:
 
 
 func _make_board() -> void:
+	if _is_parchis_board():
+		_make_parchis_board()
+		return
 	var shape := $Board/CollisionShape3D.shape.duplicate() as BoxShape3D
 	shape.size = Vector3(4.9, 0.03, 4.25)
 	$Board/CollisionShape3D.shape = shape
@@ -353,6 +402,306 @@ func _make_board() -> void:
 		markers.append(marker)
 
 
+func _make_parchis_board() -> void:
+	var tiles_root: Node3D = $Board/Tiles
+	var shape := $Board/CollisionShape3D.shape.duplicate() as BoxShape3D
+	shape.size = Vector3(PARCHIS_BOARD_SIZE, 0.03, PARCHIS_BOARD_SIZE)
+	$Board/CollisionShape3D.shape = shape
+	$Board/CollisionShape3D.position.x = CENTER.x
+
+	# Marco exterior de madera barnizada y lecho de tinta para líneas de casillas.
+	var frame := MeshInstance3D.new()
+	frame.name = "BoardFrame"
+	frame.mesh = PieceKit.rounded_box_xyz(
+		Vector3(PARCHIS_BOARD_SIZE, 0.031, PARCHIS_BOARD_SIZE),
+		Vector3(0.055, 0.007, 0.055),
+		5
+	)
+	frame.position = Vector3(CENTER.x, 0.814, CENTER.z)
+	frame.material_override = BoardGeometry3D.make_material(Color("6d3b1e"))
+	tiles_root.add_child(frame)
+
+	var ink_mat := BoardGeometry3D.make_material(Palette.INK)
+	var cream_mat := BoardGeometry3D.make_material(Color("fbf4e2"))
+	var cream_soft_mat := BoardGeometry3D.make_material(Color("fffaf0"))
+	var safe_mat := BoardGeometry3D.make_material(Color("cfd8e6"))
+	var house_mats: Array[StandardMaterial3D] = []
+	var house_light_mats: Array[StandardMaterial3D] = []
+	var tri_mats: Array[StandardMaterial3D] = []
+	for h in range(4):
+		var hcol: Color = PARCHIS_COLORS[h]
+		house_mats.append(BoardGeometry3D.make_material(hcol))
+		house_light_mats.append(BoardGeometry3D.make_material(hcol.lightened(0.20)))
+		var tri_mat := BoardGeometry3D.make_material(hcol)
+		tri_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		tri_mats.append(tri_mat)
+
+	var ink_bed := MeshInstance3D.new()
+	ink_bed.name = "InkGridBed"
+	var ink_bed_mesh := BoxMesh.new()
+	ink_bed_mesh.size = Vector3(4.10, 0.002, 4.10)
+	ink_bed.mesh = ink_bed_mesh
+	ink_bed.position = Vector3(CENTER.x, 0.8302, CENTER.z)
+	ink_bed.material_override = ink_mat
+	tiles_root.add_child(ink_bed)
+
+	var cell_mesh_h := BoxMesh.new()
+	cell_mesh_h.size = Vector3(PARCHIS_COL_W - 0.015, 0.002, PARCHIS_ROW_D - 0.015)
+	var cell_mesh_v := BoxMesh.new()
+	cell_mesh_v.size = Vector3(PARCHIS_ROW_D - 0.015, 0.002, PARCHIS_COL_W - 0.015)
+
+	# 4 casas clásicas en las esquinas con medallón circular y los 4 nidos de fichas.
+	var house_span := 8.0 * PARCHIS_ROW_D - 0.018
+	var house_box := BoxMesh.new()
+	house_box.size = Vector3(house_span, 0.002, house_span)
+	var ring_outer_mesh := _thin_cylinder(0.565, 0.0015)
+	var ring_cream_mesh := _thin_cylinder(0.540, 0.0015)
+	var ring_color_mesh := _thin_cylinder(0.486, 0.0015)
+	var ring_core_mesh := _thin_cylinder(0.464, 0.0015)
+	var nest_ink_mesh := _thin_cylinder(0.096, 0.0015)
+	var nest_fill_mesh := _thin_cylinder(0.082, 0.0015)
+
+	for house in range(4):
+		var hcenter := _parchis_house_center(house)
+		_add_tile_mesh(
+			tiles_root,
+			house_box,
+			Vector3(hcenter.x, 0.8316, hcenter.z),
+			house_mats[house],
+			"House%d" % house
+		)
+		_add_tile_mesh(tiles_root, ring_outer_mesh, Vector3(hcenter.x, 0.8328, hcenter.z), ink_mat)
+		_add_tile_mesh(tiles_root, ring_cream_mesh, Vector3(hcenter.x, 0.8336, hcenter.z), cream_mat)
+		_add_tile_mesh(
+			tiles_root, ring_color_mesh, Vector3(hcenter.x, 0.8344, hcenter.z), house_mats[house]
+		)
+		_add_tile_mesh(
+			tiles_root, ring_core_mesh, Vector3(hcenter.x, 0.8352, hcenter.z), cream_soft_mat
+		)
+		for slot in range(4):
+			var npos := _parchis_yard_slot(house, slot)
+			_add_tile_mesh(
+				tiles_root, nest_ink_mesh, Vector3(npos.x, 0.8360, npos.z), ink_mat
+			)
+			_add_tile_mesh(
+				tiles_root,
+				nest_fill_mesh,
+				Vector3(npos.x, 0.8368, npos.z),
+				house_light_mats[house]
+			)
+
+	# 68 casillas numeradas del recorrido exterior, salidas de color y seguros clásicos.
+	var safe_ring_mesh := _thin_cylinder(0.052, 0.0015)
+	var safe_inner_mesh := _thin_cylinder(0.039, 0.0015)
+	var safe_dot_mesh := _thin_cylinder(0.017, 0.0015)
+
+	for sq in range(LudoRules.PARCHIS_TRACK):
+		var info := _parchis_square_info(sq)
+		var arm: int = int(info["arm"])
+		var pos: Vector3 = info["pos"]
+		var wide_axis: Vector3 = info["wide_axis"]
+		var cmesh := cell_mesh_h if (arm % 2 == 0) else cell_mesh_v
+		var tile_mat: StandardMaterial3D = cream_mat
+		var is_exit := (sq % 17 == 4)
+		var is_safe := sq in LudoRules.PARCHIS_SAFE
+		if is_exit:
+			tile_mat = house_mats[sq / 17]
+		elif is_safe:
+			tile_mat = safe_mat
+		_add_tile_mesh(
+			tiles_root,
+			cmesh,
+			Vector3(pos.x, 0.8316, pos.z),
+			tile_mat,
+			"Square%d" % (sq + 1)
+		)
+		if is_safe:
+			_add_tile_mesh(
+				tiles_root, safe_ring_mesh, Vector3(pos.x, 0.8330, pos.z), ink_mat
+			)
+			_add_tile_mesh(
+				tiles_root, safe_inner_mesh, Vector3(pos.x, 0.8338, pos.z), cream_soft_mat
+			)
+			var dot_mat: StandardMaterial3D = ink_mat
+			if is_exit:
+				dot_mat = house_mats[sq / 17]
+			elif sq % 17 == 16:
+				dot_mat = house_mats[((sq / 17) + 1) % 4]
+			_add_tile_mesh(
+				tiles_root, safe_dot_mesh, Vector3(pos.x, 0.8346, pos.z), dot_mat
+			)
+		var num_label := Label3D.new()
+		num_label.name = "Num%d" % (sq + 1)
+		num_label.text = str(sq + 1)
+		num_label.font_size = 32
+		num_label.pixel_size = 0.0013
+		num_label.outline_size = 0
+		num_label.modulate = Palette.INK
+		num_label.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
+		var lpos := pos - wide_axis * 0.114
+		num_label.position = Vector3(lpos.x, 0.8348, lpos.z)
+		tiles_root.add_child(num_label)
+
+	# 4 pasillos de color de 7 casillas hacia la meta central.
+	for house in range(4):
+		var cmesh := cell_mesh_h if (house % 2 == 0) else cell_mesh_v
+		for step in range(7):
+			var lpos := _parchis_corridor_pos(house, step)
+			_add_tile_mesh(
+				tiles_root,
+				cmesh,
+				Vector3(lpos.x, 0.8316, lpos.z),
+				house_mats[house],
+				"Lane%d_%d" % [house, step + 1]
+			)
+
+	# Meta central dividida en los 4 triángulos clásicos de color.
+	var meta_spot_mesh := _thin_cylinder(0.062, 0.0015)
+	for house in range(4):
+		var tri := MeshInstance3D.new()
+		tri.name = "MetaTriangle%d" % house
+		tri.mesh = _make_meta_triangle_mesh(house)
+		tri.position = Vector3(CENTER.x, 0.8318, CENTER.z)
+		tri.material_override = tri_mats[house]
+		tiles_root.add_child(tri)
+		for slot in range(4):
+			var fpos := _parchis_finish_slot(house, slot)
+			_add_tile_mesh(
+				tiles_root,
+				meta_spot_mesh,
+				Vector3(fpos.x, 0.8330, fpos.z),
+				house_light_mats[house]
+			)
+	_add_tile_mesh(
+		tiles_root, _thin_cylinder(0.046, 0.0015), Vector3(CENTER.x, 0.8336, CENTER.z), ink_mat
+	)
+	_add_tile_mesh(
+		tiles_root,
+		_thin_cylinder(0.030, 0.0015),
+		Vector3(CENTER.x, 0.8344, CENTER.z),
+		cream_soft_mat
+	)
+
+	# Marcas verdes de destino legal.
+	for player in range(4):
+		var marker := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = 0.088
+		mesh.bottom_radius = 0.088
+		mesh.height = 0.008
+		marker.mesh = mesh
+		marker.material_override = BoardGeometry3D.make_material(Color("6ef5a8"))
+		tiles_root.add_child(marker)
+		marker.visible = false
+		markers.append(marker)
+
+
+static func _thin_cylinder(radius: float, height: float) -> CylinderMesh:
+	var mesh := CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = height
+	mesh.radial_segments = 28
+	return mesh
+
+
+static func _add_tile_mesh(
+	parent: Node3D,
+	mesh: Mesh,
+	pos: Vector3,
+	mat: Material,
+	node_name: String = ""
+) -> MeshInstance3D:
+	var visual := MeshInstance3D.new()
+	if not node_name.is_empty():
+		visual.name = node_name
+	visual.mesh = mesh
+	visual.position = pos
+	visual.material_override = mat
+	parent.add_child(visual)
+	return visual
+
+
+static func _make_meta_triangle_mesh(house: int) -> ArrayMesh:
+	var edge := PARCHIS_META_HALF - 0.008
+	var diag_gap := 0.011
+	var half_base := edge - diag_gap
+	var v0 := _parchis_arm_vec(house, -half_base, edge)
+	var v1 := _parchis_arm_vec(house, 0.0, diag_gap)
+	var v2 := _parchis_arm_vec(house, half_base, edge)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_normal(Vector3.UP)
+	st.add_vertex(v0)
+	st.set_normal(Vector3.UP)
+	st.add_vertex(v1)
+	st.set_normal(Vector3.UP)
+	st.add_vertex(v2)
+	return st.commit()
+
+
+static func _parchis_arm_vec(arm: int, lx: float, lz: float) -> Vector3:
+	match posmod(arm, 4):
+		0:
+			return Vector3(lx, 0.0, lz)
+		1:
+			return Vector3(lz, 0.0, -lx)
+		2:
+			return Vector3(-lx, 0.0, -lz)
+		_:
+			return Vector3(-lz, 0.0, lx)
+
+
+static func _parchis_square_info(square: int) -> Dictionary:
+	var sq := posmod(square, LudoRules.PARCHIS_TRACK)
+	var block := sq / 17
+	var k := sq % 17
+	var arm := block
+	var lx := 0.0
+	var row := 7
+	if k < 8:
+		arm = block
+		lx = PARCHIS_COL_W
+		row = 7 - k
+	elif k < 16:
+		arm = (block + 1) % 4
+		lx = -PARCHIS_COL_W
+		row = k - 8
+	else:
+		arm = (block + 1) % 4
+		lx = 0.0
+		row = 7
+	var lz := PARCHIS_META_HALF + (float(row) + 0.5) * PARCHIS_ROW_D
+	return {
+		"arm": arm,
+		"lx": lx,
+		"lz": lz,
+		"pos": CENTER + _parchis_arm_vec(arm, lx, lz),
+		"wide_axis": _parchis_arm_vec(arm, 1.0, 0.0),
+	}
+
+
+static func _parchis_house_center(house: int) -> Vector3:
+	var offset := PARCHIS_META_HALF + 4.0 * PARCHIS_ROW_D
+	return CENTER + _parchis_arm_vec(house, offset, offset)
+
+
+static func _parchis_yard_slot(house: int, token: int) -> Vector3:
+	var hcenter := _parchis_house_center(house)
+	return hcenter + Vector3((float(token % 2) - 0.5) * 0.42, 0.0, (float(token / 2) - 0.5) * 0.42)
+
+
+static func _parchis_corridor_pos(house: int, step: int) -> Vector3:
+	var row := 6 - clampi(step, 0, 6)
+	var lz := PARCHIS_META_HALF + (float(row) + 0.5) * PARCHIS_ROW_D
+	return CENTER + _parchis_arm_vec(house, 0.0, lz)
+
+
+static func _parchis_finish_slot(house: int, token: int) -> Vector3:
+	var slot: Vector2 = PARCHIS_META_SLOTS[clampi(token, 0, 3)]
+	return CENTER + _parchis_arm_vec(house, slot.x, slot.y)
+
+
 func _disc(position: Vector3, radius: float, color: Color) -> void:
 	var visual := MeshInstance3D.new()
 	var mesh := CylinderMesh.new()
@@ -366,23 +715,32 @@ func _disc(position: Vector3, radius: float, color: Color) -> void:
 
 
 func _track_position(square: int) -> Vector3:
+	if _is_parchis_board():
+		var info := _parchis_square_info(square)
+		return info["pos"] as Vector3
 	var angle := TAU * float(square) / 52.0 - PI / 2.0
 	return CENTER + Vector3(cos(angle) * TRACK_RADIUS, 0, sin(angle) * TRACK_RADIUS)
 
 
 func _lane_position(player: int, progress: int) -> Vector3:
+	if _is_parchis_board():
+		return _parchis_corridor_pos(_player_house(player), progress - LudoRules.PARCHIS_CORRIDOR)
 	var angle := TAU * float(player * 13 - 1) / 52.0 - PI / 2.0
 	var radius := 1.14 - float(progress - 52) * 0.19
 	return CENTER + Vector3(cos(angle) * radius, 0, sin(angle) * radius)
 
 
 func _yard_position(player: int, token: int) -> Vector3:
+	if _is_parchis_board():
+		return _parchis_yard_slot(_player_house(player), token)
 	var angle := TAU * float(player) / 4.0 - PI / 2.0
 	var base := CENTER + Vector3(cos(angle) * 1.79, 0, sin(angle) * 1.79)
 	return base + Vector3((token % 2 - 0.5) * 0.19, 0, (token / 2 - 0.5) * 0.19)
 
 
 func _finished_position(player: int, token: int) -> Vector3:
+	if _is_parchis_board():
+		return _parchis_finish_slot(_player_house(player), token)
 	var angle := TAU * float(player) / 4.0 - PI / 2.0
 	return _yard_position(player, token) + Vector3(-sin(angle), 0, cos(angle)) * 0.45
 
@@ -390,21 +748,25 @@ func _finished_position(player: int, token: int) -> Vector3:
 func _token_position(player: int, token: int, progress: int) -> Vector3:
 	if progress == LudoRules.YARD:
 		return _yard_position(player, token)
-	if progress == LudoRules.FINISH:
+	var finish_goal := rules.finish_progress() if rules != null else LudoRules.FINISH
+	if progress == finish_goal:
 		return _finished_position(player, token)
-	if progress >= 52:
+	var lane_start := rules.corridor_start() if rules != null else 52
+	if progress >= lane_start:
 		return _lane_position(player, progress) + _share_offset(player, token, progress)
-	return _track_position(LudoRules.track_square(player, progress)) + _share_offset(player, token, progress)
+	var sq := rules.player_square(player, progress) if rules != null else LudoRules.track_square(player, progress)
+	return _track_position(sq) + _share_offset(player, token, progress)
 
 
-# Parchís: dos fichas en la misma casilla (barrera o seguro compartido) se ponen una hacia
-# dentro y otra hacia fuera del anillo; a lo largo del recorrido chocarían con las vecinas.
+# Parchís: dos fichas en la misma casilla (barrera o seguro compartido) se colocan una al lado
+# de la otra a lo ancho de la casilla rectangular sin invadir las casillas vecinas.
 func _share_offset(player: int, token: int, progress: int) -> Vector3:
 	if rules == null or not rules.is_parchis():
 		return Vector3.ZERO
 	var mates: Array[Vector2i] = []
-	if progress < 52:
-		mates = rules.tokens_on(LudoRules.track_square(player, progress))
+	var lane_start := rules.corridor_start()
+	if progress < lane_start:
+		mates = rules.tokens_on(rules.player_square(player, progress))
 	else:
 		for other in range(4):
 			if rules.positions[player][other] == progress:
@@ -414,50 +776,65 @@ func _share_offset(player: int, token: int, progress: int) -> Vector3:
 	if mates.size() < 2:
 		return Vector3.ZERO
 	mates.sort()
-	var here := _track_position(LudoRules.track_square(player, progress)) if progress < 52 else _lane_position(player, progress)
-	var outward := Vector3(here.x - CENTER.x, 0, here.z - CENTER.z).normalized()
-	if progress >= 52:
-		# En el pasillo de meta, de lado (las casillas del pasillo van hacia el centro).
-		outward = Vector3(-outward.z, 0, outward.x)
+	var here: Vector3
+	var wide_axis: Vector3
+	if progress < lane_start:
+		var info := _parchis_square_info(rules.player_square(player, progress))
+		here = info["pos"] as Vector3
+		wide_axis = info["wide_axis"] as Vector3
+	else:
+		var house := _player_house(player)
+		here = _lane_position(player, progress)
+		wide_axis = _parchis_arm_vec(house, 1.0, 0.0)
 	# Cada ficha va al lado en el que ya está: con un orden fijo, dos fichas cruzadas se
 	# empujarían una contra otra sin poder pasar.
 	var other: Vector2i = mates[1] if mates[0] == Vector2i(player, token) else mates[0]
-	var mine := _side_value(player, token, outward)
-	var theirs := _side_value(other.x, other.y, outward)
+	var mine := _side_value(player, token, here, wide_axis)
+	var theirs := _side_value(other.x, other.y, here, wide_axis)
 	var side := 1.0 if mine > theirs or (is_equal_approx(mine, theirs) and mates.find(Vector2i(player, token)) == 1) else -1.0
-	return outward * side * 0.08
+	return wide_axis * side * 0.082
 
 
-func _side_value(player: int, token: int, axis: Vector3) -> float:
+func _side_value(player: int, token: int, origin: Vector3, axis: Vector3) -> float:
 	if player >= tokens.size() or token >= tokens[player].size():
 		return 0.0
 	var body: Token3D = tokens[player][token]
-	return snappedf(Vector3(body.global_position.x - CENTER.x, 0, body.global_position.z - CENTER.z).dot(axis), 0.01)
+	return snappedf(
+		Vector3(body.global_position.x - origin.x, 0.0, body.global_position.z - origin.z).dot(axis),
+		0.01
+	)
 
 
 func _make_tokens() -> void:
+	var parchis := _is_parchis_board()
+	var visual_scale := 0.32 if parchis else 0.4
+	var col_radius := 0.064 if parchis else 0.08
+	var col_height := 0.044 if parchis else 0.048
 	for player in range(4):
 		var pieces: Array[Token3D] = []
 		for index in range(4):
 			var token := TOKEN.instantiate() as Token3D
-			token.piece_color = COLORS[player]
+			token.piece_color = _player_color(player)
 			token.display_name = "J%d · ficha %d" % [player + 1, index + 1]
 			token.position = _yard_position(player, index) + Vector3.UP * 0.1
 			token.mass = 0.05
-			(token.get_node("Visual") as MeshInstance3D).scale = Vector3.ONE * 0.4
+			(token.get_node("Visual") as MeshInstance3D).scale = Vector3.ONE * visual_scale
 			var collision := token.get_node("CollisionShape3D") as CollisionShape3D
 			var shape := collision.shape.duplicate() as CylinderShape3D
-			shape.radius = 0.08
-			shape.height = 0.048
+			shape.radius = col_radius
+			shape.height = col_height
 			collision.shape = shape
 			objects.add_child(token)
 			var label := Label3D.new()
 			label.text = str(index + 1)
-			label.font_size = 52
+			label.font_size = 46 if parchis else 52
 			label.pixel_size = 0.002
 			label.rotation_degrees.x = -90
-			label.position.y = 0.038
-			label.modulate = Color("13291f")
+			label.position.y = 0.033 if parchis else 0.038
+			label.modulate = Palette.INK if parchis else Color("13291f")
+			if parchis:
+				label.outline_size = 5
+				label.outline_modulate = Palette.PAPER
 			token.add_child(label)
 			pieces.append(token)
 		tokens.append(pieces)
@@ -555,15 +932,15 @@ func _make_ui() -> void:
 		var toggle := CheckBox.new()
 		toggle.name = "Bot%d" % (player + 1)
 		toggle.text = "J%d" % (player + 1)
-		toggle.add_theme_color_override("font_color", COLORS[player].lightened(0.3))
+		toggle.add_theme_color_override("font_color", _player_color(player).lightened(0.3))
 		toggle.toggled.connect(set_bot.bind(player))
 		bot_row.add_child(toggle)
 		bot_toggles.append(toggle)
 	var explanation := _label(
 		column,
 		(
-			"Salida con 5 (obligatoria) · el 6 da otra tirada y vale 7 sin fichas en casa.\n"
-			+ "Dos fichas forman barrera: nadie pasa. En los seguros no se come.\n"
+			"Tablero clásico de 68 casillas · salida obligatoria con 5 · el 6 repite (7 sin fichas en casa).\n"
+			+ "Dos fichas forman barrera: nadie pasa. En los 12 seguros no se come.\n"
 			+ "Comer: 20 de premio · llegar a meta: 10 · el tercer 6 manda a casa la última ficha movida."
 		)
 		if rules.is_parchis()
@@ -697,12 +1074,12 @@ func _refresh() -> void:
 			"Parchís" if rules.is_parchis() else "Ludo",
 			rules.players,
 			shown_turn + 1,
-			NAMES[clampi(shown_turn, 0, NAMES.size() - 1)],
+			_player_name(shown_turn),
 			" · bot" if (shown_turn >= 0 and shown_turn < bots.size() and bots[shown_turn]) else "",
 		]
 	)
 	if rules.phase == LudoRules.FINISHED and not waiting_roll:
-		status.text = "¡Gana J%d (%s)!" % [rules.winner + 1, NAMES[rules.winner]]
+		status.text = "¡Gana J%d (%s)!" % [rules.winner + 1, _player_name(rules.winner)]
 	elif waiting_roll or _awaiting_roll_ack:
 		status.text += " · 🎲 tirando el dado…"
 	elif rules.phase == LudoRules.MOVE and rules.bonus > 0:
@@ -731,17 +1108,18 @@ func _refresh() -> void:
 	var legal: Array[int] = []
 	if not waiting_roll:
 		legal = rules.legal_tokens()
+	var marker_y := 0.014 if _is_parchis_board() else 0.035
 	for index in range(4):
 		token_buttons[index].disabled = (index not in legal) or not can_act or waiting_roll
 		markers[index].visible = (index in legal) and can_act and not waiting_roll
 		if index in legal and not waiting_roll:
 			markers[index].position = (
-				_token_position(rules.turn, index, rules.destination(index)) + Vector3.UP * 0.035
+				_token_position(rules.turn, index, rules.destination(index)) + Vector3.UP * marker_y
 			)
 	if waiting_roll:
 		help.text = "El dado está rodando; espera a ver el resultado."
 	elif not can_act and rules.phase != LudoRules.FINISHED:
-		help.text = "Esperando el turno de J%d (%s)…" % [rules.turn + 1, NAMES[rules.turn]]
+		help.text = "Esperando el turno de J%d (%s)…" % [rules.turn + 1, _player_name(rules.turn)]
 	elif rules.phase == LudoRules.ROLL:
 		help.text = "Lanza o arrastra y suelta el dado."
 	elif rules.phase == LudoRules.MOVE and rules.bonus > 0:
@@ -759,7 +1137,7 @@ func _update_dice_banner() -> void:
 		var roller := _remote_roll_seat if _remote_roll_seat >= 0 else rules.turn
 		dice_banner_label.text = "🎲 J%d (%s) tirando el dado…" % [
 			roller + 1,
-			NAMES[clampi(roller, 0, NAMES.size() - 1)],
+			_player_name(roller),
 		]
 		dice_banner.visible = true
 		return
@@ -768,7 +1146,7 @@ func _update_dice_banner() -> void:
 		var seat := _last_roll_seat if _last_roll_seat >= 0 else rules.turn
 		dice_banner_label.text = "🎲 J%d (%s) sacó %d" % [
 			seat + 1,
-			NAMES[clampi(seat, 0, NAMES.size() - 1)],
+			_player_name(seat),
 			val,
 		]
 		dice_banner.visible = true

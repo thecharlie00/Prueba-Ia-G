@@ -57,16 +57,19 @@ static func ludo_choice(rules: LudoRules, level: Difficulty = Difficulty.NORMAL)
 static func _ludo_score(rules: LudoRules, token: int, level: Difficulty) -> float:
 	var current: int = rules.positions[rules.turn][token]
 	var dest := rules.destination(token)
+	var lane_start := rules.corridor_start()
+	var total_track := rules.track_length()
 	var score := float(dest) * 0.1
-	if dest == LudoRules.FINISH:
+	if dest == rules.finish_progress():
 		score += 100.0
-	elif dest >= 52:
+	elif dest >= lane_start:
 		score += 40.0  # Pasillo de meta: ya nadie la puede comer.
 	if current == LudoRules.YARD:
 		score += 30.0
-	if dest >= 0 and dest < 52:
-		var square := LudoRules.track_square(rules.turn, dest)
-		if square in LudoRules.SAFE:
+	if dest >= 0 and dest < lane_start:
+		var square := rules.player_square(rules.turn, dest)
+		var safe := rules.is_safe_square(square)
+		if safe:
 			score += 15.0
 		if level == Difficulty.DIFICIL:
 			# Barrera: otra ficha propia en la casilla de destino.
@@ -74,7 +77,7 @@ static func _ludo_score(rules: LudoRules, token: int, level: Difficulty) -> floa
 				if other == token:
 					continue
 				var mate: int = rules.positions[rules.turn][other]
-				if mate >= 0 and mate < 52 and LudoRules.track_square(rules.turn, mate) == square:
+				if mate >= 0 and mate < lane_start and rules.player_square(rules.turn, mate) == square:
 					score += 15.0
 					break
 		for player in rules.players:
@@ -82,18 +85,18 @@ static func _ludo_score(rules: LudoRules, token: int, level: Difficulty) -> floa
 				continue
 			for other in 4:
 				var progress: int = rules.positions[player][other]
-				if progress >= 0 and progress < 52:
-					var theirs := LudoRules.track_square(player, progress)
-					if theirs == square and square not in LudoRules.SAFE:
+				if progress >= 0 and progress < lane_start:
+					var theirs := rules.player_square(player, progress)
+					if theirs == square and not safe:
 						score += 60.0  # Comer.
 					# Riesgo: un rival justo detrás (a 1–6 casillas) puede comerla.
-					var gap := posmod(square - theirs, 52)
-					if gap >= 1 and gap <= 6 and square not in LudoRules.SAFE:
+					var gap := posmod(square - theirs, total_track)
+					if gap >= 1 and gap <= 6 and not safe:
 						score -= 25.0 if level == Difficulty.DIFICIL else 8.0
 	# Sacar del peligro una ficha que estaba expuesta también suma.
-	if current >= 0 and current < 52:
-		var here := LudoRules.track_square(rules.turn, current)
-		if here not in LudoRules.SAFE:
+	if current >= 0 and current < lane_start:
+		var here := rules.player_square(rules.turn, current)
+		if not rules.is_safe_square(here):
 			score += 3.0
 	return score
 
