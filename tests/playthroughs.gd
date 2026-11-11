@@ -223,7 +223,11 @@ func _parchis() -> void:
 			for player in view.rules.players:
 				for token in 4:
 					var progress: int = view.rules.positions[player][token]
-					if progress >= 0 and progress < 52 and view.rules.tokens_on(LudoRules.track_square(player, progress)).size() == 2:
+					if (
+						progress >= 0
+						and progress < view.rules.corridor_start()
+						and view.rules.tokens_on(view.rules.player_square(player, progress)).size() == 2
+					):
 						barriers += 1
 			var guard := 0
 			while not view.in_transit.is_empty() and guard < 240:
