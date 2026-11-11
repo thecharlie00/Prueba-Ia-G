@@ -2,13 +2,9 @@
 # Orquestador principal del estado de edición y ejecución en caliente.
 # Gestiona el ciclo Build <-> Playtest, el motor de reglas y la carga de mods.
 # Debe registrarse como Autoload en project.godot para estar accesible globalmente.
-class_name GameCreatorCore
 extends Node
 
 enum EditorState { BUILD, PLAYTEST }
-
-# Instancia singleton (autoload).
-@export var core: GameCreatorCore = null  # se asigna en _ready
 
 # Estado actual del editor.
 @export var current_state: EditorState = EditorState.BUILD
@@ -26,7 +22,6 @@ signal mod_loaded(mod_id: String)
 signal mod_unloaded()
 
 func _ready() -> void:
-	core = self
 	# Buscar el motor de reglas y exportador en el árbol si existen.
 	rule_engine = get_node_or_null("%RuleEngine")
 	mod_exporter = get_node_or_null("%ModBundleExporter")
@@ -59,11 +54,11 @@ func toggle_mode() -> void:
 # Carga un mod por su ID (descarga y monta la escena).
 func load_mod(mod_id: String) -> void:
 	if mod_exporter == null:
-		print_err("[GameCreatorCore] ModBundleExporter no disponible")
+		push_error("[GameCreatorCore] ModBundleExporter no disponible")
 		return
 	var result: Dictionary = mod_exporter.download_and_extract(mod_id)
 	if not result.has("success") or not result["success"]:
-		print_err("[GameCreatorCore] No se pudo cargar el mod: ", mod_id)
+		push_error("[GameCreatorCore] No se pudo cargar el mod: ", mod_id)
 		return
 	active_mod_id = mod_id
 	var scene_path: String = result.get("scene_path", "")
