@@ -52,17 +52,17 @@ func remove_component(component: BehaviorComponent) -> void:
 	component_removed.emit(component)
 
 # Obtiene el primer componente del tipo dado (por nombre de clase).
-func get_component(class_name: String) -> BehaviorComponent:
+func get_component(p_component_class: String) -> BehaviorComponent:
 	for comp in components:
-		if comp.get_class() == class_name:
+		if comp.get_class() == p_component_class:
 			return comp
 	return null
 
 # Obtiene todos los componentes de una clase dada.
-func get_components(class_name: String) -> Array[BehaviorComponent]:
+func get_components(p_component_class: String) -> Array[BehaviorComponent]:
 	var result: Array[BehaviorComponent] = []
 	for comp in components:
-		if comp.get_class() == class_name:
+		if comp.get_class() == p_component_class:
 			result.append(comp)
 	return result
 
@@ -101,8 +101,8 @@ func deserialize(data: Dictionary) -> void:
 			add_component(comp)
 
 # Instancia un BehaviorComponent por su nombre de clase.
-func _instantiate_component(class_name: String) -> BehaviorComponent:
-	match class_name:
+func _instantiate_component(p_component_class: String) -> BehaviorComponent:
+	match p_component_class:
 		"PhysicsComponent": return PhysicsComponent.new()
 		"ContainerComponent": return ContainerComponent.new()
 		"InteractiveComponent": return InteractiveComponent.new()

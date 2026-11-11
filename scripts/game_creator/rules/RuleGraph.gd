@@ -63,8 +63,8 @@ func from_dict(data: Dictionary) -> void:
 		connections.append(conn)
 
 # Instancia un nodo por su nombre de clase.
-func _instantiate_node(class_name: String) -> RuleNode:
-	match class_name:
+func _instantiate_node(p_node_class: String) -> RuleNode:
+	match p_node_class:
 		"RuleEventNode": return RuleEventNode.new()
 		"RuleActionNode": return RuleActionNode.new()
 		"RuleConditionNode": return RuleConditionNode.new()
