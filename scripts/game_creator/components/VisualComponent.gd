@@ -1,6 +1,5 @@
 # VisualComponent.gd
 # Apariencia 3D de una entidad: malla, material, escala y tinte de color.
-class_name VisualComponent
 extends BehaviorComponent
 
 @export var mesh_path: String = ""
@@ -28,6 +27,7 @@ func _deserialize_extra(data: Dictionary) -> void:
 
 # Carga e instancia la malla asignada a mesh_node.
 func load_mesh() -> void:
+class_name VisualComponent
 	if mesh_path == "":
 		return
 	var scene: PackedScene = load(mesh_path)

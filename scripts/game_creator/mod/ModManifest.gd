@@ -1,7 +1,7 @@
 # ModManifest.gd
 # Metadatos para exportación e importación de creaciones de la comunidad (.gmod).
-class_name ModManifest
 extends Resource
+class_name ModManifest
 
 @export var mod_id: String = ""
 @export var name: String = ""

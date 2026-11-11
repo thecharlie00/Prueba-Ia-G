@@ -1,7 +1,6 @@
 # ContainerComponent.gd
 # Zona lógica que alberga entidades: mano del jugador, mazo, descarte, caja de suministros.
 # Define visibilidad (frente arriba/abajo) y capacidad.
-class_name ContainerComponent
 extends BehaviorComponent
 
 enum ContainerType { HAND, DECK, DISCARD, SUPPLY, ZONE }
@@ -36,6 +35,7 @@ func _deserialize_extra(data: Dictionary) -> void:
 
 # Calcula la posición de un slot dentro del contenedor según su índice.
 func get_slot_position(index: int, total: int) -> Vector3:
+class_name ContainerComponent
 	if zone_node == null:
 		return Vector3.ZERO
 	match container_type:

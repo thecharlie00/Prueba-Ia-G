@@ -1,7 +1,6 @@
 # NetworkedPropComponent.gd
 # Vincula automáticamente una PropEntity con Photon Fusion para replicar
 # posición, rotación y autoridad de estado en tiempo real.
-class_name NetworkedPropComponent
 extends BehaviorComponent
 
 @export var networked: Boolean = true
@@ -47,6 +46,7 @@ func has_transform_changed(entity: PropEntity) -> Boolean:
 
 # Actualiza los valores de referencia tras un envío de red.
 func snapshot_transform(entity: PropEntity) -> void:
+class_name NetworkedPropComponent
 	_last_position = entity.global_position
 	_last_rotation = entity.global_rotation
 	_last_scale = entity.global_scale

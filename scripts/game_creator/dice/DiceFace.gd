@@ -1,7 +1,7 @@
 # DiceFace.gd
 # Cara de un dado personalizado.
-class_name DiceFace
 extends Resource
+class_name DiceFace
 
 @export var value: int = 1
 @export var text: String = ""

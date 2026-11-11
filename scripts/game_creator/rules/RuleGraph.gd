@@ -1,6 +1,5 @@
 # RuleGraph.gd
 # Contenedor de nodos de reglas y conexiones entre ellos.
-class_name RuleGraph
 extends Resource
 
 @export var graph_name: String = "Grafo de Reglas"
@@ -64,6 +63,7 @@ func from_dict(data: Dictionary) -> void:
 
 # Instancia un nodo por su nombre de clase.
 func _instantiate_node(p_node_class: String) -> RuleNode:
+class_name RuleGraph
 	match p_node_class:
 		"RuleEventNode": return RuleEventNode.new()
 		"RuleActionNode": return RuleActionNode.new()

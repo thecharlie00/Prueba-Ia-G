@@ -1,7 +1,6 @@
 # HUDEditor.gd
 # Constructor de HUDs in-game con arrastrar y soltar de elementos Canvas.
 # Vincula elementos de UI con variables del RuleEngine (Módulo 4).
-class_name HUDEditor
 extends Control
 
 @export var ui_screen_name: String = "HUD Principal"
@@ -22,6 +21,7 @@ func add_element(element: Control) -> void:
 
 # Vincula una propiedad de un elemento de UI a una variable del RuleEngine.
 func bind_element_to_variable(element: Control, property_name: String, variable_name: String, player_id: int = -1) -> void:
+class_name HUDEditor
 	# Placeholder: en una implementación completa se conectaría al
 	# GameCreatorCore.core.rule_engine para escuchar cambios de variable.
 	print("[HUDEditor] Vinculando ", element.name, ".", property_name, " -> ", variable_name)

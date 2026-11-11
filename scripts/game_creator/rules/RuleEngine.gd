@@ -2,7 +2,6 @@
 # Intérprete del grafo de lógica visual. Ejecuta nodos de forma segura,
 # gestiona variables globales y por jugador, y expone señales para conectar
 # eventos del juego (turno, carta jugada, dado, ficha movida, zona, etc.).
-class_name RuleEngine
 extends Node
 
 # Grafo de reglas actualmente cargado.
@@ -106,6 +105,7 @@ func _action_modify_score(player_id: int, delta: float) -> void:
 
 # Finalizar turno actual.
 func _action_end_turn(current_player: int, total_players: int) -> void:
+class_name RuleEngine
 	var next_player: int = (current_player + 1) % total_players
 	set_global_variable("current_turn", next_player)
 	trigger_event("OnTurnStarted", [next_player])

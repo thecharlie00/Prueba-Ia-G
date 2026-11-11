@@ -72,6 +72,7 @@ func load_mod(mod_id: String) -> void:
 
 # Descarga el mod activo y vuelve a edición vacía.
 func unload_mod() -> void:
+
 	if active_mod_id != "":
 		# Remover hijos del mod (excepto nodos del editor core).
 		for child in get_children():

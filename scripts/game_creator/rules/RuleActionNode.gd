@@ -1,7 +1,7 @@
 # RuleActionNode.gd
 # Nodo de acción: realiza una operación (mover objeto, cambiar puntuación, etc.).
-class_name RuleActionNode
 extends RuleNode
+class_name RuleActionNode
 
 @export var action_name: String = "Acción"
 

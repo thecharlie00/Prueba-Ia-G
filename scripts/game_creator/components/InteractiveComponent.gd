@@ -1,6 +1,5 @@
 # InteractiveComponent.gd
 # Permite hacer clic, arrastrar, rotar en el aire, voltear (flip) e inspeccionar en primer plano.
-class_name InteractiveComponent
 extends BehaviorComponent
 
 @export var clickable: Boolean = true
@@ -43,6 +42,7 @@ func flip() -> void:
 
 # Aplica snap a rejilla a una posición.
 func snap_to_grid(position: Vector3) -> Vector3:
+class_name InteractiveComponent
 	if not drag_snap_to_grid or grid_size <= 0:
 		return position
 	return Vector3(

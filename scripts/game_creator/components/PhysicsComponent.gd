@@ -1,6 +1,5 @@
 # PhysicsComponent.gd
 # Componente de físicas para objetos colocables (fichas, dados, cartas, miniaturas).
-class_name PhysicsComponent
 extends BehaviorComponent
 
 @export var mass: float = 1.0
@@ -37,6 +36,7 @@ func _deserialize_extra(data: Dictionary) -> void:
 
 # Aplica la configuración a un RigidBody3D existente.
 func apply_to_body(body: RigidBody3D) -> void:
+class_name PhysicsComponent
 	body_node = body
 	body.mass = mass
 	body.friction = friction

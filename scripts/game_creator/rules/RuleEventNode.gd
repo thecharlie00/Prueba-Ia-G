@@ -1,7 +1,7 @@
 # RuleEventNode.gd
 # Nodo de evento (trigger): punto de entrada del grafo.
-class_name RuleEventNode
 extends RuleNode
+class_name RuleEventNode
 
 @export var event_name: String = ""
 

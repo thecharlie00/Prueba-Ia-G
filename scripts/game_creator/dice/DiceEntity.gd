@@ -1,6 +1,5 @@
 # DiceEntity.gd
 # Dado físico basado en RigidBody3D con detección de cara arriba y autoridad de azar.
-class_name DiceEntity
 extends RigidBody3D
 
 @export var dice_definition: DiceDefinition = null
@@ -31,6 +30,7 @@ func _physics_process(delta: float) -> void:
 
 # Detecta qué cara queda hacia arriba comparando normales.
 func _detect_face_up() -> int:
+class_name DiceEntity
 	if dice_definition == null or dice_definition.faces.size() == 0:
 		return 0
 	var up: Vector3 = Vector3.UP

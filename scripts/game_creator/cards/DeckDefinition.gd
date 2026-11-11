@@ -1,6 +1,5 @@
 # DeckDefinition.gd
 # Definición de un mazo: lista de cartas con sus cantidades.
-class_name DeckDefinition
 extends Resource
 
 @export var deck_id: String = ""
@@ -14,6 +13,7 @@ func _init(p_deck_id: String = "", p_deck_name: String = ""):
 
 # Devuelve el total de cartas en el mazo (sumando cantidades).
 func total_cards() -> int:
+class_name DeckDefinition
 	var total: int = 0
 	for entry in cards:
 		total += entry.get("quantity", 1)

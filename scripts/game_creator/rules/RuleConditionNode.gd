@@ -1,7 +1,7 @@
 # RuleConditionNode.gd
 # Nodo condicional: evalúa una expresión booleana y ramifica el grafo.
-class_name RuleConditionNode
 extends RuleNode
+class_name RuleConditionNode
 
 @export var condition_expression: String = "true"
 

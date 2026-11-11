@@ -2,7 +2,6 @@
 # Entidad base colocable en el tablero. Es un Node3D vacío al que se le acoplan
 # BehaviorComponent(s) para darle funcionalidad (física, contenedor, interacción, red, etc.).
 # Soporta serialización completa a Dictionary para guardado, carga y empaquetado de mods.
-class_name PropEntity
 extends Node3D
 
 # Identificador único global de la entidad dentro de la escena/mod.
@@ -123,6 +122,7 @@ func remove_component_node(component: RefCounted) -> void:
 
 # Marca la entidad como seleccionada/deseleccionada en el editor.
 func set_selected(selected: Boolean) -> void:
+class_name PropEntity
 	if _is_selected == selected:
 		return
 	_is_selected = selected
