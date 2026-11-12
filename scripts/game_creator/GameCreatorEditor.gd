@@ -6,9 +6,11 @@ class_name GameCreatorEditor
 extends Control
 
 # Nodos de UI.
-@onready var _viewport_container: ViewportContainer = $ViewportContainer
+# Nota: ViewportContainer se resuelve dinámicamente para evitar errores de parseo
+# de tipos en Godot 4.7 cuando el nodo no está disponible en el scope actual.
 @onready var _docks: HBoxContainer = $Docks
 @onready var _status_bar: Label = $StatusBar/StatusLabel
+var _viewport_container: Node = null
 
 # Sistemas del editor.
 var _image_importer: ImageImporter = null
@@ -39,6 +41,9 @@ func _ready() -> void:
 	add_child(_image_importer)
 	_image_importer.image_imported.connect(_on_image_imported)
 	_image_importer.import_failed.connect(_on_import_failed)
+
+	# Resolver el contenedor de viewport de forma defensiva.
+	_viewport_container = get_node_or_null("ViewportContainer")
 
 	_build_editor_ui()
 	_update_status("Editor de juegos — Modo construcción")
