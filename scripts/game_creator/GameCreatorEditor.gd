@@ -1,26 +1,28 @@
 # GameCreatorEditor.gd
 # Escena de entrada al Editor Universal de Juegos (Game Creator Studio).
-# Inicializa el GameCreatorCore (autoload) y construye el workspace estilo IDE
-# con Viewport 3D, Inspector, Jerarquía de Escena, Asset Browser e importador de imágenes.
+# Workspace estilo IDE con Viewport 3D, Asset Browser, Jerarquía de Escena e Inspector.
+# Permite importar imágenes y asignarlas como texturas a entidades del tablero.
 class_name GameCreatorEditor
 extends Control
 
+# Nodos de UI.
 @onready var _viewport_container: ViewportContainer = $ViewportContainer
 @onready var _docks: HBoxContainer = $Docks
 @onready var _status_bar: Label = $StatusBar/StatusLabel
 
-# Importador de imágenes.
+# Sistemas del editor.
 var _image_importer: ImageImporter = null
+var _asset_browser: AssetBrowser = null
+var _scene_hierarchy: SceneHierarchy = null
 
 # Estado del editor.
 var _build_mode: Boolean = true
 
-# FileDialog para seleccionar imágenes.
+# FileDialog para importar imágenes.
 var _file_dialog: FileDialog = null
 
-# Panel de imágenes importadas.
-var _images_list: VBoxContainer = null
-var _images_scroll: ScrollContainer = null
+# Entidad actualmente seleccionada (para asignar texturas).
+var _selected_entity: PropEntity = null
 
 func _ready() -> void:
 	# Asegurar que el core del editor esté disponible.
@@ -32,7 +34,7 @@ func _ready() -> void:
 	core.enter_build_mode()
 	core.state_changed.connect(_on_state_changed)
 
-	# Inicializar el importador de imágenes como hijo.
+	# Inicializar importador de imágenes.
 	_image_importer = ImageImporter.new()
 	add_child(_image_importer)
 	_image_importer.image_imported.connect(_on_image_imported)
@@ -47,11 +49,11 @@ func _ready() -> void:
 		btn.grab_focus.call_deferred()
 
 func _build_editor_ui() -> void:
-	# Limpiar contenido previo de los docks.
+	# Limpiar docks previos.
 	for child in _docks.get_children():
 		child.queue_free()
 
-	# Dock izquierdo: Modos, herramientas e importación de imágenes.
+	# ========== DOCK IZQUIERDO: Herramientas + Asset Browser ==========
 	var left := _make_dock("LeftDock")
 	_docks.add_child(left)
 
@@ -59,6 +61,7 @@ func _build_editor_ui() -> void:
 	left_col.add_theme_constant_override("separation", 8)
 	left.add_child(left_col)
 
+	# --- Modos de operación ---
 	var mode_label := Label.new()
 	mode_label.text = "MODO DE EDICIÓN"
 	mode_label.add_theme_font_size_override("font_size", 11)
@@ -84,8 +87,9 @@ func _build_editor_ui() -> void:
 	separator.custom_minimum_size = Vector2(0, 12)
 	left_col.add_child(separator)
 
+	# --- Asset Browser ---
 	var tools_label := Label.new()
-	tools_label.text = "ASSETS"
+	tools_label.text = "ASSET BROWSER"
 	tools_label.add_theme_font_size_override("font_size", 11)
 	tools_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 	left_col.add_child(tools_label)
@@ -97,6 +101,14 @@ func _build_editor_ui() -> void:
 	import_btn.pressed.connect(_open_image_import_dialog)
 	left_col.add_child(import_btn)
 
+	var asset_browser := AssetBrowser.new()
+	asset_browser.name = "AssetBrowser"
+	asset_browser.set_image_importer(_image_importer)
+	asset_browser.build_ui()
+	asset_browser.image_selected.connect(_on_asset_selected)
+	left_col.add_child(asset_browser)
+	_asset_browser = asset_browser
+
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left_col.add_child(spacer)
@@ -104,10 +116,25 @@ func _build_editor_ui() -> void:
 	var new_entity_btn := Button.new()
 	new_entity_btn.text = "+ Nueva entidad"
 	new_entity_btn.custom_minimum_size = Vector2(0, 36)
-	new_entity_btn.pressed.connect(func() -> void: _spawn_example_entity())
+	new_entity_btn.pressed.connect(_spawn_example_entity)
 	left_col.add_child(new_entity_btn)
 
-	# Dock derecho: Inspector de propiedades.
+	# ========== DOCK CENTRO: Jerarquía de Escena ==========
+	var center := _make_dock("CenterDock")
+	_docks.add_child(center)
+
+	var center_col := VBoxContainer.new()
+	center_col.add_theme_constant_override("separation", 8)
+	center.add_child(center_col)
+
+	var scene_hierarchy := SceneHierarchy.new()
+	scene_hierarchy.name = "SceneHierarchy"
+	scene_hierarchy.build_ui()
+	scene_hierarchy.entity_selected.connect(_on_entity_selected)
+	center_col.add_child(scene_hierarchy)
+	_scene_hierarchy = scene_hierarchy
+
+	# ========== DOCK DERECHO: Inspector ==========
 	var right := _make_dock("RightDock")
 	_docks.add_child(right)
 
@@ -122,7 +149,8 @@ func _build_editor_ui() -> void:
 	right_col.add_child(insp_label)
 
 	var inspect_target := Label.new()
-	inspect_target.text = "Selecciona una entidad en el viewport."
+	inspect_target.name = "InspectTarget"
+	inspect_target.text = "Selecciona una entidad en la jerarquía."
 	inspect_target.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	inspect_target.add_theme_font_size_override("font_size", 13)
 	inspect_target.add_theme_color_override("font_color", Color(0.8, 0.8, 0.8))
@@ -136,24 +164,46 @@ func _build_editor_ui() -> void:
 	props_well.add_child(props_col)
 
 	var pos_lbl := Label.new()
+	pos_lbl.name = "PropPosition"
 	pos_lbl.text = "Posición: (0, 0, 0)"
 	pos_lbl.add_theme_font_size_override("font_size", 12)
 	pos_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	props_col.add_child(pos_lbl)
 
 	var rot_lbl := Label.new()
+	rot_lbl.name = "PropRotation"
 	rot_lbl.text = "Rotación: (0, 0, 0)"
 	rot_lbl.add_theme_font_size_override("font_size", 12)
 	rot_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 	props_col.add_child(rot_lbl)
 
-	var images_lbl := Label.new()
-	images_lbl.text = "Imágenes importadas"
-	images_lbl.add_theme_font_size_override("font_size", 11)
-	images_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-	props_col.add_child(images_lbl)
+	var tex_label := Label.new()
+	tex_label.text = "Textura asignada"
+	tex_label.add_theme_font_size_override("font_size", 11)
+	tex_label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	props_col.add_child(tex_label)
 
-	# Dock inferior: consola / log.
+	var tex_row := HBoxContainer.new()
+	tex_row.add_theme_constant_override("separation", 6)
+	props_col.add_child(tex_row)
+
+	var tex_value := Label.new()
+	tex_value.name = "PropTexture"
+	tex_value.text = "Ninguna"
+	tex_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tex_value.add_theme_font_size_override("font_size", 12)
+	tex_value.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+	tex_row.add_child(tex_value)
+
+	var apply_tex_btn := Button.new()
+	apply_tex_btn.name = "ApplyTextureButton"
+	apply_tex_btn.text = "Aplicar textura seleccionada"
+	apply_tex_btn.custom_minimum_size = Vector2(0, 32)
+	apply_tex_btn.add_theme_font_size_override("font_size", 11)
+	apply_tex_btn.pressed.connect(_apply_selected_texture)
+	props_col.add_child(apply_tex_btn)
+
+	# ========== DOCK INFERIOR: Consola ==========
 	var bottom_dock := _make_dock("BottomDock")
 	_docks.add_child(bottom_dock)
 
@@ -169,13 +219,13 @@ func _build_editor_ui() -> void:
 
 	var log_text := Label.new()
 	log_text.name = "LogText"
-	log_text.text = "> Editor iniciado. Construye tu tablero, configura reglas y prueba."
+	log_text.text = "> Editor iniciado. Importa imágenes, crea entidades y asigna texturas."
 	log_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	log_text.add_theme_font_size_override("font_size", 12)
 	log_text.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	bottom_col.add_child(log_text)
 
-	# FileDialog para importar imágenes (oculto por defecto).
+	# FileDialog para importar imágenes.
 	_file_dialog = FileDialog.new()
 	_file_dialog.name = "ImageImportDialog"
 	_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
@@ -183,44 +233,12 @@ func _build_editor_ui() -> void:
 	_file_dialog.current_dir = "user://"
 	_file_dialog.title = "Seleccionar imagen para importar"
 	_file_dialog.set_current_as_path(false)
-	# Filtros de imagen.
 	var filters: Array[String] = []
 	for ext in _image_importer.supported_extensions:
 		filters.append("*." + ext)
 	_file_dialog.filters = filters
 	_file_dialog.file_selected.connect(_on_file_selected)
 	add_child(_file_dialog)
-
-	# Panel de imágenes importadas en el inspector (debajo de propiedades).
-	var images_well := _make_card_well("Galería de imágenes")
-	props_col.add_child(images_well)
-
-	var images_col := VBoxContainer.new()
-	images_col.add_theme_constant_override("separation", 4)
-	images_well.add_child(images_col)
-
-	var images_header := HBoxContainer.new()
-	images_header.add_theme_constant_override("separation", 8)
-	images_col.add_child(images_header)
-
-	var gallery_label := Label.new()
-	gallery_label.text = "Disponibles en el proyecto"
-	gallery_label.add_theme_font_size_override("font_size", 11)
-	gallery_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-	images_header.add_child(gallery_label)
-
-	_images_scroll = ScrollContainer.new()
-	_images_scroll.custom_minimum_size = Vector2(0, 140)
-	_images_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_images_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	images_col.add_child(_images_scroll)
-
-	_images_list = VBoxContainer.new()
-	_images_list.add_theme_constant_override("separation", 4)
-	_images_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_images_scroll.add_child(_images_list)
-
-	_refresh_images_gallery()
 
 func _make_dock(name: String) -> Control:
 	var dock := Control.new()
@@ -277,7 +295,7 @@ func _on_file_selected(path: String) -> void:
 		return
 	var result: Dictionary = _image_importer.import_image(path)
 	if result.get("success") == true:
-		_refresh_images_gallery()
+		_asset_browser.refresh()
 		var log := $Docks/BottomDock/LogText
 		if log != null:
 			log.text = "> Imagen importada: " + result.get("info", {}).get("file_name", path)
@@ -287,7 +305,7 @@ func _on_file_selected(path: String) -> void:
 			log.text = "> Error al importar: " + str(result.get("error", "desconocido"))
 
 func _on_image_imported(info: Dictionary) -> void:
-	_refresh_images_gallery()
+	_asset_browser.refresh()
 	var log := $Docks/BottomDock/LogText
 	if log != null:
 		log.text = "> Imagen registrada: " + str(info.get("file_name", ""))
@@ -297,83 +315,94 @@ func _on_import_failed(error: String) -> void:
 	if log != null:
 		log.text = "> Error de importación: " + error
 
-func _refresh_images_gallery() -> void:
-	if _images_list == null or _image_importer == null:
-		return
-	# Limpiar lista actual.
-	for child in _images_list.get_children():
-		child.queue_free()
-
-	var images: Array[Dictionary] = _image_importer.get_imported_images()
-	if images.size() == 0:
-		var empty := Label.new()
-		empty.text = "Sin imágenes importadas aún."
-		empty.add_theme_font_size_override("font_size", 12)
-		empty.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-		_images_list.add_child(empty)
-		return
-
-	for info in images:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-		var thumb := TextureRect.new()
-		var tex := _image_importer.load_texture(str(info.get("path", "")))
-		if tex != null:
-			thumb.texture = tex
-		thumb.custom_minimum_size = Vector2(32, 32)
-		thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		row.add_child(thumb)
-
-		var info_col := VBoxContainer.new()
-		info_col.add_theme_constant_override("separation", 2)
-		info_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-		var name_lbl := Label.new()
-		name_lbl.text = str(info.get("file_name", ""))
-		name_lbl.add_theme_font_size_override("font_size", 12)
-		name_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
-		info_col.add_child(name_lbl)
-
-		var dim_lbl := Label.new()
-		dim_lbl.text = str(info.get("width", 0)) + " x " + str(info.get("height", 0)) + " · " + _format_size(str(info.get("size_bytes", 0)))
-		dim_lbl.add_theme_font_size_override("font_size", 10)
-		dim_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-		info_col.add_child(dim_lbl)
-
-		row.add_child(info_col)
-
-		var use_btn := Button.new()
-		use_btn.text = "Usar"
-		use_btn.custom_minimum_size = Vector2(50, 28)
-		use_btn.pressed.connect(_on_use_image.bind(str(info.get("path", ""))))
-		row.add_child(use_btn)
-
-		_images_list.add_child(row)
-
-func _format_size(size_str: String) -> String:
-	var size: int = size_str.to_int()
-	if size < 1024:
-		return str(size) + " B"
-	elif size < 1048576:
-		return str(size / 1024).substr(0, 4) + " KB"
-	else:
-		return str(size / 1048576).substr(0, 4) + " MB"
-
-func _on_use_image(path: String) -> void:
+func _on_asset_selected(image_path: String) -> void:
 	var log := $Docks/BottomDock/LogText
 	if log != null:
-		log.text = "> Imagen seleccionada para usar: " + path.get_file()
-	# Aquí se podría abrir un selector de entidad para asignar la textura.
+		log.text = "> Imagen seleccionada: " + image_path.get_file() + " (selecciona una entidad y pulsa 'Aplicar textura')"
+
+func _on_entity_selected(entity: PropEntity) -> void:
+	_selected_entity = entity
+	var target := $Docks/RightDock/InspectTarget
+	if target != null:
+		if entity != null:
+			target.text = "Entidad: " + entity.entity_name + " (" + entity.entity_id + ")"
+			_update_inspector_props(entity)
+		else:
+			target.text = "Selecciona una entidad en la jerarquía."
+	var tex_value := $Docks/RightDock/PropTexture
+	if tex_value != null:
+		tex_value.text = entity != null ? _get_entity_texture_info(entity) : "Ninguna"
+
+func _update_inspector_props(entity: PropEntity) -> void:
+	var pos_lbl := $Docks/RightDock/PropPosition
+	var rot_lbl := $Docks/RightDock/PropRotation
+	if pos_lbl != null:
+		pos_lbl.text = "Posición: (" + str(entity.global_position.x) + ", " + str(entity.global_position.y) + ", " + str(entity.global_position.z) + ")"
+	if rot_lbl != null:
+		rot_lbl.text = "Rotación: (" + str(entity.global_rotation.x) + ", " + str(entity.global_rotation.y) + ", " + str(entity.global_rotation.z) + ")"
+
+func _get_entity_texture_info(entity: PropEntity) -> String:
+	var visual := entity.get_component("VisualComponent")
+	if visual != null:
+		var mesh_path: String = str(visual.get("mesh_path", ""))
+		if mesh_path != "":
+			return mesh_path.get_file()
+	return "Ninguna"
+
+func _apply_selected_texture() -> void:
+	if _selected_entity == null:
+		var log := $Docks/BottomDock/LogText
+		if log != null:
+			log.text = "> Error: selecciona primero una entidad en la jerarquía."
+		return
+
+	var path := _asset_browser.selected_image.get("path", "") if _asset_browser != null else ""
+	if path == "":
+		var log := $Docks/BottomDock/LogText
+		if log != null:
+			log.text = "> Error: selecciona primero una imagen en el Asset Browser."
+		return
+
+	var visual := _selected_entity.get_component("VisualComponent")
+	if visual == null:
+		visual = VisualComponent.new()
+		_selected_entity.add_component(visual)
+
+	visual.mesh_path = path
+	_selected_entity.entity_name = path.get_file().get_basename()
+	var log := $Docks/BottomDock/LogText
+	if log != null:
+		log.text = "> Textura aplicada a " + _selected_entity.entity_name + ": " + path.get_file()
+	_on_entity_selected(_selected_entity)
+	_scene_hierarchy._refresh()
 
 func _spawn_example_entity() -> void:
 	var core: GameCreatorCore = get_node_or_null("/root/GameCreatorCore")
 	if core == null:
 		return
+
+	var entity := PropEntity.new()
+	entity.entity_name = "Entidad de ejemplo"
+	entity.global_position = Vector3(0, 1, 0)
+
+	var visual := VisualComponent.new()
+	visual.scale_factor = 1.0
+	visual.color_tint = Color(0.8, 0.8, 0.8)
+	entity.add_component(visual)
+
+	var physics := PhysicsComponent.new()
+	entity.add_component(physics)
+
+	var interactive := InteractiveComponent.new()
+	entity.add_component(interactive)
+
+	_scene_hierarchy.add_entity(entity)
+	_selected_entity = entity
+	_on_entity_selected(entity)
+
 	var log := $Docks/BottomDock/LogText
 	if log != null:
-		log.text = "> Entidad de ejemplo creada (usa el Inspector para configurarla)."
+		log.text = "> Entidad creada: " + entity.entity_name
 
 func _update_status(message: String) -> void:
 	if _status_bar != null:
