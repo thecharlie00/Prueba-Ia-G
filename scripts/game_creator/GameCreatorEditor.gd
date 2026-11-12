@@ -16,7 +16,7 @@ var _asset_browser: AssetBrowser = null
 var _scene_hierarchy: SceneHierarchy = null
 
 # Estado del editor.
-var _build_mode: Boolean = true
+var _build_mode: bool = true
 
 # FileDialog para importar imágenes.
 var _file_dialog: FileDialog = null
@@ -79,7 +79,7 @@ func _build_editor_ui() -> void:
 	test_btn.name = "PlaytestButton"
 	test_btn.text = "⏸ Volver a Edición"
 	test_btn.custom_minimum_size = Vector2(0, 40)
-	test_btn.visible = false
+	test_btn.visible = not _build_mode
 	test_btn.pressed.connect(_toggle_mode)
 	left_col.add_child(test_btn)
 
@@ -266,7 +266,7 @@ func _make_card_well(title: String) -> Control:
 	return card
 
 func _on_state_changed(new_state: GameCreatorCore.EditorState) -> void:
-	_build_mode = (new_state == GameCreatorCore.EditorState.BUILD)
+	_build_mode = new_state == GameCreatorCore.EditorState.BUILD
 	var build_btn := $Docks/LeftDock/BuildModeButton
 	var test_btn := $Docks/LeftDock/PlaytestButton
 	if build_btn != null:
@@ -331,7 +331,7 @@ func _on_entity_selected(entity: PropEntity) -> void:
 			target.text = "Selecciona una entidad en la jerarquía."
 	var tex_value := $Docks/RightDock/PropTexture
 	if tex_value != null:
-		tex_value.text = entity != null ? _get_entity_texture_info(entity) : "Ninguna"
+		tex_value.text = _get_entity_texture_info(entity) if entity != null else "Ninguna"
 
 func _update_inspector_props(entity: PropEntity) -> void:
 	var pos_lbl := $Docks/RightDock/PropPosition
@@ -356,7 +356,9 @@ func _apply_selected_texture() -> void:
 			log.text = "> Error: selecciona primero una entidad en la jerarquía."
 		return
 
-	var path := _asset_browser.selected_image.get("path", "") if _asset_browser != null else ""
+	var path: String = ""
+	if _asset_browser != null and _asset_browser.selected_image.has("path"):
+		path = str(_asset_browser.selected_image.get("path"))
 	if path == "":
 		var log := $Docks/BottomDock/LogText
 		if log != null:
@@ -374,7 +376,8 @@ func _apply_selected_texture() -> void:
 	if log != null:
 		log.text = "> Textura aplicada a " + _selected_entity.entity_name + ": " + path.get_file()
 	_on_entity_selected(_selected_entity)
-	_scene_hierarchy._refresh()
+	if _scene_hierarchy != null:
+		_scene_hierarchy.refresh()
 
 func _spawn_example_entity() -> void:
 	var core: GameCreatorCore = get_node_or_null("/root/GameCreatorCore")
@@ -396,7 +399,8 @@ func _spawn_example_entity() -> void:
 	var interactive := InteractiveComponent.new()
 	entity.add_component(interactive)
 
-	_scene_hierarchy.add_entity(entity)
+	if _scene_hierarchy != null:
+		_scene_hierarchy.add_entity(entity)
 	_selected_entity = entity
 	_on_entity_selected(entity)
 

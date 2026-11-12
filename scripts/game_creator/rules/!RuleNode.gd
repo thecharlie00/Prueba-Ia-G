@@ -29,8 +29,8 @@ func to_dict() -> Dictionary:
 	}
 
 func from_dict(data: Dictionary) -> void:
-	guid = data.has("guid") ? data["guid"] : guid
-	node_name = data.has("node_name") ? data["node_name"] : node_name
+	guid = data.get("guid", guid)
+	node_name = data.get("node_name", node_name)
 	if data.has("position"):
 		var pos: Array = data["position"]
 		position = Vector2(pos[0], pos[1])

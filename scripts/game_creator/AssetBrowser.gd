@@ -21,7 +21,6 @@ signal image_selected(image_path: String)
 signal image_drag_started(image_path: String)
 
 var _grid: GridContainer = null
-var _empty_label: Label = null
 
 func _ready() -> void:
 	_refresh()
@@ -47,15 +46,12 @@ func _refresh() -> void:
 
 	var images: Array[Dictionary] = image_importer.get_imported_images()
 	if images.size() == 0:
-		if _empty_label == null:
-			_empty_label = Label.new()
-			_empty_label.text = "Sin imágenes importadas."
-			_empty_label.add_theme_font_size_override("font_size", 13)
-			_empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-			_grid.add_child(_empty_label)
+		var empty_label := Label.new()
+		empty_label.text = "Sin imágenes importadas."
+		empty_label.add_theme_font_size_override("font_size", 13)
+		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		_grid.add_child(empty_label)
 		return
-
-	_empty_label = null
 
 	for info in images:
 		var path: String = str(info.get("path", ""))
@@ -102,7 +98,8 @@ func _refresh() -> void:
 		_grid.add_child(card)
 
 func _on_image_selected(path: String) -> void:
-	selected_image = image_importer.find_image(path.get_file()) if image_importer != null else {}
+	if image_importer != null:
+		selected_image = image_importer.find_image(path.get_file())
 	image_selected.emit(path)
 
 # Crea la estructura de UI del navegador (llamado desde GameCreatorEditor).

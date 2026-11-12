@@ -12,7 +12,7 @@ extends RefCounted
 @export var display_name: String = "Comportamiento"
 
 # Si el componente está activo.
-@export var enabled: Boolean = true
+@export var enabled: bool = true
 
 # Referencia a la entidad propietaria (establecida por PropEntity al agregar).
 # Tipado débil (Node) para evitar dependencia circular de class_name con PropEntity.
@@ -35,9 +35,9 @@ func serialize() -> Dictionary:
 
 # Deserializa desde un Dictionary.
 func deserialize(data: Dictionary) -> void:
-	component_id = data.has("component_id") ? data["component_id"] : component_id
-	display_name = data.has("display_name") ? data["display_name"] : display_name
-	enabled = data.has("enabled") ? data["enabled"] : enabled
+	component_id = data.get("component_id", component_id)
+	display_name = data.get("display_name", display_name)
+	enabled = data.get("enabled", enabled)
 	_deserialize_extra(data)
 
 # Subclases sobrescriben para agregar campos propios.

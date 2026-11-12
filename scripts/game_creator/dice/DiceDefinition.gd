@@ -1,5 +1,6 @@
 # DiceDefinition.gd
 # Definición de un dado personalizado con N caras.
+class_name DiceDefinition
 extends Resource
 
 @export var dice_id: String = ""
@@ -14,7 +15,6 @@ func _init(p_dice_id: String = ""):
 
 # Devuelve la cara cuyo valor coincide, o null si no existe.
 func get_face_by_value(value: int) -> DiceFace:
-class_name DiceDefinition
 	for face in faces:
 		if face.value == value:
 			return face

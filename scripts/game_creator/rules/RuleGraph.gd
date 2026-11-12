@@ -1,5 +1,6 @@
 # RuleGraph.gd
 # Contenedor de nodos de reglas y conexiones entre ellos.
+class_name RuleGraph
 extends Resource
 
 @export var graph_name: String = "Grafo de Reglas"
@@ -42,28 +43,30 @@ func add_connection(from_guid: String, from_port: String, to_guid: String, to_po
 
 # Serializa el grafo a Dictionary.
 func to_dict() -> Dictionary:
+	var nodes_data: Array = []
+	for n in nodes:
+		nodes_data.append(n.to_dict())
 	return {
 		"graph_name": graph_name,
-		"nodes": [n.to_dict() for n in nodes],
+		"nodes": nodes_data,
 		"connections": connections,
 	}
 
 # Deserializa desde Dictionary.
 func from_dict(data: Dictionary) -> void:
-	graph_name = data.has("graph_name") ? data["graph_name"] : graph_name
+	graph_name = data.get("graph_name", graph_name)
 	nodes.clear()
 	connections.clear()
+	for nd in data.get("connections", []):
+		connections.append(nd)
 	for nd in data.get("nodes", []):
 		var node: RuleNode = _instantiate_node(nd.get("type", ""))
 		if node != null:
 			node.from_dict(nd)
 			nodes.append(node)
-	for conn in data.get("connections", []):
-		connections.append(conn)
 
 # Instancia un nodo por su nombre de clase.
 func _instantiate_node(p_node_class: String) -> RuleNode:
-class_name RuleGraph
 	match p_node_class:
 		"RuleEventNode": return RuleEventNode.new()
 		"RuleActionNode": return RuleActionNode.new()
