@@ -1,6 +1,7 @@
 # ModBundleExporter.gd
 # Empaqueta escena, recursos, reglas, barajas y assets en un archivo .gmod
 # (ZIP comprimido) con validación de checksum y versión.
+class_name ModBundleExporter
 extends Node
 
 @export var max_mod_size_mb: int = 100
@@ -33,7 +34,6 @@ func download_and_extract(mod_id: String) -> Dictionary:
 
 # Calcula checksum SHA-256 simplificado de un archivo (placeholder).
 func _compute_checksum(path: String) -> String:
-class_name ModBundleExporter
 	# Placeholder real usaría FileAccess + SHA256.
 	return "sha256:" + str(hash(path))
 

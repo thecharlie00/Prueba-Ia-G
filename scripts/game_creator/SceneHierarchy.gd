@@ -14,12 +14,12 @@ var selected_entity: PropEntity = null
 signal entity_selected(entity: PropEntity)
 
 var _tree: Tree = null
-var _empty_label: Label = null
 
 func _ready() -> void:
 	_build_ui()
 
 func build_ui() -> void:
+	# Limpiar hijos existentes.
 	for child in get_children():
 		child.queue_free()
 
@@ -54,18 +54,18 @@ func build_ui() -> void:
 	_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tree.columns = 1
 	_tree.set_column_title(0, "Entidades")
-	_tree.connect("item_selected", self, "_on_tree_item_selected")
+	_tree.item_selected.connect(_on_tree_item_selected)
 	col.add_child(_tree)
 
-	var empty_hb := HBoxContainer.new()
-	empty_hb.add_theme_constant_override("separation", 8)
-	col.add_child(empty_hb)
+	var bottom_hb := HBoxContainer.new()
+	bottom_hb.add_theme_constant_override("separation", 8)
+	col.add_child(bottom_hb)
 
 	var refresh_btn := Button.new()
 	refresh_btn.text = "Refrescar"
 	refresh_btn.custom_minimum_size = Vector2(80, 28)
 	refresh_btn.pressed.connect(_refresh)
-	empty_hb.add_child(refresh_btn)
+	bottom_hb.add_child(refresh_btn)
 
 	_refresh()
 
@@ -85,21 +85,18 @@ func remove_entity(entity: PropEntity) -> void:
 func get_selected() -> PropEntity:
 	return selected_entity
 
-func _refresh() -> void:
+func refresh() -> void:
 	if _tree == null:
 		return
 	_tree.clear()
 
 	if entities.size() == 0:
-		if _empty_label == null:
-			_empty_label = Label.new()
-			_empty_label.text = "Sin entidades en la escena."
-			_empty_label.add_theme_font_size_override("font_size", 12)
-			_empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-			_tree.add_child(_empty_label)
+		var empty_label := Label.new()
+		empty_label.text = "Sin entidades en la escena."
+		empty_label.add_theme_font_size_override("font_size", 12)
+		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		_tree.add_child(empty_label)
 		return
-
-	_empty_label = null
 
 	for entity in entities:
 		var name: String = entity.entity_name if entity.entity_name != "" else entity.entity_id
@@ -111,10 +108,9 @@ func _refresh() -> void:
 		if selected_entity == entity:
 			_tree.select(item, 0)
 
-def _get_entity_icon(entity: PropEntity) -> Texture2D:
+func _get_entity_icon(entity: PropEntity) -> Texture2D:
 	# Usar un icono simple basado en si tiene VisualComponent.
 	if entity.get_component("VisualComponent") != null:
-		# Intentar usar una textura genérica de cubo.
 		var cube: Texture2D = load("res://assets/icons/entity_3d.png")
 		if cube == null:
 			cube = _make_colored_icon(Color(0.4, 0.7, 1.0))
@@ -125,7 +121,7 @@ def _get_entity_icon(entity: PropEntity) -> Texture2D:
 			logic = _make_colored_icon(Color(0.8, 0.6, 0.4))
 		return logic
 
-def _make_colored_icon(color: Color) -> Texture2D:
+func _make_colored_icon(color: Color) -> Texture2D:
 	var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
 	for x in range(16):
 		for y in range(16):

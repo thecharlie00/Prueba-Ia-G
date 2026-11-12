@@ -1,5 +1,6 @@
 # DiceEntity.gd
 # Dado físico basado en RigidBody3D con detección de cara arriba y autoridad de azar.
+class_name DiceEntity
 extends RigidBody3D
 
 @export var dice_definition: DiceDefinition = null
@@ -7,7 +8,7 @@ extends RigidBody3D
 
 # Resultado del lanzamiento una vez detenido.
 var last_result: int = 0
-var _is_rolling: Boolean = false
+var _is_rolling: bool = false
 
 func _ready() -> void:
 	if dice_definition == null:
@@ -22,7 +23,7 @@ func roll(force: Vector3, torque: Vector3) -> void:
 
 func _physics_process(delta: float) -> void:
 	if _is_rolling and linear_velocity.length() < 0.05 and angular_velocity.length() < 0.05:
-		_is_rolling = false
+		_is_rolling = False
 		last_result = _detect_face_up()
 		# Disparar evento en el motor de reglas (GameCreatorCore es autoload).
 		if GameCreatorCore != null and GameCreatorCore.rule_engine != null:
@@ -30,14 +31,12 @@ func _physics_process(delta: float) -> void:
 
 # Detecta qué cara queda hacia arriba comparando normales.
 func _detect_face_up() -> int:
-class_name DiceEntity
 	if dice_definition == null or dice_definition.faces.size() == 0:
 		return 0
 	var up: Vector3 = Vector3.UP
 	var best_index: int = 0
 	var best_dot: float = -2.0
 	for i in range(dice_definition.faces.size()):
-		# Aproximación: usar la base del dado transformada por su rotación.
 		var face_normal: Vector3 = (global_transform.basis * Vector3.UP)
 		var dot: float = face_normal.dot(up)
 		if dot > best_dot:

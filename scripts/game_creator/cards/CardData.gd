@@ -1,7 +1,7 @@
 # CardData.gd
 # Datos de una carta individual dentro del Card & Deck Builder Studio.
-extends Resource
 class_name CardData
+extends Resource
 
 @export var card_id: String = ""
 @export var name: String = "Carta"

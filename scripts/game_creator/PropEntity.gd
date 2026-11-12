@@ -2,6 +2,7 @@
 # Entidad base colocable en el tablero. Es un Node3D vacío al que se le acoplan
 # BehaviorComponent(s) para darle funcionalidad (física, contenedor, interacción, red, etc.).
 # Soporta serialización completa a Dictionary para guardado, carga y empaquetado de mods.
+class_name PropEntity
 extends Node3D
 
 # Identificador único global de la entidad dentro de la escena/mod.
@@ -11,7 +12,7 @@ extends Node3D
 @export var entity_name: String = "Nueva Entidad"
 
 # Si la entidad está bloqueada (no se puede seleccionar ni mover en edición).
-@export var is_locked: Boolean = false
+@export var is_locked: bool = false
 
 # Etiquetas para búsqueda y filtrado en el Asset Browser.
 @export var tags: Array[String] = []
@@ -27,7 +28,7 @@ signal entity_selected(entity: PropEntity)
 signal entity_deselected(entity: PropEntity)
 
 # Estado interno de selección del editor.
-var _is_selected: Boolean = false
+var _is_selected: bool = False
 
 func _init(p_entity_id: String = "", p_entity_name: String = ""):
 	entity_id = p_entity_id if p_entity_id != "" else str(Time.get_ticks_msec())
@@ -84,13 +85,13 @@ func serialize() -> Dictionary:
 
 # Deserializa desde un Dictionary.
 func deserialize(data: Dictionary) -> void:
-	entity_id = data.has("entity_id") ? data["entity_id"] : entity_id
-	entity_name = data.has("entity_name") ? data["entity_name"] : entity_name
-	is_locked = data.has("is_locked") ? data["is_locked"] : is_locked
-	tags = data.has("tags") ? data["tags"] : tags
-	global_position = data.has("position") ? data["position"] : global_position
-	global_rotation = data.has("rotation") ? data["rotation"] : global_rotation
-	global_scale = data.has("scale") ? data["scale"] : global_scale
+	entity_id = data.get("entity_id", entity_id)
+	entity_name = data.get("entity_name", entity_name)
+	is_locked = data.get("is_locked", is_locked)
+	tags = data.get("tags", tags)
+	global_position = data.get("position", global_position)
+	global_rotation = data.get("rotation", global_rotation)
+	global_scale = data.get("scale", global_scale)
 
 	# Reconstruir componentes.
 	for comp_data in data.get("components", []):
@@ -121,8 +122,7 @@ func remove_component_node(component: RefCounted) -> void:
 		remove_child(component)
 
 # Marca la entidad como seleccionada/deseleccionada en el editor.
-func set_selected(selected: Boolean) -> void:
-class_name PropEntity
+func set_selected(selected: bool) -> void:
 	if _is_selected == selected:
 		return
 	_is_selected = selected
@@ -131,5 +131,5 @@ class_name PropEntity
 	else:
 		entity_deselected.emit(self)
 
-func is_selected() -> Boolean:
+func is_selected() -> bool:
 	return _is_selected

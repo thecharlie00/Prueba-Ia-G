@@ -2,11 +2,11 @@
 # Intérprete del grafo de lógica visual. Ejecuta nodos de forma segura,
 # gestiona variables globales y por jugador, y expone señales para conectar
 # eventos del juego (turno, carta jugada, dado, ficha movida, zona, etc.).
+class_name RuleEngine
 extends Node
 
 # Grafo de reglas actualmente cargado.
-# Tipado débil (sin tipo de clase) para evitar errores de orden de carga:
-# RuleEngine.gd se parsea antes que RuleGraph.gd / RuleNode.gd alfabéticamente.
+# Tipado débil para evitar errores de orden de carga alfabético de GDScript.
 @export var graph = null
 
 # Variables globales de partida.
@@ -21,12 +21,12 @@ var _nodes_by_id: Dictionary = {}
 # Señales para que el juego se suscriba a eventos del motor de reglas.
 signal event_triggered(event_name: String, args: Array)
 
-var _is_running: Boolean = false
+var _is_running: bool = false
 
 func _init() -> void:
 	pass
 
-func set_graph(new_graph: RuleGraph) -> void:
+func set_graph(new_graph) -> void:
 	graph = new_graph
 	_rebuild_index()
 

@@ -1,12 +1,13 @@
 # ContainerComponent.gd
 # Zona lógica que alberga entidades: mano del jugador, mazo, descarte, caja de suministros.
 # Define visibilidad (frente arriba/abajo) y capacidad.
+class_name ContainerComponent
 extends BehaviorComponent
 
 enum ContainerType { HAND, DECK, DISCARD, SUPPLY, ZONE }
 
 @export var container_type: ContainerType = ContainerType.ZONE
-@export var hidden_faces: Boolean = false  # true = los elementos se ven de dorso
+@export var hidden_faces: bool = false  # true = los elementos se ven de dorso
 @export var max_capacity: int = -1         # -1 = ilimitado
 @export var slot_spacing: float = 0.15     # separación entre slots en metros
 @export var slot_arc_angle: float = 30.0   # ángulo de abanico para manos
@@ -26,16 +27,15 @@ func _serialize_extra(data: Dictionary) -> void:
 	data["contained_ids"] = contained_ids
 
 func _deserialize_extra(data: Dictionary) -> void:
-	container_type = data.has("container_type") ? data["container_type"] : container_type
-	hidden_faces = data.has("hidden_faces") ? data["hidden_faces"] : hidden_faces
-	max_capacity = data.has("max_capacity") ? data["max_capacity"] : max_capacity
-	slot_spacing = data.has("slot_spacing") ? data["slot_spacing"] : slot_spacing
-	slot_arc_angle = data.has("slot_arc_angle") ? data["slot_arc_angle"] : slot_arc_angle
-	contained_ids = data.has("contained_ids") ? data["contained_ids"] : []
+	container_type = data.get("container_type", container_type)
+	hidden_faces = data.get("hidden_faces", hidden_faces)
+	max_capacity = data.get("max_capacity", max_capacity)
+	slot_spacing = data.get("slot_spacing", slot_spacing)
+	slot_arc_angle = data.get("slot_arc_angle", slot_arc_angle)
+	contained_ids = data.get("contained_ids", [])
 
 # Calcula la posición de un slot dentro del contenedor según su índice.
 func get_slot_position(index: int, total: int) -> Vector3:
-class_name ContainerComponent
 	if zone_node == null:
 		return Vector3.ZERO
 	match container_type:
@@ -50,5 +50,5 @@ class_name ContainerComponent
 		_:
 			return zone_node.global_position
 
-func can_accept() -> Boolean:
+func can_accept() -> bool:
 	return max_capacity < 0 or contained_ids.size() < max_capacity

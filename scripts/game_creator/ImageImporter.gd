@@ -15,6 +15,9 @@ var supported_extensions: Array[String] = [".png", ".jpg", ".jpeg", ".webp", ".b
 # Lista de imágenes importadas: { path, import_path, size, width, height }
 var imported_images: Array[Dictionary] = []
 
+# Referencia al directorio de importación.
+var _dir: DirAccess = null
+
 # Señal emitida cuando se importa una nueva imagen.
 signal image_imported(image_info: Dictionary)
 
@@ -25,7 +28,7 @@ func _ready() -> void:
 	# Crear la carpeta de destino si no existe.
 	var dir: DirAccess = DirAccess.open(import_folder)
 	if dir == null:
-		DirAccess.make_dir(import_folder)
+		DirAccess.make_dir_recursive(import_folder)
 		_dir = DirAccess.open(import_folder)
 	else:
 		_dir = dir
@@ -51,7 +54,7 @@ func _is_supported(file_name: String) -> bool:
 
 # Agrega una imagen importada a la lista interna.
 func _imported_images_append(full_path: String) -> void:
-	var image: Image = Image.load(full_path)
+	var image: Image = Image.create_from_file(full_path)
 	if image == null:
 		return
 	var info: Dictionary = {
@@ -90,18 +93,18 @@ func import_image(source_path: String) -> Dictionary:
 	# Asegurar que la carpeta de destino exista.
 	var dir: DirAccess = DirAccess.open(import_folder)
 	if dir == null:
-		DirAccess.make_dir(import_folder)
+		DirAccess.make_dir_recursive(import_folder)
 		dir = DirAccess.open(import_folder)
 
 	var file_name: String = source_path.get_file()
 	var dest_path: String = import_folder + file_name
 
 	# Si ya existe, agregar sufijo numérico.
-	if file_exists(dest_path):
+	while _file_exists(dest_path):
 		var base: String = file_name.get_basename()
 		ext = file_name.get_extension()
 		var i: int = 1
-		while file_exists(import_folder + base + str(i) + "." + ext):
+		while _file_exists(import_folder + base + str(i) + "." + ext):
 			i += 1
 		dest_path = import_folder + base + str(i) + "." + ext
 
@@ -119,13 +122,13 @@ func import_image(source_path: String) -> Dictionary:
 		import_failed.emit(error)
 		return { "success": false, "error": error }
 
-	var data: PackedByteArray = src.get_buffer(src.get_length().to_int())
+	var data: PackedByteArray = src.get_buffer(src.get_length())
 	dst.store_buffer(data)
 	src.close()
 	dst.close()
 
 	# Registrar la imagen importada.
-	var image: Image = Image.load(dest_path)
+	var image: Image = Image.create_from_file(dest_path)
 	if image == null:
 		var error: String = "No se pudo decodificar la imagen importada."
 		import_failed.emit(error)
@@ -157,5 +160,23 @@ func find_image(file_name: String) -> Dictionary:
 
 # Carga una textura desde una ruta de imagen importada.
 func load_texture(path: String) -> Texture2D:
-	var texture: Texture2D = ImageTexture.create_from_image(Image.load(path))
-	return texture
+	var image: Image = Image.create_from_file(path)
+	if image == null:
+		return null
+	return ImageTexture.create_from_image(image)
+
+# Verifica si un archivo existe usando DirAccess.
+func _file_exists(path: String) -> bool:
+	var dir: DirAccess = DirAccess.open(path.get_base_dir())
+	if dir == null:
+		return false
+	dir.list_dir_begin()
+	var exists: bool = false
+	var file_name: String = dir.get_next()
+	while file_name != "":
+		if file_name == path.get_file():
+			exists = true
+			break
+		file_name = dir.get_next()
+	dir.list_dir_end()
+	return exists
