@@ -1,7 +1,8 @@
 extends Control
-## Selector de modo de juego: presenta de un vistazo las tres experiencias principales
-## (Mesa local, Solitario contra bots y Salas online) en tarjetas ilustradas con emblemas,
-## resumen de características y navegación directa con ratón, teclado o mando.
+	## Selector de modo de juego: presenta de un vistazo las cuatro experiencias principales
+	## (Mesa local, Solitario contra bots, Salas online y Estudio de creación) en tarjetas
+	## ilustradas con emblemas, resumen de características y navegación directa con ratón,
+	## teclado o mando.
 
 
 func _ready() -> void:
@@ -61,7 +62,7 @@ func _ready() -> void:
 	title_box.add_child(title)
 
 	var subtitle := MenuStyle.make_muted(
-		"Comparte mesa en este equipo, juega en solitario contra bots o conéctate a una sala online.",
+		"Comparte mesa en este equipo, juega contra bots, conéctate online o crea tus propios juegos en el editor.",
 		15,
 		HORIZONTAL_ALIGNMENT_CENTER
 	)
@@ -72,7 +73,7 @@ func _ready() -> void:
 	right_spacer.custom_minimum_size.x = 148
 	header.add_child(right_spacer)
 
-	# 2. Tres tarjetas panorámicas de modo
+	# 2. Cuatro tarjetas panorámicas de modo
 	var center := CenterContainer.new()
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -134,11 +135,30 @@ func _ready() -> void:
 		"res://scenes/Lobby.tscn"
 	)
 
+	var create_btn := _add_mode_card(
+		cards_row,
+		"Create",
+		"Crear juegos",
+		"Estudio de creación",
+		"Editor de tableros",
+		Color("a855f7"),
+		["sandbox", "cards"],
+		"Diseña tableros, reglas visuales, barajas de cartas y dados personalizados para publicar tus propios juegos de mesa.",
+		[
+			"Importa imágenes y asigna texturas a entidades",
+			"Motor de reglas visuales sin código",
+			"Exporta y publica mods en el Workshop",
+		],
+		"res://scenes/game_creator/GameCreatorEditor.tscn"
+	)
+
 	# Vecinos de foco explícitos para mando y cursores
 	local_btn.focus_neighbor_right = local_btn.get_path_to(bots_btn)
 	bots_btn.focus_neighbor_left = bots_btn.get_path_to(local_btn)
 	bots_btn.focus_neighbor_right = bots_btn.get_path_to(online_btn)
 	online_btn.focus_neighbor_left = online_btn.get_path_to(bots_btn)
+	online_btn.focus_neighbor_right = online_btn.get_path_to(create_btn)
+	create_btn.focus_neighbor_left = create_btn.get_path_to(online_btn)
 
 	local_btn.grab_focus.call_deferred()
 
