@@ -129,6 +129,7 @@ func _build() -> void:
 	margin.add_theme_constant_override("margin_right", 28)
 	margin.add_theme_constant_override("margin_bottom", 20)
 	scroll.add_child(margin)
+	MenuStyle.limit_page(margin, Vector2(1200, 0), 28)
 
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -329,7 +330,7 @@ func _build() -> void:
 		"BrowserSection", Palette.PANEL, Palette.INK, 18, 14, 18, 5
 	)
 	_browser_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_browser_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_browser_card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_browser_card.custom_minimum_size = Vector2(480, 380)
 	_pre_room_row.add_child(_browser_card)
 

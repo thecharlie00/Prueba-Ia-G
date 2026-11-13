@@ -32,20 +32,16 @@ func _ready() -> void:
 # Entra en modo Edición (Build).
 func enter_build_mode() -> void:
 	current_state = EditorState.BUILD
-	get_tree().paused = true
 	if rule_engine != null:
 		rule_engine.stop()
 	state_changed.emit(EditorState.BUILD)
-	print("[GameCreatorCore] Modo Edición activado")
 
 # Entra en modo Prueba (Playtest) con hot-reload.
 func enter_playtest_mode() -> void:
 	current_state = EditorState.PLAYTEST
-	get_tree().paused = false
 	if rule_engine != null:
 		rule_engine.start()
 	state_changed.emit(EditorState.PLAYTEST)
-	print("[GameCreatorCore] Modo Prueba activado")
 
 # Alterna entre Build y Playtest.
 func toggle_mode() -> void:
@@ -79,7 +75,7 @@ func unload_mod() -> void:
 	if active_mod_id != "":
 		# Remover hijos del mod (excepto nodos del editor core).
 		for child in get_children():
-			if child.get_class() == "PropEntity":
+			if child is PropEntity:
 				child.queue_free()
 		active_mod_id = ""
 		mod_unloaded.emit()

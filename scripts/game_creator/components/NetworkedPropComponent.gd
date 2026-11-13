@@ -16,7 +16,7 @@ var fusion_node: Node = null
 
 # Último estado replicado (para detectar cambios y enviar red).
 var _last_position: Vector3 = Vector3.ZERO
-var _last_rotation: Quat = Quat.IDENTITY
+var _last_rotation: Vector3 = Vector3.ZERO
 var _last_scale: Vector3 = Vector3.ONE
 
 func _serialize_extra(data: Dictionary) -> void:
@@ -41,7 +41,7 @@ func has_transform_changed(entity: PropEntity) -> bool:
 		return true
 	if entity.global_rotation != _last_rotation:
 		return true
-	if sync_scale and entity.global_scale != _last_scale:
+	if sync_scale and entity.scale != _last_scale:
 		return true
 	return false
 
@@ -49,4 +49,4 @@ func has_transform_changed(entity: PropEntity) -> bool:
 func snapshot_transform(entity: PropEntity) -> void:
 	_last_position = entity.global_position
 	_last_rotation = entity.global_rotation
-	_last_scale = entity.global_scale
+	_last_scale = entity.scale

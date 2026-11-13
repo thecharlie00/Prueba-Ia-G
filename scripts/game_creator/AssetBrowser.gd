@@ -3,7 +3,7 @@
 # Muestra las imágenes importadas en un grid navegable y permite seleccionarlas
 # para asignarlas a entidades del tablero (VisualComponent, CardData, DiceFace, etc.).
 class_name AssetBrowser
-extends Control
+extends VBoxContainer
 
 # Importador de imágenes (referencia opcional).
 var image_importer: ImageImporter = null
@@ -57,15 +57,11 @@ func _refresh() -> void:
 		var path: String = str(info.get("path", ""))
 		var file_name: String = str(info.get("file_name", ""))
 
-		var card := Control.new()
+		# Un contenedor (no un Control suelto) para que la tarjeta ocupe su sitio en la rejilla.
+		var card := VBoxContainer.new()
 		card.custom_minimum_size = thumbnail_size
-		card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-
-		var col := VBoxContainer.new()
-		col.add_theme_constant_override("separation", 4)
-		col.alignment = BoxContainer.ALIGNMENT_CENTER
-		card.add_child(col)
+		card.add_theme_constant_override("separation", 4)
+		var col := card
 
 		# Miniatura.
 		var thumb := TextureRect.new()
@@ -81,7 +77,8 @@ func _refresh() -> void:
 		name_lbl.text = file_name
 		name_lbl.add_theme_font_size_override("font_size", 10)
 		name_lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
-		name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		name_lbl.clip_text = true
+		name_lbl.custom_minimum_size = Vector2(thumbnail_size.x, 0)
 		col.add_child(name_lbl)
 
 		# Botón de selección.
@@ -119,7 +116,7 @@ func build_ui() -> void:
 	col.add_child(header)
 
 	var title := Label.new()
-	title.text = "ASSET BROWSER"
+	title.text = "GALERÍA"
 	title.add_theme_font_size_override("font_size", 11)
 	title.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 	header.add_child(title)
@@ -141,7 +138,7 @@ func build_ui() -> void:
 	col.add_child(images_label)
 
 	_grid = GridContainer.new()
-	_grid.columns = 4
+	_grid.columns = 3
 	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_grid.add_theme_constant_override("h_separation", 10)

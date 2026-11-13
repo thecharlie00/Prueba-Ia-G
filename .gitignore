@@ -3,3 +3,8 @@
 /android/
 .test-logs/
 build/
+
+# Temporales que crea Windows al tener el editor abierto
+~*.dll
+addons/fusion/bin/~*
+builds/

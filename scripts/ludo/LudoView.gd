@@ -885,12 +885,10 @@ func _make_ui() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "LudoUI"
 	add_child(layer)
+	# Tarjeta compacta arriba a la izquierda: lo de cada turno a la vista y el resto en «⋯».
 	var panel := PanelContainer.new()
-	panel.offset_left = 18
-	panel.offset_top = 18
-	panel.offset_right = 330
-	panel.anchor_bottom = 1.0
-	panel.offset_bottom = -18
+	panel.name = "GameCard"
+	HudCard.float_top_left(panel, 300)
 	var theme := GameThemes.theme_for(self)
 	var style := GameThemes.panel_box(theme)
 	style.content_margin_left = 14
@@ -916,18 +914,19 @@ func _make_ui() -> void:
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	roll_button = _button(column, "Lanzar dado · R", _roll)
 	GameThemes.style_button(roll_button, theme)
-	reset_button = _button(column, "Recolocar dado", _reset_die)
-	_label(column, "Elige una ficha o arrástrala a su marca verde:")
 	var row := HBoxContainer.new()
+	row.tooltip_text = "Elige una ficha o arrástrala a su marca verde"
 	column.add_child(row)
 	for index in range(4):
 		var button := _button(row, "%d" % (index + 1), _choose_token.bind(index))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		token_buttons.append(button)
-	_label(column, "Jugadores que lleva un bot:")
+	var more := HudCard.more_section(column, header)
+	reset_button = _button(more, "Recolocar dado", _reset_die)
+	_label(more, "Jugadores que lleva un bot:")
 	var bot_row := HBoxContainer.new()
 	bot_row.name = "BotRow"
-	column.add_child(bot_row)
+	more.add_child(bot_row)
 	for player in range(rules.players):
 		var toggle := CheckBox.new()
 		toggle.name = "Bot%d" % (player + 1)
@@ -937,7 +936,7 @@ func _make_ui() -> void:
 		bot_row.add_child(toggle)
 		bot_toggles.append(toggle)
 	var explanation := _label(
-		column,
+		more,
 		(
 			"Tablero clásico de 68 casillas · salida obligatoria con 5 · el 6 repite (7 sin fichas en casa).\n"
 			+ "Dos fichas forman barrera: nadie pasa. En los 12 seguros no se come.\n"
@@ -953,10 +952,12 @@ func _make_ui() -> void:
 	)
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.add_theme_font_size_override("font_size", 12)
-	_button(column, "Guardar partida", _save_game)
-	load_game_button = _button(column, "Cargar partida", _request_load)
-	new_game_button = _button(column, "Nueva partida", _new_game)
-	_label(column, "Rueda: zoom · Derecho: orbitar · Inicio: centrar · Esc: menú")
+	_button(more, "Guardar partida", _save_game)
+	load_game_button = _button(more, "Cargar partida", _request_load)
+	new_game_button = _button(more, "Nueva partida", _new_game)
+	var shortcuts := _label(more, "Rueda: zoom · Derecho: orbitar · Inicio: centrar · Esc: menú")
+	shortcuts.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	shortcuts.add_theme_font_size_override("font_size", 12)
 	new_game_confirmation = ConfirmationDialog.new()
 	new_game_confirmation.title = "Nueva partida"
 	new_game_confirmation.dialog_text = "¿Descartar la partida actual y empezar de nuevo?"
@@ -970,7 +971,7 @@ func _build_dice_banner(layer: CanvasLayer, theme: Dictionary) -> void:
 	var top := CenterContainer.new()
 	top.name = "DiceBannerAnchor"
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	top.offset_left = 340
+	top.offset_left = 18
 	top.offset_top = 16
 	top.offset_right = -18
 	top.offset_bottom = 74

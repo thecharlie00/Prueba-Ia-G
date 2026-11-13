@@ -19,7 +19,7 @@ func to_dict() -> Dictionary:
 		"guid": guid,
 		"node_name": node_name,
 		"position": [position.x, position.y],
-		"type": get_class(),
+		"type": str((get_script() as Script).get_global_name()),
 		"condition_expression": condition_expression,
 	}
 

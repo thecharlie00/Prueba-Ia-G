@@ -56,8 +56,8 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 1. Robustecer el ajedrez con pruebas exhaustivas de reglas, casos límite, accesibilidad, relojes, una IA más avanzada para distintos niveles y juego libre opcional.
 2. Física asistida avanzada: apilado automático, casos extremos del barrido, recuperación configurable y controles accesibles/remapeables; robustecer la integración de física con reglas y llevarla a otros juegos.
 3. Catálogo: ampliar y validar las variantes de damas; ampliar las variantes de parchís (por parejas, 6 jugadores) y privacidad de dominó, reglas de barajas y roles ocultos.
-4. Editor no-code: importación validada de imágenes/modelos, generador de fichas y mazos, zonas, lógica visual acotada y paquetes versionados.
-5. Red: servidor autoritativo, bloqueos, reconexión, filtros de información privada y pruebas de latencia. El juego actual no es multijugador de red.
+4. Editor no-code: hay un primer paso (crear piezas, importar imágenes y probarlas con física). Falta la importación de modelos, el generador de fichas y mazos, zonas, lógica visual acotada y paquetes versionados.
+5. Red: existe un piloto online con Photon Fusion (12 mesas, salas y lobby; `docs/RED-ONLINE.md`). Falta probarlo entre equipos reales, la reconexión, las pruebas de latencia y decidir el servicio definitivo.
 6. Steam: integración de plataforma, invitaciones, Workshop, licencias (solo el juego completo aloja salas; la demo se une) y moderación; código de sala requiere un servicio compatible. Sin suscripción.
 7. HUD completo, ajustes y accesibilidad, persistencia, localización, pruebas de rendimiento, seguridad y publicación; evaluación posterior de tablets.
 

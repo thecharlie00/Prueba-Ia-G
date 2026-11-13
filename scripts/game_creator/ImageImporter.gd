@@ -7,10 +7,11 @@ class_name ImageImporter
 extends Node
 
 # Carpeta destino dentro del proyecto para imágenes importadas.
-@export var import_folder: String = "res://assets/images/"
+## En user://: res:// no se puede escribir en el juego exportado.
+@export var import_folder: String = "user://creador/imagenes/"
 
 # Extensiones de imagen soportadas.
-var supported_extensions: Array[String] = [".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".svg"]
+var supported_extensions: Array[String] = ["png", "jpg", "jpeg", "webp", "bmp", "svg"]
 
 # Lista de imágenes importadas: { path, import_path, size, width, height }
 var imported_images: Array[Dictionary] = []
@@ -28,7 +29,7 @@ func _ready() -> void:
 	# Crear la carpeta de destino si no existe.
 	var dir: DirAccess = DirAccess.open(import_folder)
 	if dir == null:
-		DirAccess.make_dir_recursive(import_folder)
+		DirAccess.make_dir_recursive_absolute(import_folder)
 		_dir = DirAccess.open(import_folder)
 	else:
 		_dir = dir
@@ -54,7 +55,7 @@ func _is_supported(file_name: String) -> bool:
 
 # Agrega una imagen importada a la lista interna.
 func _imported_images_append(full_path: String) -> void:
-	var image: Image = Image.create_from_file(full_path)
+	var image: Image = Image.load_from_file(full_path)
 	if image == null:
 		return
 	var info: Dictionary = {
@@ -93,7 +94,7 @@ func import_image(source_path: String) -> Dictionary:
 	# Asegurar que la carpeta de destino exista.
 	var dir: DirAccess = DirAccess.open(import_folder)
 	if dir == null:
-		DirAccess.make_dir_recursive(import_folder)
+		DirAccess.make_dir_recursive_absolute(import_folder)
 		dir = DirAccess.open(import_folder)
 
 	var file_name: String = source_path.get_file()
@@ -128,7 +129,7 @@ func import_image(source_path: String) -> Dictionary:
 	dst.close()
 
 	# Registrar la imagen importada.
-	var image: Image = Image.create_from_file(dest_path)
+	var image: Image = Image.load_from_file(dest_path)
 	if image == null:
 		var error: String = "No se pudo decodificar la imagen importada."
 		import_failed.emit(error)
@@ -160,7 +161,7 @@ func find_image(file_name: String) -> Dictionary:
 
 # Carga una textura desde una ruta de imagen importada.
 func load_texture(path: String) -> Texture2D:
-	var image: Image = Image.create_from_file(path)
+	var image: Image = Image.load_from_file(path)
 	if image == null:
 		return null
 	return ImageTexture.create_from_image(image)

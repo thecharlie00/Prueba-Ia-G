@@ -71,12 +71,11 @@ func _build() -> void:
 	_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	var box := StyleBoxFlat.new()
 	box.bg_color = Palette.PAPER
-	box.border_color = Palette.INK
-	box.set_border_width_all(3)
+	box.set_border_width_all(0)
 	box.set_corner_radius_all(16)
-	box.shadow_color = Palette.INK
-	box.shadow_size = 1
-	box.shadow_offset = Vector2(5, 5)
+	box.shadow_color = Color(0.05, 0.04, 0.12, 0.34)
+	box.shadow_size = 10
+	box.shadow_offset = Vector2(0, 4)
 	box.content_margin_left = 16
 	box.content_margin_right = 16
 	box.content_margin_top = 10

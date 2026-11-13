@@ -1,16 +1,20 @@
 extends Node
-## Estilo visual cartoon común a todas las mesas (fase 1 del roadmap).
+## Estilo visual común a todas las mesas: «juguete de arcilla», a medio camino entre el
+## volumen blando y terroso de PEAK y la limpieza mate de Human Fall Flat (docs/ARTE.md).
 ##
 ## Se registra como autoload y actúa sobre cada nodo que entra en el árbol, sin que las
 ## escenas tengan que cambiar:
-## - materiales opacos de las mallas: iluminación por bandas (toon) y contorno grueso;
-## - WorldEnvironment: fondo y luz ambiente de la paleta, sin tonemapping que apague colores;
-## - DirectionalLight3D: luz cálida y sombras más suaves.
+## - materiales opacos de las mallas: mate, sin brillos, con la luz envolviendo la forma
+##   (degradado suave en vez de bandas) y un contorno fino del color de la propia pieza;
+## - WorldEnvironment: fondo y mucha luz ambiente clara, para sombras suaves y sin negros;
+## - DirectionalLight3D: sol cálido con sombras difuminadas;
+## - una capa de grano y viñeta por debajo de la interfaz.
 ## Modifica los materiales en su sitio (no los sustituye), así que los scripts que guardan
 ## una referencia a un material y cambian su color siguen funcionando.
 ## Paleta y criterios: docs/ARTE.md.
 
 const OUTLINE_SHADER := preload("res://shaders/toon_outline.gdshader")
+const GRAIN_SHADER := preload("res://shaders/soft_grain.gdshader")
 const BODY_FONT := preload("res://assets/fonts/Nunito.ttf")
 const DISPLAY_FONT := preload("res://assets/fonts/LilitaOne-Regular.ttf")
 const DONE_META := &"toon_style_applied"
@@ -34,9 +38,12 @@ const DISPLAY_SIZE := 22
 
 ## Grosor del contorno: proporcional a la mayor dimensión de la malla, entre estos límites
 ## (un dado de 0,5 m recibe unos 2 cm; la mesa, el máximo).
-const OUTLINE_RATIO := 0.036
-const OUTLINE_MIN := 0.008
-const OUTLINE_MAX := 0.03
+const OUTLINE_RATIO := 0.02
+const OUTLINE_MIN := 0.005
+const OUTLINE_MAX := 0.014
+## El contorno es el color de la pieza oscurecido (no tinta negra): separa sin dibujar cómic.
+const OUTLINE_DARKEN := 0.42
+const OUTLINE_TEXTURED := Color("6f6258")
 ## Láminas más finas que esto (marcas, separadores, casillas del imán) no llevan contorno:
 ## solo dibujarían una raya negra.
 const THIN_SHEET := 0.012
@@ -49,6 +56,7 @@ var reduce_motion := false
 var settings_path := "user://diceon_controls.cfg"
 
 var _outline_by_mode := {}
+var _grain: ColorRect
 
 
 func _ready() -> void:
@@ -66,6 +74,26 @@ func _ready() -> void:
 	get_tree().node_added.connect(_on_node_added)
 	for node in get_tree().root.find_children("*", "", true, false):
 		_on_node_added(node)
+	_add_grain()
+
+
+# Grano y viñeta sobre el 3D y por debajo de toda la interfaz (capa -1).
+func _add_grain() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var layer := CanvasLayer.new()
+	layer.name = "SoftGrain"
+	layer.layer = -1
+	add_child(layer)
+	_grain = ColorRect.new()
+	_grain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_grain.set_meta(DONE_META, true)
+	var material := ShaderMaterial.new()
+	material.shader = GRAIN_SHADER
+	material.set_shader_parameter("animate", 0.0 if reduce_motion else 1.0)
+	_grain.material = material
+	layer.add_child(_grain)
 
 
 func _exit_tree() -> void:
@@ -100,6 +128,8 @@ func _style_later(node: Variant) -> void:
 
 func set_reduce_motion(enabled: bool) -> void:
 	reduce_motion = enabled
+	if _grain != null:
+		(_grain.material as ShaderMaterial).set_shader_parameter("animate", 0.0 if enabled else 1.0)
 	var config := ConfigFile.new()
 	config.load(settings_path)  # Conserva el resto de ajustes si el archivo ya existe.
 	config.set_value("visual", "reduce_motion", enabled)
@@ -184,21 +214,26 @@ func _style_material(material: StandardMaterial3D, mode: int, width: float) -> v
 		return
 	if material.shading_mode != BaseMaterial3D.SHADING_MODE_PER_PIXEL:
 		return
-	material.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	material.specular_mode = BaseMaterial3D.SPECULAR_TOON
-	material.roughness = clampf(material.roughness, 0.45, 0.8)
+	# Arcilla mate: la luz envuelve la forma (sin corte duro entre luz y sombra) y no hay brillos.
+	material.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
+	material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	material.roughness = 1.0
 	material.metallic = 0.0
 	if outlines_enabled and width > 0.0 and material.next_pass == null:
-		material.next_pass = _outline_material(mode, width)
+		var tint := OUTLINE_TEXTURED
+		if material.albedo_texture == null:
+			tint = material.albedo_color.darkened(OUTLINE_DARKEN).lerp(INK, 0.18)
+			tint.a = 1.0
+		material.next_pass = _outline_material(mode, width, tint)
 
 
-func _outline_material(mode: int, width: float) -> ShaderMaterial:
-	var key := "%d:%.4f" % [mode, width]
+func _outline_material(mode: int, width: float, tint: Color = INK) -> ShaderMaterial:
+	var key := "%d:%.4f:%s" % [mode, width, tint.to_html(false)]
 	if _outline_by_mode.has(key):
 		return _outline_by_mode[key]
 	var outline := ShaderMaterial.new()
 	outline.shader = OUTLINE_SHADER
-	outline.set_shader_parameter("outline_color", INK)
+	outline.set_shader_parameter("outline_color", tint)
 	outline.set_shader_parameter("width", width)
 	outline.set_shader_parameter("mode", mode)
 	_outline_by_mode[key] = outline
@@ -255,8 +290,8 @@ func _apply_palette(environment: Environment) -> void:
 	environment.background_color = SKY
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = AMBIENT
-	# Lado en sombra = color propio apagado (unos 0,45): contraste de dibujo animado.
-	environment.ambient_light_energy = 0.5
+	# Mucha luz ambiente clara: el lado en sombra conserva su color (nada de negros).
+	environment.ambient_light_energy = 0.56
 	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 
 
@@ -265,9 +300,9 @@ func _style_sun(light: DirectionalLight3D) -> void:
 		return
 	light.set_meta(DONE_META, true)
 	light.light_color = SUNLIGHT
-	light.light_energy = 0.85
-	light.shadow_opacity = 0.55
-	# La iluminación por bandas convierte el "acné" de sombra en rayas: más sesgo.
+	light.light_energy = 0.52
+	light.shadow_opacity = 0.42
+	light.shadow_blur = 2.2
 	light.shadow_bias = maxf(light.shadow_bias, 0.08)
 	light.shadow_normal_bias = maxf(light.shadow_normal_bias, 2.5)
 
@@ -282,16 +317,13 @@ func _build_theme() -> Theme:
 	theme.default_font = body
 	theme.default_font_size = 15
 
-	var button_normal := _box(SUN, INK, 3, 12)
-	button_normal.border_width_bottom = 6
-	var button_hover := _box(SUN_LIGHT, INK, 3, 12)
-	button_hover.border_width_bottom = 6
-	var button_pressed := _box(SUN, INK, 3, 12)
-	button_pressed.border_width_bottom = 3
+	# Botones «de arcilla»: sin contorno, con un labio inferior del propio color oscurecido.
+	var button_normal := _clay(SUN, 6)
+	var button_hover := _clay(SUN_LIGHT, 6)
+	var button_pressed := _clay(SUN, 3)
 	button_pressed.content_margin_top += 3
-	var button_disabled := _box(MUTED.lerp(PANEL, 0.35), INK, 3, 12)
-	button_disabled.border_width_bottom = 3
-	var focus := _box(Color(0, 0, 0, 0), PAPER, 3, 14)
+	var button_disabled := _clay(MUTED.lerp(PANEL, 0.35), 3)
+	var focus := _box(Color(0, 0, 0, 0), PAPER, 3, 15)
 	focus.draw_center = false
 	focus.expand_margin_left = 3
 	focus.expand_margin_right = 3
@@ -322,29 +354,26 @@ func _build_theme() -> Theme:
 		theme.set_color("font_hover_pressed_color", type, SUN_LIGHT)
 		theme.set_color("font_focus_color", type, PAPER)
 
-	var panel := _box(PANEL, INK, 3, 18)
-	panel.shadow_color = INK
-	panel.shadow_size = 1
-	panel.shadow_offset = Vector2(5, 5)
+	var panel := _soft_panel(PANEL, 20)
 	theme.set_stylebox("panel", "PanelContainer", panel)
 	theme.set_stylebox("panel", "Panel", panel)
 	theme.set_stylebox("panel", "PopupPanel", panel)
 	theme.set_stylebox("panel", "PopupMenu", panel)
 	theme.set_color("font_color", "PopupMenu", PAPER)
 	theme.set_color("font_hover_color", "PopupMenu", INK)
-	var popup_hover := _box(SUN, INK, 2, 8)
+	var popup_hover := _box(SUN, SUN, 0, 8)
 	theme.set_stylebox("hover", "PopupMenu", popup_hover)
 	theme.set_color("font_color", "Label", PAPER)
 
-	var field := _box(PAPER, INK, 3, 10)
+	var field := _box(PAPER, PAPER.darkened(0.2), 2, 10)
 	theme.set_stylebox("normal", "LineEdit", field)
 	theme.set_stylebox("focus", "LineEdit", focus)
 	theme.set_color("font_color", "LineEdit", INK)
 
-	var tab_on := _box(SUN, INK, 3, 10)
+	var tab_on := _box(SUN, SUN, 0, 10)
 	tab_on.corner_radius_bottom_left = 0
 	tab_on.corner_radius_bottom_right = 0
-	var tab_off := _box(PANEL.lightened(0.15), INK, 3, 10)
+	var tab_off := _box(PANEL.lightened(0.15), PANEL, 0, 10)
 	tab_off.corner_radius_bottom_left = 0
 	tab_off.corner_radius_bottom_right = 0
 	for type in ["TabContainer", "TabBar"]:
@@ -372,6 +401,24 @@ func _box(fill: Color, border: Color, border_width: int, radius: int) -> StyleBo
 	return box
 
 
+func _clay(fill: Color, lip: int) -> StyleBoxFlat:
+	var box := MenuStyle.pebble(_box(fill, fill.darkened(0.26), 0, 12), 16)
+	box.border_width_bottom = lip
+	box.shadow_color = Color(0.05, 0.04, 0.12, 0.26)
+	box.shadow_size = 4
+	box.shadow_offset = Vector2(0, 2)
+	return box
+
+
+## Panel oscuro sin borde de tinta: filo claro de 1 px y sombra difusa.
+func _soft_panel(fill: Color, radius: int) -> StyleBoxFlat:
+	var box := MenuStyle.pebble(_box(Color(fill, 0.94), fill.lightened(0.12), 1, radius), radius + 2)
+	box.shadow_color = Color(0.05, 0.04, 0.12, 0.36)
+	box.shadow_size = 14
+	box.shadow_offset = Vector2(0, 6)
+	return box
+
+
 ## Paneles y etiquetas con estilos propios de cada escena: se adaptan sin perder su intención.
 func _button_sound() -> void:
 	var sfx := get_node_or_null("/root/Sfx")
@@ -389,13 +436,13 @@ func _style_control(control: Control) -> void:
 		var box := control.get_theme_stylebox("panel") as StyleBoxFlat
 		if box != null and box.bg_color.a > 0.5 and box.bg_color.get_luminance() < 0.3:
 			var styled := box.duplicate() as StyleBoxFlat
-			styled.bg_color = Color(PANEL, maxf(box.bg_color.a, 0.94))
-			styled.border_color = INK
-			styled.set_border_width_all(3)
-			styled.set_corner_radius_all(maxi(box.corner_radius_top_left, 18))
-			styled.shadow_color = INK
-			styled.shadow_size = 1
-			styled.shadow_offset = Vector2(5, 5)
+			styled.bg_color = Color(PANEL, clampf(box.bg_color.a, 0.9, 0.94))
+			styled.border_color = PANEL.lightened(0.12)
+			styled.set_border_width_all(1)
+			MenuStyle.pebble(styled, maxi(box.corner_radius_top_left, 20) + 2)
+			styled.shadow_color = Color(0.05, 0.04, 0.12, 0.36)
+			styled.shadow_size = 14
+			styled.shadow_offset = Vector2(0, 6)
 			control.add_theme_stylebox_override("panel", styled)
 	if control is Label and control.has_theme_font_size_override("font_size"):
 		if control.get_theme_font_size("font_size") >= DISPLAY_SIZE:

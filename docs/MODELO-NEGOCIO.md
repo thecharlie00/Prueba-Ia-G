@@ -3,6 +3,8 @@
 Versión editable y con gráfico: [documento en Claude](https://claude.ai/artifact/XiuNH1ppyG4x5LJGWxHees).
 No es asesoramiento fiscal ni legal: consultar con un gestor antes de facturar.
 
+> **Aviso (13 de noviembre de 2026):** después de escribir este documento se añadió un piloto de multijugador online con Photon Fusion. Las cuentas de abajo suponen un juego sin servidores. Photon es gratis hasta 100 jugadores simultáneos (con tope: rechaza a los siguientes) y de pago a partir de ahí (unos 125 $ al mes el escalón de 500, según guías de terceros; confirmar con Photon). Si el online sale en la 1.0, hay que añadir ese gasto o usar la red de Steam, que no tiene coste por jugador.
+
 ## Resumen
 
 Juego de **pago único a 9,99 € en Steam, para Windows y Linux**, todo offline en la 1.0 y
