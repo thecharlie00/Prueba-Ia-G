@@ -33,6 +33,8 @@ func _build() -> void:
 	margin.add_theme_constant_override("margin_top", 22)
 	margin.add_theme_constant_override("margin_bottom", 20)
 	add_child(margin)
+	# El menú no llena la pantalla: se centra con un tamaño máximo y deja ver la sala.
+	MenuStyle.limit_page(margin, Vector2(1260, 740), 24)
 
 	var page := VBoxContainer.new()
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -534,7 +536,7 @@ func _build_settings_sidebar(parent: HBoxContainer) -> void:
 		"SettingsPanel", Palette.PANEL, Palette.INK, 18, 16, 20, 6
 	)
 	sidebar.custom_minimum_size = Vector2(336, 0)
-	sidebar.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sidebar.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	parent.add_child(sidebar)
 
 	var col := VBoxContainer.new()

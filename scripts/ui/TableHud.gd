@@ -68,6 +68,7 @@ func _ready() -> void:
 		var found_net := view.get_node_or_null("NetTable") as NetTable
 		social = SocialOverlay3D.attach(view as Node3D, seats, found_net)
 	_tint_drawer()
+	_compact_drawer()
 	set_drawer_open(false)
 	# Pincel en todas las mesas con piezas físicas (queja 16 de TTS).
 	var grabber := view.find_child("PhysicsGrabber3D", true, false) as PhysicsGrabber3D
@@ -88,9 +89,39 @@ func _tint_drawer() -> void:
 		panel.add_theme_stylebox_override("panel", tinted)
 
 
+## Lo que el cajón repite de la barra de turno y del bocadillo (se oculta dentro del cajón).
+const MIRRORED_IN_HUD := ["Eyebrow", "Title", "Status", "Help"]
+const DRAWER_WIDTH := 330.0
+
+
+## El cajón «Partida» no es un panel de arriba abajo: es una tarjeta que cuelga de su botón,
+## a la derecha, tan alta como su contenido. Dentro no se repite lo que ya dice la barra de
+## turno (título, estado y pista).
+func _compact_drawer() -> void:
+	if not (panel is PanelContainer) or panel.get_parent() is Container:
+		return
+	if view.has_method("hud_config") and view.hud_config().get("keep_drawer", false):
+		return
+	for label_name in MIRRORED_IN_HUD:
+		var label := panel.find_child(label_name, true, false) as Label
+		if label != null and label not in info_labels:
+			label.visible = false
+	panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	panel.grow_vertical = Control.GROW_DIRECTION_END
+	panel.offset_right = -18
+	panel.offset_left = -18 - DRAWER_WIDTH
+	panel.offset_top = 136
+	panel.offset_bottom = 136
+	panel.custom_minimum_size.x = DRAWER_WIDTH
+	panel.reset_size()
+
+
 func set_drawer_open(open: bool) -> void:
 	if panel != null:
 		panel.visible = open
+		if open:
+			panel.reset_size()
 	if _drawer_button != null:
 		_drawer_button.text = "✕  Cerrar" if open else "☰  Partida"
 	# Con el cajón abierto, las fichas de información (que repiten lo del cajón) se apartan.

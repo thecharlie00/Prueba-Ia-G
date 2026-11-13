@@ -1028,15 +1028,14 @@ func _build_ui() -> void:
 	add_child(layer)
 	var panel := PanelContainer.new()
 	panel.name = "Panel"
-	panel.offset_left = 18
-	panel.offset_top = 18
-	panel.offset_right = 350
-	panel.anchor_bottom = 1.0
-	panel.offset_bottom = -18
+	# Tarjeta que cuelga arriba a la izquierda, tan alta como la pestaña abierta.
+	HudCard.float_top_left(panel, 332)
 	var theme := GameThemes.theme_for(self)
-	var panel_style := _panel_style(Palette.PANEL)
-	panel_style.border_color = theme["accent"]
-	panel_style.set_border_width_all(4)
+	var panel_style := GameThemes.panel_box(theme)
+	panel_style.content_margin_left = 14
+	panel_style.content_margin_right = 14
+	panel_style.content_margin_top = 12
+	panel_style.content_margin_bottom = 12
 	panel.add_theme_stylebox_override("panel", panel_style)
 	layer.add_child(panel)
 	var column := VBoxContainer.new()
@@ -1063,8 +1062,9 @@ func _build_ui() -> void:
 	tabs = TabContainer.new()
 	tabs.name = "Actions"
 	tabs.add_theme_font_size_override("font_size", 12)
-	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(tabs)
+	# Al cambiar de pestaña la tarjeta se encoge o crece con su contenido.
+	tabs.tab_changed.connect(func(_tab: int) -> void: panel.reset_size.call_deferred())
 	_build_turn_tab(_tab_page("Turno"))
 	_build_trade_tab(_tab_page("Comercio"))
 	_build_development_tab(_tab_page("Cartas"))
@@ -1080,6 +1080,9 @@ func _build_ui() -> void:
 	layer.add_child(new_game_confirmation)
 
 
+const TAB_MAX_HEIGHT := 430.0
+
+
 func _tab_page(title: String) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
 	scroll.name = title
@@ -1090,6 +1093,16 @@ func _tab_page(title: String) -> VBoxContainer:
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 8)
 	scroll.add_child(column)
+	# La pestaña mide lo que su contenido (hasta un tope, a partir del cual se desplaza).
+	var fit := func() -> void:
+		var wanted := minf(column.get_combined_minimum_size().y, TAB_MAX_HEIGHT)
+		if not is_equal_approx(scroll.custom_minimum_size.y, wanted):
+			scroll.custom_minimum_size.y = wanted
+			var card := tabs.get_parent().get_parent() as Control
+			if card != null:
+				card.reset_size.call_deferred()
+	column.minimum_size_changed.connect(fit)
+	fit.call_deferred()
 	return column
 
 
@@ -1236,7 +1249,7 @@ func _build_dice_banner(layer: CanvasLayer, theme: Dictionary) -> void:
 	var top := CenterContainer.new()
 	top.name = "DiceBannerAnchor"
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	top.offset_left = 360
+	top.offset_left = 18
 	top.offset_top = 16
 	top.offset_right = -18
 	top.offset_bottom = 74

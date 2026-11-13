@@ -56,7 +56,7 @@ static func accent_box(theme: Dictionary, pressed := false, hover := false) -> S
 	box.border_color = (box.bg_color as Color).darkened(0.26)
 	box.set_border_width_all(0)
 	box.border_width_bottom = 3 if pressed else 6
-	box.set_corner_radius_all(12)
+	MenuStyle.pebble(box, 16)
 	box.content_margin_left = 14
 	box.content_margin_right = 14
 	box.content_margin_top = 9 if pressed else 6
@@ -82,7 +82,7 @@ static func panel_box(theme: Dictionary) -> StyleBoxFlat:
 	box.border_color = theme["accent"]
 	box.set_border_width_all(0)
 	box.border_width_top = 5
-	box.set_corner_radius_all(20)
+	MenuStyle.pebble(box, 22)
 	box.shadow_color = Color(0.05, 0.04, 0.12, 0.34)
 	box.shadow_size = 10
 	box.shadow_offset = Vector2(0, 4)

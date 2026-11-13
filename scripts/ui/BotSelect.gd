@@ -141,11 +141,14 @@ func _build() -> void:
 	margin.add_theme_constant_override("margin_top", 22)
 	margin.add_theme_constant_override("margin_bottom", 20)
 	add_child(margin)
+	# El menú no llena la pantalla: se centra con un tamaño máximo y deja ver la sala.
+	MenuStyle.limit_page(margin, Vector2(1180, 0), 24)
 
 	var page := VBoxContainer.new()
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_theme_constant_override("separation", 14)
+	page.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(page)
 
 	# 1. Cabecera con botón Back (requerido por tests) y acceso al catálogo local
@@ -287,7 +290,7 @@ func _build() -> void:
 		"BotTablesCard", Palette.PANEL, Palette.INK, 18, 14, 20, 6
 	)
 	tables_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tables_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tables_card.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	page.add_child(tables_card)
 
 	var tables_col := VBoxContainer.new()
@@ -327,6 +330,8 @@ func _build() -> void:
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	scroll.add_child(grid)
+	# La tarjeta mide lo que sus mesas (con tope): no se estira hasta abajo.
+	MenuStyle.fit_scroll(scroll, grid, 440.0)
 
 	for game in GAMES:
 		_add_bot_game(grid, game)

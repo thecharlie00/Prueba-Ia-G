@@ -16,6 +16,60 @@ const CARD_WELL := Color("211d40")
 const LOCKED_FILL := Color("6e6894")
 
 
+## Esquinas de «canto rodado»: cada una con un radio algo distinto, para que paneles y
+## botones parezcan modelados a mano y no rectángulos de plantilla.
+static func pebble(box: StyleBoxFlat, radius: int) -> StyleBoxFlat:
+	box.corner_radius_top_left = int(round(radius * 1.35))
+	box.corner_radius_top_right = int(round(radius * 0.8))
+	box.corner_radius_bottom_right = int(round(radius * 1.2))
+	box.corner_radius_bottom_left = int(round(radius * 0.9))
+	return box
+
+
+## Limita el contenido de un menú a un tamaño máximo y lo centra, para que no llene la
+## pantalla de borde a borde y el diorama del fondo se vea alrededor. `margin` es el
+## MarginContainer raíz del menú (a pantalla completa); `base` es su margen mínimo.
+## Con max_size.y = 0 solo se limita el ancho (menús dentro de un ScrollContainer).
+static func limit_page(margin: MarginContainer, max_size: Vector2, base: int = 32) -> void:
+	var apply := func() -> void:
+		# Se mide la ventana, no el contenedor: su tamaño depende de estos mismos márgenes.
+		if not margin.is_inside_tree():
+			return
+		var area := margin.get_viewport_rect().size
+		var wanted := {"margin_left": maxi(base, int((area.x - max_size.x) * 0.5))}
+		wanted["margin_right"] = wanted["margin_left"]
+		if max_size.y > 0.0:
+			wanted["margin_top"] = maxi(base, int((area.y - max_size.y) * 0.5))
+			wanted["margin_bottom"] = wanted["margin_top"]
+		for key in wanted:
+			if margin.get_theme_constant(key) != wanted[key]:
+				margin.add_theme_constant_override(key, wanted[key])
+	var start := func() -> void:
+		var window := margin.get_viewport()
+		window.size_changed.connect(apply)
+		margin.tree_exiting.connect(func() -> void:
+			if window.size_changed.is_connected(apply):
+				window.size_changed.disconnect(apply)
+		)
+		apply.call()
+	if margin.is_inside_tree():
+		start.call()
+	else:
+		margin.tree_entered.connect(start, CONNECT_ONE_SHOT)
+
+
+## Hace que un ScrollContainer mida lo que su contenido hasta un tope (a partir de ahí,
+## desplaza), para que la tarjeta que lo contiene no se estire hasta el borde de la pantalla.
+static func fit_scroll(scroll: ScrollContainer, content: Control, max_height: float) -> void:
+	scroll.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var fit := func() -> void:
+		var wanted := minf(content.get_combined_minimum_size().y, max_height)
+		if not is_equal_approx(scroll.custom_minimum_size.y, wanted):
+			scroll.custom_minimum_size.y = wanted
+	content.minimum_size_changed.connect(fit)
+	fit.call_deferred()
+
+
 static func add_backdrop(parent: Control, accent := Palette.SUN) -> Control:
 	var backdrop := MenuBackdrop.new()
 	backdrop.accent_color = accent
@@ -40,7 +94,7 @@ static func panel_box(
 	if top_stripe > 3:
 		box.border_width_top = top_stripe
 		box.border_color = Palette.SUN if border == Palette.INK else border
-	box.set_corner_radius_all(radius + 4)
+	pebble(box, radius + 6)
 	if shadow > 0:
 		box.shadow_color = Color(0.05, 0.04, 0.12, 0.38)
 		box.shadow_size = 6 + shadow * 3
@@ -93,7 +147,7 @@ static func button_box(
 		box.shadow_color = Color(0.05, 0.04, 0.12, 0.28)
 		box.shadow_size = 5
 		box.shadow_offset = Vector2(0, 3)
-	box.set_corner_radius_all(radius)
+	pebble(box, radius + 4)
 	box.content_margin_left = pad_x
 	box.content_margin_right = pad_x
 	box.content_margin_top = pad_y + (lip - bottom)

@@ -133,7 +133,7 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 
 ### Fase 4 · Editor no-code y Workshop gratuito
 
-**Estado (13 de noviembre de 2026):** primer paso del editor (`scenes/game_creator/`): crear piezas, importar imágenes, ponérselas y probarlas con física. El motor de reglas visuales, los mazos, los dados y la exportación de mods son código de base sin interfaz ni pruebas todavía.
+**Estado (13 de noviembre de 2026):** primer paso del editor (`scenes/game_creator/`): crear piezas, importar imágenes, ponérselas y probarlas con física. También hay un **diseñador de interfaz**: el creador añade textos, botones, paneles, imágenes y contadores, los arrastra y cambia de tamaño sobre la pantalla del juego, elige colores y qué hace cada botón (sumar o restar a un contador, tirar un dado, mostrar u ocultar algo), y lo prueba funcionando. Se guarda en `user://creador/interfaz.json`. El motor de reglas visuales, los mazos, los dados y la exportación de mods son código de base sin interfaz ni pruebas todavía.
 
 - [x] Primer paso sin conexión: **barajas propias desde imágenes** (una carpeta por baraja en la carpeta de mazos, una imagen por carta) en la mesa de cartas, con guardado y validación de rutas.
 - [ ] Asistente de importación: imágenes, hojas de cartas (filas × columnas), fichas extruidas, glTF/GLB.

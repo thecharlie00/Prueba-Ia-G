@@ -63,6 +63,9 @@ func _run() -> void:
 	# 6. Cambiar de modo y volver al menú.
 	editor._toggle_mode()
 	_check(not (entity.get_node("Body") as RigidBody3D).freeze and not paused, "al probar, las piezas tienen física y el juego no queda en pausa")
+	for i in 90:
+		await physics_frame
+	_check((entity.get_node("Body") as RigidBody3D).global_position.y > -0.2, "y se apoyan en la mesa en vez de caer")
 	editor._toggle_mode()
 	_check((entity.get_node("Body") as RigidBody3D).freeze, "al volver a editar, quedan quietas")
 	editor._remove_selected_entity()

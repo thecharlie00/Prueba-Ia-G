@@ -402,7 +402,7 @@ func _box(fill: Color, border: Color, border_width: int, radius: int) -> StyleBo
 
 
 func _clay(fill: Color, lip: int) -> StyleBoxFlat:
-	var box := _box(fill, fill.darkened(0.26), 0, 12)
+	var box := MenuStyle.pebble(_box(fill, fill.darkened(0.26), 0, 12), 16)
 	box.border_width_bottom = lip
 	box.shadow_color = Color(0.05, 0.04, 0.12, 0.26)
 	box.shadow_size = 4
@@ -412,7 +412,7 @@ func _clay(fill: Color, lip: int) -> StyleBoxFlat:
 
 ## Panel oscuro sin borde de tinta: filo claro de 1 px y sombra difusa.
 func _soft_panel(fill: Color, radius: int) -> StyleBoxFlat:
-	var box := _box(Color(fill, 0.94), fill.lightened(0.12), 1, radius)
+	var box := MenuStyle.pebble(_box(Color(fill, 0.94), fill.lightened(0.12), 1, radius), radius + 2)
 	box.shadow_color = Color(0.05, 0.04, 0.12, 0.36)
 	box.shadow_size = 14
 	box.shadow_offset = Vector2(0, 6)
@@ -439,7 +439,7 @@ func _style_control(control: Control) -> void:
 			styled.bg_color = Color(PANEL, clampf(box.bg_color.a, 0.9, 0.94))
 			styled.border_color = PANEL.lightened(0.12)
 			styled.set_border_width_all(1)
-			styled.set_corner_radius_all(maxi(box.corner_radius_top_left, 20))
+			MenuStyle.pebble(styled, maxi(box.corner_radius_top_left, 20) + 2)
 			styled.shadow_color = Color(0.05, 0.04, 0.12, 0.36)
 			styled.shadow_size = 14
 			styled.shadow_offset = Vector2(0, 6)

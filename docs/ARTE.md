@@ -59,6 +59,11 @@ Ambas con licencia SIL Open Font License, incluida en `assets/fonts/`.
 - **Paneles**: índigo algo translúcido, filo claro de 1 px, esquinas de 20–24 px y sombra difusa hacia abajo (nada de sombras duras desplazadas). El acento de cada juego es una franja superior, no un marco.
 - **Titulares**: Lilita One con sombra suave en vez de trazo de tinta.
 - **Fondo de los menús** (`MenuBackdrop`): un diorama 3D de la sala —mesa puesta, dos muñecos de arcilla, lámpara— con la cámara girando despacio y un velo oscuro para leer el texto. La portada deja la mesa a la vista a la derecha y pone título y botones a la izquierda; el resto de menús usa el velo entero.
+- **Formas orgánicas**: paneles y botones llevan esquinas de «canto rodado» (`MenuStyle.pebble`): cada esquina con un radio algo distinto, como modeladas a mano.
+- **Nada de borde a borde**:
+  - Los menús tienen un tamaño máximo y se centran (`MenuStyle.limit_page`); sus tarjetas miden lo que su contenido (`MenuStyle.fit_scroll`). La selección de modo es una lista corta a la izquierda, como la portada.
+  - En las mesas, el cajón «Partida» es una tarjeta que cuelga de su botón, a la derecha, sin repetir lo que ya dice la barra de turno.
+  - Parchís, ludo e isla usan una tarjeta compacta arriba a la izquierda (`HudCard`): lo de cada turno a la vista y lo demás (bots, guardar, reglas, atajos) plegado en «⋯».
 - Todo sale de `MenuStyle` (menús), `ToonStyle._build_theme` (tema global) y `GameThemes` (barra de cada mesa).
 
 ## Animación ("juice")
