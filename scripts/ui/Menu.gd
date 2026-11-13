@@ -247,7 +247,7 @@ func _build_catalog_entries(list: VBoxContainer) -> void:
 	var island_grid := _family_section(
 		list,
 		"ISLA DE RECURSOS",
-		"Dos, tres o cuatro jugadores · estrategia inspirada en Catán.",
+		"Dos, tres o cuatro jugadores · estrategia de comercio y construcción.",
 		"island",
 		"2–4 jugadores",
 		"strategy",

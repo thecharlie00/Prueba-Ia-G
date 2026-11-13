@@ -324,7 +324,7 @@ En el menú hay mesas para **dos, tres o cuatro personas**. Cada jugador tiene c
 Las reglas y simulaciones se prueban automáticamente, pero faltan pruebas visuales y partidas manuales con renderizador real para validar legibilidad y manejo.
 
 
-## Isla de recursos · modo local inspirado en Catán
+## Isla de recursos · comercio y construcción en local
 
 Es una adaptación propia de las principales reglas del juego base para **tres o cuatro personas locales**, no el juego oficial. La mano activa se muestra con cartas ilustradas; el marcador oculta los puntos de victoria de cartas hasta el final. Las cartas de desarrollo se representan en el panel, no como cartas físicas. El tablero se genera aleatoriamente y sus componentes visuales son propios. J1 es naranja, J2 azul, J3 rojo y J4 blanco; Los puertos usan las abreviaturas Mad/Lad/Lan/Tri/Min para madera, ladrillo, lana, trigo y mineral. Los números rojos son 6 y 8 y no aparecen adyacentes.
 
