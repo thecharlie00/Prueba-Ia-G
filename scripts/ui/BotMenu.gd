@@ -1,18 +1,19 @@
 extends Control
-## Pantalla de bienvenida de Tablerama: portada ilustrada procedural estilo cartoon-tabletop,
-## escaparate de emblemas de juego, acceso directo al selector de modos y al tutorial jugable,
-## y barra rápida superior con sonido, pantalla completa e idioma.
+## Portada de Tablerama: el diorama 3D de la sala de juegos a la derecha y, a la izquierda,
+## el título y tres botones grandes (jugar, tutorial y salir). Arriba, la barra rápida con
+## sonido, pantalla completa e idioma.
 
 var _sound_btn: Button
 var _fullscreen_btn: Button
 
 
 func _ready() -> void:
-	MenuStyle.add_backdrop(self, Palette.SUN)
+	var backdrop := MenuStyle.add_backdrop(self, Palette.SUN) as MenuBackdrop
+	backdrop.layout = MenuBackdrop.SIDE
 
 	var root_margin := MarginContainer.new()
 	root_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root_margin.add_theme_constant_override("margin_left", 32)
+	root_margin.add_theme_constant_override("margin_left", 56)
 	root_margin.add_theme_constant_override("margin_right", 32)
 	root_margin.add_theme_constant_override("margin_top", 24)
 	root_margin.add_theme_constant_override("margin_bottom", 22)
@@ -84,61 +85,35 @@ func _ready() -> void:
 				_refresh_fullscreen_button()
 			)
 
-	# 2. Tarjeta central de portada
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	page.add_child(center)
-
-	var hero := MenuStyle.make_card_panel(
-		"HeroCard", Palette.PANEL, Palette.INK, 44, 30, 24, 6, 8
-	)
-	var hero_style := hero.get_theme_stylebox("panel") as StyleBoxFlat
-	if hero_style != null:
-		hero_style.border_color = Palette.INK
-	hero.custom_minimum_size = Vector2(640, 0)
-	center.add_child(hero)
+	# 2. Columna de portada a la izquierda (sin tarjeta: el texto va sobre el velo del diorama)
+	var hero_row := HBoxContainer.new()
+	hero_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hero_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(hero_row)
 
 	var hero_col := VBoxContainer.new()
+	hero_col.name = "HeroColumn"
+	hero_col.custom_minimum_size = Vector2(520, 0)
 	hero_col.alignment = BoxContainer.ALIGNMENT_CENTER
-	hero_col.add_theme_constant_override("separation", 14)
-	hero.add_child(hero_col)
+	hero_col.add_theme_constant_override("separation", 12)
+	hero_row.add_child(hero_col)
 
-	# Escaparate de emblemas de las familias de juegos
-	var emblems_row := HBoxContainer.new()
-	emblems_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	emblems_row.add_theme_constant_override("separation", 12)
-	for entry in [
-		["island", 32.0],
-		["chess", 34.0],
-		["sandbox", 44.0],
-		["brisca", 34.0],
-		["parchis", 32.0],
-	]:
-		emblems_row.add_child(
-			MenuStyle.make_emblem_badge(str(entry[0]), float(entry[1]), MenuStyle.CARD_WELL)
-		)
-	hero_col.add_child(emblems_row)
-
-	var eyebrow := MenuStyle.make_eyebrow(
-		"UN ESPACIO PARA JUGAR", Palette.SUN, HORIZONTAL_ALIGNMENT_CENTER
-	)
+	var eyebrow := MenuStyle.make_eyebrow("UN ESPACIO PARA JUGAR", Palette.SUN)
+	eyebrow.add_theme_font_size_override("font_size", 14)
 	hero_col.add_child(eyebrow)
 
-	var title := MenuStyle.make_title("Tablerama", 64, HORIZONTAL_ALIGNMENT_CENTER)
+	var title := MenuStyle.make_title("Tablerama", 92)
 	title.name = "Title"
 	hero_col.add_child(title)
 
 	var tagline := MenuStyle.make_muted(
-		"Tu mesa de juegos en 3D con piezas físicas, reglas clásicas, bots y salas online.",
-		16,
-		HORIZONTAL_ALIGNMENT_CENTER
+		"Tu mesa de juegos en 3D con piezas físicas, reglas clásicas, bots y salas online.", 17
 	)
-	tagline.custom_minimum_size.x = 520
+	tagline.add_theme_color_override("font_color", Palette.LAVENDER)
+	tagline.custom_minimum_size.x = 480
 	hero_col.add_child(tagline)
 
 	var chips := HBoxContainer.new()
-	chips.alignment = BoxContainer.ALIGNMENT_CENTER
 	chips.add_theme_constant_override("separation", 8)
 	chips.add_child(MenuStyle.make_pill("Física táctil", Palette.SUN, Palette.INK, 12, 11, 3))
 	chips.add_child(MenuStyle.make_pill("Rivales bot", Palette.MINT, Palette.INK, 12, 11, 3))
@@ -146,51 +121,46 @@ func _ready() -> void:
 	hero_col.add_child(chips)
 
 	var spacer := Control.new()
-	spacer.custom_minimum_size.y = 4
+	spacer.custom_minimum_size.y = 18
 	hero_col.add_child(spacer)
-
-	var primary_row := HBoxContainer.new()
-	primary_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	hero_col.add_child(primary_row)
 
 	var play_btn := Button.new()
 	play_btn.name = "Jugar"
 	play_btn.text = "Jugar"
-	play_btn.custom_minimum_size = Vector2(320, 62)
+	play_btn.custom_minimum_size = Vector2(340, 68)
+	play_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	play_btn.add_theme_font_override("font", MenuStyle.DISPLAY_FONT)
-	play_btn.add_theme_font_size_override("font_size", 26)
-	MenuStyle.style_primary(play_btn, 16, 7)
+	play_btn.add_theme_font_size_override("font_size", 28)
+	MenuStyle.style_primary(play_btn, 18, 7)
 	play_btn.pressed.connect(
 		func() -> void: get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
 	)
-	primary_row.add_child(play_btn)
+	hero_col.add_child(play_btn)
 
 	var secondary_row := HBoxContainer.new()
-	secondary_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	secondary_row.add_theme_constant_override("separation", 12)
 	hero_col.add_child(secondary_row)
 
 	var tutorial_btn := Button.new()
 	tutorial_btn.name = "QuickTutorial"
 	tutorial_btn.text = "Tutorial jugable"
-	tutorial_btn.custom_minimum_size = Vector2(182, 46)
-	MenuStyle.style_secondary(tutorial_btn, 13, 6)
+	tutorial_btn.custom_minimum_size = Vector2(200, 48)
+	MenuStyle.style_secondary(tutorial_btn, 14, 6)
 	tutorial_btn.pressed.connect(_open_tutorial)
 	secondary_row.add_child(tutorial_btn)
 
 	var quit_btn := Button.new()
 	quit_btn.name = "Salir"
 	quit_btn.text = "Salir"
-	quit_btn.custom_minimum_size = Vector2(126, 46)
-	MenuStyle.style_secondary(quit_btn, 13, 6)
+	quit_btn.custom_minimum_size = Vector2(128, 48)
+	MenuStyle.style_subtle(quit_btn, 14)
 	quit_btn.pressed.connect(func() -> void: get_tree().quit())
 	secondary_row.add_child(quit_btn)
 
 	# 3. Pie discreto de compatibilidad de controles
 	var footer := MenuStyle.make_muted(
 		"Ratón · Teclado · Mando y Steam Deck   ·   Pulsa F1 dentro de una mesa para ver sus atajos",
-		13,
-		HORIZONTAL_ALIGNMENT_CENTER
+		13
 	)
 	page.add_child(footer)
 

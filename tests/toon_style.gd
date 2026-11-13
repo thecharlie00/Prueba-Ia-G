@@ -1,5 +1,6 @@
 extends SceneTree
-## Estilo cartoon: luz por bandas, contornos, paleta de entorno, tema de interfaz y rebote al agarrar.
+## Estilo «arcilla»: materiales mates con luz envolvente, contorno fino del color de la pieza,
+## paleta de entorno, tema de interfaz y rebote al agarrar.
 
 
 func _initialize() -> void:
@@ -18,8 +19,11 @@ func _run() -> void:
 
 	var dice := main.get_node("Objects/Dice") as InteractiveTableObject
 	var dice_material := _first_material(dice.get_node("Visual") as MeshInstance3D)
-	if dice_material == null or dice_material.diffuse_mode != BaseMaterial3D.DIFFUSE_TOON:
-		_fail("El material del dado debe usar iluminación toon.")
+	if dice_material == null or dice_material.diffuse_mode != BaseMaterial3D.DIFFUSE_LAMBERT_WRAP:
+		_fail("El material del dado debe usar luz envolvente (arcilla mate).")
+		return
+	if dice_material.specular_mode != BaseMaterial3D.SPECULAR_DISABLED or dice_material.roughness < 0.99:
+		_fail("El material del dado debe ser mate, sin brillos.")
 		return
 	var outline := dice_material.next_pass as ShaderMaterial
 	if outline == null or outline.shader != style.OUTLINE_SHADER:
@@ -28,12 +32,20 @@ func _run() -> void:
 	if float(outline.get_shader_parameter("width")) <= 0.0:
 		_fail("El contorno del dado debe tener grosor.")
 		return
+	var outline_color: Color = outline.get_shader_parameter("outline_color")
+	if outline_color.is_equal_approx(style.INK) or outline_color.get_luminance() >= dice_material.albedo_color.get_luminance():
+		_fail("El contorno debe ser el color de la pieza oscurecido, no tinta negra.")
+		return
+	var button_box := ThemeDB.get_default_theme().get_stylebox("normal", "Button") as StyleBoxFlat
+	if button_box == null or button_box.border_width_left != 0 or button_box.border_width_bottom < 4:
+		_fail("Los botones deben ser de arcilla: sin contorno y con labio inferior.")
+		return
 
 	# Los materiales transparentes (resaltado de selección) no se tocan.
 	dice.set_hovered(true)
 	var overlay := (dice.get_node("Visual") as MeshInstance3D).material_overlay as StandardMaterial3D
-	if overlay == null or overlay.next_pass != null or overlay.diffuse_mode == BaseMaterial3D.DIFFUSE_TOON:
-		_fail("El resaltado transparente no debe recibir estilo toon ni contorno.")
+	if overlay == null or overlay.next_pass != null or overlay.diffuse_mode == BaseMaterial3D.DIFFUSE_LAMBERT_WRAP:
+		_fail("El resaltado transparente no debe recibir el estilo de arcilla ni contorno.")
 		return
 	dice.set_hovered(false)
 

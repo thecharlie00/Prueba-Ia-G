@@ -3,7 +3,7 @@
 # Muestra las imágenes importadas en un grid navegable y permite seleccionarlas
 # para asignarlas a entidades del tablero (VisualComponent, CardData, DiceFace, etc.).
 class_name AssetBrowser
-extends Control
+extends VBoxContainer
 
 # Importador de imágenes (referencia opcional).
 var image_importer: ImageImporter = null

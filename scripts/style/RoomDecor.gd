@@ -5,12 +5,12 @@ extends Node3D
 ## Solo decorado: sin colisiones. Las juntas del parqué se agrupan en MultiMeshInstance3D
 ## (~2 draw calls en lugar de ~460) para mantener 60+ FPS en gl_compatibility.
 
-const WALL := Color("e9c9a0")
-const TRIM := Color("c98f5b")
-const RUG := Color("9a88d6")
-const RUG_EDGE := Color("5b4aa0")
+const WALL := Color("efe5d6")
+const TRIM := Color("d9c4a6")
+const RUG := Color("9fb3c4")
+const RUG_EDGE := Color("7d93a6")
 const GLASS := Color("bfe3ff")
-const LAMP_SHADE := Color("e8834a")
+const LAMP_SHADE := Color("e39a63")
 const WARM_SPOT := Color("ffe4b5")
 const BOOKS := [Color("ff6b5e"), Color("4d7cfe"), Color("ffc83d"), Color("3fcf8e"), Color("8a7fd6")]
 const DONE_META := &"toon_style_applied"
@@ -35,11 +35,11 @@ func _ready() -> void:
 
 # Juntas entre tablones del suelo agrupadas en MultiMeshInstance3D (2 draw calls totales).
 func _floorboards() -> void:
-	var seam := _material(Palette.FLOOR.darkened(0.35))
+	var seam := _material(Palette.FLOOR.darkened(0.14))
 	seam.set_meta(DONE_META, true)
-	seam.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	seam.specular_mode = BaseMaterial3D.SPECULAR_TOON
-	seam.roughness = 0.72
+	seam.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
+	seam.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	seam.roughness = 1.0
 
 	var line_box := BoxMesh.new()
 	line_box.size = Vector3(40.0, 0.004, 0.05)
@@ -91,9 +91,9 @@ func _floorboards() -> void:
 
 
 func _rug() -> void:
-	var edge := _mesh(PieceKit.rounded_disc(5.4, 0.03, 0.015, 36), Vector3(0, 0.015, 0), RUG_EDGE)
+	var edge := _mesh(PieceKit.rounded_disc(5.4, 0.03, 0.015, 96), Vector3(0, 0.015, 0), RUG_EDGE)
 	edge.scale = Vector3(1.0, 1.0, 0.72)
-	var top := _mesh(PieceKit.rounded_disc(5.0, 0.035, 0.015, 36), Vector3(0, 0.02, 0), RUG)
+	var top := _mesh(PieceKit.rounded_disc(5.0, 0.035, 0.015, 96), Vector3(0, 0.02, 0), RUG)
 	top.scale = Vector3(1.0, 1.0, 0.72)
 
 

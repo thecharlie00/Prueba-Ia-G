@@ -48,13 +48,13 @@ static func theme_for(view: Node) -> Dictionary:
 	return theme
 
 
-## Caja del color de acento con borde de tinta (botones de la barra, «Partida»).
+## Caja «de arcilla» del color de acento, con labio inferior (botones de la barra, «Partida»).
 static func accent_box(theme: Dictionary, pressed := false, hover := false) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	var accent: Color = theme["accent"]
 	box.bg_color = accent.lightened(0.18) if hover else accent
-	box.border_color = Palette.INK
-	box.set_border_width_all(3)
+	box.border_color = (box.bg_color as Color).darkened(0.26)
+	box.set_border_width_all(0)
 	box.border_width_bottom = 3 if pressed else 6
 	box.set_corner_radius_all(12)
 	box.content_margin_left = 14
@@ -77,13 +77,15 @@ static func style_button(button: BaseButton, theme: Dictionary) -> void:
 ## Panel de tinta con el borde del acento del juego.
 static func panel_box(theme: Dictionary) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
-	box.bg_color = Palette.PANEL
+	box.bg_color = Color(Palette.PANEL, 0.94)
+	# Una franja del acento arriba en vez de un marco entero.
 	box.border_color = theme["accent"]
-	box.set_border_width_all(4)
-	box.set_corner_radius_all(18)
-	box.shadow_color = Palette.INK
-	box.shadow_size = 1
-	box.shadow_offset = Vector2(5, 5)
+	box.set_border_width_all(0)
+	box.border_width_top = 5
+	box.set_corner_radius_all(20)
+	box.shadow_color = Color(0.05, 0.04, 0.12, 0.34)
+	box.shadow_size = 10
+	box.shadow_offset = Vector2(0, 4)
 	box.content_margin_left = 18
 	box.content_margin_right = 18
 	box.content_margin_top = 8

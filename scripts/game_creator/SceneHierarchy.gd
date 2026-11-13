@@ -2,7 +2,7 @@
 # Árbol de jerarquía de escena que muestra las entidades del tablero.
 # Permite seleccionar entidades para editarlas en el Inspector.
 class_name SceneHierarchy
-extends Control
+extends VBoxContainer
 
 # Lista de entidades conocidas.
 var entities: Array[PropEntity] = []

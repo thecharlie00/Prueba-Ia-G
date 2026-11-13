@@ -1,48 +1,48 @@
 # Biblia de arte · Tablerama
 
-**Dirección:** cartoon de mesa. Colores saturados, formas redondeadas, contornos de tinta gruesos y animaciones con rebote. El objetivo es que una captura se reconozca a primera vista y que el juego vaya fluido en portátiles con gráficos integrados.
+**Dirección (noviembre de 2026): «juguete de arcilla».** A medio camino entre *PEAK* (volúmenes blandos y gruesos, tonos cálidos y terrosos, un punto de grano) y *Human Fall Flat* (superficies mates y limpias, luz suave, muñecos sencillos). Materiales sin brillo, luz que envuelve las formas, sombras difuminadas, contorno fino del color de cada pieza (no tinta negra) y una interfaz de botones «de arcilla» sin marcos. Los colores de jugador son el único acento vivo. Debe ir fluido en portátiles con gráficos integrados.
 
 ![Antes y después del estilo cartoon](img/fase1-antes-despues.png)
 
+(La imagen es de la fase 1, con el estilo cartoon de contornos de tinta que este sustituye.)
+
 ## Paleta
 
-La fuente de verdad son las constantes de [`scripts/style/ToonStyle.gd`](../scripts/style/ToonStyle.gd). Si cambia un color, se cambia allí y aquí.
+La fuente de verdad es [`scripts/style/Palette.gd`](../scripts/style/Palette.gd). Si cambia un color, se cambia allí y aquí.
 
 | Token | Color | Uso |
 | --- | --- | --- |
-| `INK` | `#1d1a3a` | Contornos, bordes de interfaz, texto sobre fondos claros |
-| `SKY` | `#a9c9f2` | Fondo de todas las escenas |
-| `FLOOR` | `#7c98cf` | Suelo bajo la mesa |
-| `WOOD` | `#8a4f2a` | Madera de la mesa |
-| `FELT` | `#1e7a5f` | Tapete |
-| `PANEL` | `#2a2552` | Paneles de interfaz |
+| `INK` | `#1d1a3a` | Texto sobre fondos claros; ya no se usa para contornos ni marcos |
+| `SKY` | `#cfe1ee` | Fondo de todas las escenas |
+| `FLOOR` | `#c2a27e` | Suelo de roble claro |
+| `WOOD` | `#a67c56` | Madera de la mesa |
+| `FELT` | `#4f9c84` | Tapete verde salvia |
+| `PANEL` | `#2a2552` | Paneles de interfaz (algo translúcidos) |
 | `PAPER` | `#fff8ec` | Texto sobre paneles, campos, botones secundarios |
 | `SUN` | `#ffc83d` | Botones principales, pestaña activa, acentos |
 | `SUN_LIGHT` | `#ffd96e` | Botón al pasar el ratón |
 | `LAVENDER` | `#c9c5ef` | Texto secundario sobre paneles |
 | `MUTED` | `#8b87b3` | Controles desactivados |
 
-Luz: sol cálido `#fff1d9` (energía 0,85) y luz ambiente lavanda `#c7c9ff` (0,5). La cara en sombra queda en torno a la mitad del color propio: contraste de dibujo animado sin negros.
+Habitación (`RoomDecor.gd`): pared crema `#efe5d6`, zócalo `#d9c4a6` y alfombra azul grisáceo `#9fb3c4`, fría para que la mesa cálida destaque. Colores de jugador algo menos saturados que antes (`#ee6f60`, `#5a8ae8`, `#58c08f`, `#f5c549`).
+
+Luz: sol cálido `#fff1d9` (energía 0,52, sombras difuminadas al 42 %) y mucha luz ambiente clara `#ece7f3` (0,56). El lado en sombra conserva su color: nada de negros ni de blancos quemados.
 
 **Reglas de color**
 - Nunca transmitir información solo con color: los jugadores y las fichas llevan número o letra (ya se hace en ludo, ajedrez y la isla).
 - Los colores de jugador conservan sus nombres (rojo, azul, naranja, blanco…) para que los textos de turno sigan siendo correctos.
-- Evitar el negro puro y el blanco puro en superficies grandes: queman la imagen con la iluminación por bandas.
+- Evitar el negro puro y el blanco puro en superficies grandes.
 
 ## Iluminación y sombreado
 
-- Materiales opacos: difuso y especular **toon** de Godot (`DIFFUSE_TOON`, `SPECULAR_TOON`), rugosidad entre 0,45 y 0,8, sin metal.
-- Sin tonemapping (`linear`): los colores saturados no se apagan.
-- Sombras al 55 % de opacidad y con más sesgo, para evitar rayas de "acné" sobre superficies curvas.
-- Materiales transparentes o sin iluminación (resaltados, vistas previas, paredes de cristal, marcas) **no** se tocan.
+- Materiales opacos: `DIFFUSE_LAMBERT_WRAP` (la luz envuelve la forma en un degradado suave, sin corte de bandas), sin especular y rugosidad 1: arcilla mate.
+- Lo aplica `ToonStyle` a cada malla que entra en el árbol, sin tocar las escenas. Los materiales transparentes o sin iluminación (resaltados, marcas) se dejan como están.
+- Encima del 3D y por debajo de la interfaz hay una capa de grano muy suave y viñeta (`shaders/soft_grain.gdshader`). Con «Reducir animaciones» el grano se queda quieto.
 
 ## Contornos
 
-Casco invertido ([`shaders/toon_outline.gdshader`](../shaders/toon_outline.gdshader)): la malla se dibuja inflada y por detrás en color `INK`. Funciona en el renderizador Compatibility.
-
-- Grosor proporcional al tamaño de la malla: 3,6 % de su mayor dimensión, entre 0,8 y 3 cm. Un dado de 0,5 m lleva unos 1,8 cm.
-- Dirección de inflado según la forma: cajas hacia las esquinas, cilindros rectos desde el centro, conos y mallas generadas según la normal (si no, el contorno atraviesa las piezas vecinas).
-- Sin contorno: láminas de menos de 1,2 cm (marcas, separadores, casillas del imán), tapetes grandes y finos, planos y el suelo.
+- Casco invertido (`shaders/toon_outline.gdshader`), ahora fino (2 % de la pieza, entre 5 y 14 mm) y del **color de la propia pieza oscurecido**: separa las piezas del tapete sin dibujar cómic.
+- Las piezas con textura (cartas) llevan un marrón grisáceo neutro. Láminas finas, planos y tapetes no llevan contorno.
 
 ## Tipografía
 
@@ -55,10 +55,11 @@ Ambas con licencia SIL Open Font License, incluida en `assets/fonts/`.
 
 ## Interfaz
 
-- Paneles `PANEL` con borde `INK` de 3 px, esquinas de 18 px y sombra dura desplazada 5 px.
-- Botones principales `SUN` con texto `INK`, borde de 3 px y 6 px abajo para dar volumen; al pulsar, el borde inferior baja a 3 px y el texto se hunde.
-- Botones del menú principal en `PAPER`, con el mismo volumen.
-- Foco de teclado: anillo `PAPER` de 3 px alrededor del control.
+- **Botones «de arcilla»**: sin contorno; un labio inferior del color del botón oscurecido (6 px, 3 px al pulsar) y una sombra corta difusa. Foco: anillo claro.
+- **Paneles**: índigo algo translúcido, filo claro de 1 px, esquinas de 20–24 px y sombra difusa hacia abajo (nada de sombras duras desplazadas). El acento de cada juego es una franja superior, no un marco.
+- **Titulares**: Lilita One con sombra suave en vez de trazo de tinta.
+- **Fondo de los menús** (`MenuBackdrop`): un diorama 3D de la sala —mesa puesta, dos muñecos de arcilla, lámpara— con la cámara girando despacio y un velo oscuro para leer el texto. La portada deja la mesa a la vista a la derecha y pone título y botones a la izquierda; el resto de menús usa el velo entero.
+- Todo sale de `MenuStyle` (menús), `ToonStyle._build_theme` (tema global) y `GameThemes` (barra de cada mesa).
 
 ## Animación ("juice")
 

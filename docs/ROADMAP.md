@@ -113,6 +113,8 @@ Todo en local primero, con el diseño preparado para red.
 
 ### Fase 3 · Multijugador online
 
+**Estado (13 de noviembre de 2026):** hay un piloto con **Photon Fusion** (no Steam Networking): anfitrión autoritativo, salas públicas y con clave, sala de espera, chat y 12 mesas en red (`docs/RED-ONLINE.md`). Pendiente: probarlo entre dos equipos reales, y decidir si se queda Photon (gratis hasta 100 jugadores simultáneos; después de pago, lo que cambia `docs/MODELO-NEGOCIO.md`) o se pasa a Steam. El SDK de Photon es propietario: no debería estar en un repositorio público.
+
 Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos de intención.
 
 - [ ] Capa de estado lógico con IDs estables común a todas las mesas (refactor previo).
@@ -130,6 +132,8 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 **Salida:** 20 sesiones de prueba con amigos en redes domésticas distintas: ≥ 95 % de uniones a la primera, partidas de 1 h sin desincronización ni cuelgues.
 
 ### Fase 4 · Editor no-code y Workshop gratuito
+
+**Estado (13 de noviembre de 2026):** primer paso del editor (`scenes/game_creator/`): crear piezas, importar imágenes, ponérselas y probarlas con física. El motor de reglas visuales, los mazos, los dados y la exportación de mods son código de base sin interfaz ni pruebas todavía.
 
 - [x] Primer paso sin conexión: **barajas propias desde imágenes** (una carpeta por baraja en la carpeta de mazos, una imagen por carta) en la mesa de cartas, con guardado y validación de rutas.
 - [ ] Asistente de importación: imágenes, hojas de cartas (filas × columnas), fichas extruidas, glTF/GLB.

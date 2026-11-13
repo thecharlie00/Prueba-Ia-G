@@ -74,15 +74,14 @@ func _ready() -> void:
 	header.add_child(right_spacer)
 
 	# 2. Cuatro tarjetas panorámicas de modo
-	var center := CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	page.add_child(center)
-
+	# Reparten el ancho a partes iguales: las cuatro caben también en pantallas de 1280.
 	var cards_row := HBoxContainer.new()
+	cards_row.name = "ModeCards"
+	cards_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cards_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cards_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	cards_row.add_theme_constant_override("separation", 22)
-	center.add_child(cards_row)
+	cards_row.add_theme_constant_override("separation", 20)
+	page.add_child(cards_row)
 
 	var local_btn := _add_mode_card(
 		cards_row,
@@ -140,14 +139,14 @@ func _ready() -> void:
 		"Create",
 		"Crear juegos",
 		"Estudio de creación",
-		"Editor de tableros",
-		Color("a855f7"),
+		"En desarrollo",
+		Color("b48cf2"),
 		["sandbox", "cards"],
-		"Diseña tableros, reglas visuales, barajas de cartas y dados personalizados para publicar tus propios juegos de mesa.",
+		"Primer paso del editor: monta piezas con tus propias imágenes y pruébalas sobre la mesa.",
 		[
-			"Importa imágenes y asigna texturas a entidades",
-			"Motor de reglas visuales sin código",
-			"Exporta y publica mods en el Workshop",
+			"Importa tus imágenes",
+			"Crea piezas y ponles imagen",
+			"Pruébalas con física en la mesa",
 		],
 		"res://scenes/game_creator/GameCreatorEditor.tscn"
 	)
@@ -188,7 +187,9 @@ func _add_mode_card(
 	var card := MenuStyle.make_card_panel(
 		button_name + "Card", Palette.PANEL, Palette.INK, 22, 20, 20, 6
 	)
-	card.custom_minimum_size = Vector2(356, 396)
+	card.custom_minimum_size = Vector2(250, 408)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	parent.add_child(card)
 
 	var col := VBoxContainer.new()
@@ -212,6 +213,7 @@ func _add_mode_card(
 
 	# Título y resumen de la experiencia
 	var card_title := MenuStyle.make_title(heading_text, 26, HORIZONTAL_ALIGNMENT_LEFT)
+	card_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(card_title)
 
 	var desc := MenuStyle.make_muted(description, 14)

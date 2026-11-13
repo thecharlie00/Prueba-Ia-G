@@ -96,10 +96,10 @@ func _build_preview() -> void:
 	table.position.y = -0.06
 	world.add_child(table)
 	var camera := Camera3D.new()
-	camera.position = Vector3(0, 3.4, 3.6)
-	camera.fov = 45
+	camera.position = Vector3(0, 4.0, 4.6)
+	camera.fov = 42
 	world.add_child(camera)
-	camera.look_at(Vector3(0, 0, 0.2))
+	camera.look_at(Vector3(0, 0, 0.35))
 	camera.current = true
 	_entities_root = Node3D.new()
 	_entities_root.name = "Entities"
@@ -173,6 +173,10 @@ func _build_editor_ui() -> void:
 	var right := _make_dock("RightDock")
 	_docks.add_child(right["panel"])
 	var right_col: VBoxContainer = right["column"]
+	# Hueco para los botones «Ayuda» y «Menú», que van encima en todas las pantallas.
+	var clearance := Control.new()
+	clearance.custom_minimum_size = Vector2(0, 52)
+	right_col.add_child(clearance)
 	_scene_hierarchy = SceneHierarchy.new()
 	_scene_hierarchy.name = "SceneHierarchy"
 	_scene_hierarchy.custom_minimum_size = Vector2(0, 240)
@@ -376,7 +380,7 @@ func _spawn_example_entity() -> void:
 	# En la mesa de la vista previa, repartidas para que no se monten.
 	var slot := _scene_hierarchy.entities.size()
 	_entities_root.add_child(entity)
-	entity.position = Vector3(-1.2 + (slot % 4) * 0.8, 0.06, -0.6 + ((slot / 4) % 3) * 0.9)
+	entity.position = Vector3(-1.2 + (slot % 4) * 0.8, 0.06, -0.5 + ((slot / 4) % 3) * 0.95)
 	_refresh_entity_visual(entity)
 	_scene_hierarchy.add_entity(entity)
 	_on_entity_selected(entity)

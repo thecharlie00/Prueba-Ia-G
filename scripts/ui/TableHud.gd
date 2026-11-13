@@ -83,7 +83,8 @@ func _tint_drawer() -> void:
 	if box is StyleBoxFlat:
 		var tinted := (box as StyleBoxFlat).duplicate() as StyleBoxFlat
 		tinted.border_color = game_theme["accent"]
-		tinted.set_border_width_all(maxi(tinted.border_width_left, 4))
+		tinted.set_border_width_all(0)
+		tinted.border_width_top = 5
 		panel.add_theme_stylebox_override("panel", tinted)
 
 
@@ -214,16 +215,15 @@ func _build() -> void:
 	_bubble.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var bubble_box := StyleBoxFlat.new()
 	bubble_box.bg_color = Palette.PAPER
-	bubble_box.border_color = Palette.INK
-	bubble_box.set_border_width_all(3)
+	bubble_box.set_border_width_all(0)
 	bubble_box.set_corner_radius_all(16)
 	bubble_box.content_margin_left = 16
 	bubble_box.content_margin_right = 16
 	bubble_box.content_margin_top = 8
 	bubble_box.content_margin_bottom = 8
-	bubble_box.shadow_color = Palette.INK
-	bubble_box.shadow_size = 1
-	bubble_box.shadow_offset = Vector2(4, 4)
+	bubble_box.shadow_color = Color(0.05, 0.04, 0.12, 0.34)
+	bubble_box.shadow_size = 10
+	bubble_box.shadow_offset = Vector2(0, 4)
 	_bubble.add_theme_stylebox_override("panel", bubble_box)
 	# Pista del momento bajo el cartel de turno: la parte de abajo queda para la barra de
 	# acciones y la mano de cartas.
@@ -446,12 +446,11 @@ func _make_plaque(index: int) -> Control:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var style := StyleBoxFlat.new()
 	style.bg_color = Palette.SUN if on else Palette.PANEL
-	style.border_color = Palette.INK
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(16)
-	style.shadow_color = Palette.INK
-	style.shadow_size = 1
-	style.shadow_offset = Vector2(4, 4)
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(18)
+	style.shadow_color = Color(0.05, 0.04, 0.12, 0.34)
+	style.shadow_size = 10
+	style.shadow_offset = Vector2(0, 4)
 	style.content_margin_left = 10
 	style.content_margin_right = 14
 	style.content_margin_top = 6
@@ -468,8 +467,8 @@ func _make_plaque(index: int) -> Control:
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var face_style := StyleBoxFlat.new()
 	face_style.bg_color = seat.get("color", Palette.SUN)
-	face_style.border_color = Palette.INK
-	face_style.set_border_width_all(3)
+	face_style.border_color = Palette.PAPER
+	face_style.set_border_width_all(2)
 	face_style.set_corner_radius_all(19)
 	face.add_theme_stylebox_override("panel", face_style)
 	row.add_child(face)

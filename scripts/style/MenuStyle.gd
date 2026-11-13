@@ -1,17 +1,18 @@
 class_name MenuStyle
 extends RefCounted
-## Sistema compartido de componentes y estilos cartoon-tabletop para todos los menús
-## (`BotMenu`, `ModeSelect`, `Menu`, `BotSelect`, `Lobby` y `SessionNavigation`).
-## Respeta estrictamente la guía visual de `docs/ARTE.md`: bordes gruesos de tinta (`3px`),
-## sombras duras desplazadas (`5px`), labio inferior táctil (`6px` / `3px` pulsado),
-## tipografía `Lilita One` en titulares y `GameEmblem` + `GameThemes` por familia.
+## Sistema compartido de componentes y estilos para todos los menús (`BotMenu`, `ModeSelect`,
+## `Menu`, `BotSelect`, `Lobby` y `SessionNavigation`), según `docs/ARTE.md`:
+## - tarjetas sin borde de tinta, algo translúcidas sobre el diorama 3D, con sombra difusa;
+## - botones «de arcilla»: sin contorno, con un labio inferior del mismo color oscurecido
+##   (`6px`, `3px` pulsado) que da volumen;
+## - titulares en `Lilita One` con sombra suave en vez de trazo, y `GameEmblem` por familia.
 
 const DISPLAY_FONT := preload("res://assets/fonts/LilitaOne-Regular.ttf")
 const DONE_META := &"toon_style_applied"
 
-const CARD_SURFACE := Color("332d61")
+const CARD_SURFACE := Color("3a3466")
 const CARD_ELEVATED := Color("3c3570")
-const CARD_WELL := Color("221e42")
+const CARD_WELL := Color("211d40")
 const LOCKED_FILL := Color("6e6894")
 
 
@@ -32,16 +33,18 @@ static func panel_box(
 	top_stripe := 0
 ) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
-	box.bg_color = bg
-	box.border_color = border
-	box.set_border_width_all(3)
+	# Algo translúcida para que el diorama respire detrás; un filo claro en vez de tinta.
+	box.bg_color = Color(bg, minf(bg.a, 0.93))
+	box.border_color = bg.lightened(0.12) if border == Palette.INK else border
+	box.set_border_width_all(1)
 	if top_stripe > 3:
 		box.border_width_top = top_stripe
-	box.set_corner_radius_all(radius)
+		box.border_color = Palette.SUN if border == Palette.INK else border
+	box.set_corner_radius_all(radius + 4)
 	if shadow > 0:
-		box.shadow_color = Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.85)
-		box.shadow_size = 1
-		box.shadow_offset = Vector2(shadow, shadow)
+		box.shadow_color = Color(0.05, 0.04, 0.12, 0.38)
+		box.shadow_size = 6 + shadow * 3
+		box.shadow_offset = Vector2(0, 4 + shadow)
 	box.content_margin_left = pad_x
 	box.content_margin_right = pad_x
 	box.content_margin_top = pad_y
@@ -81,10 +84,15 @@ static func button_box(
 ) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.bg_color = fill
-	box.border_color = border
-	box.set_border_width_all(3)
+	# Solo el labio inferior, del color del botón oscurecido: volumen sin contorno de tinta.
+	box.border_color = fill.darkened(0.26) if border == Palette.INK else border
+	box.set_border_width_all(0)
 	var bottom := maxi(3, int(lip * 0.5)) if pressed else lip
 	box.border_width_bottom = bottom
+	if not pressed:
+		box.shadow_color = Color(0.05, 0.04, 0.12, 0.28)
+		box.shadow_size = 5
+		box.shadow_offset = Vector2(0, 3)
 	box.set_corner_radius_all(radius)
 	box.content_margin_left = pad_x
 	box.content_margin_right = pad_x
@@ -97,9 +105,9 @@ static func button_box(
 static func focus_box(accent := Palette.SUN_LIGHT, radius := 14) -> StyleBoxFlat:
 	var box := StyleBoxFlat.new()
 	box.draw_center = false
-	box.border_color = accent
+	box.border_color = Palette.PAPER if accent == Palette.SUN_LIGHT else accent
 	box.set_border_width_all(3)
-	box.set_corner_radius_all(radius)
+	box.set_corner_radius_all(radius + 3)
 	box.expand_margin_left = 4
 	box.expand_margin_right = 4
 	box.expand_margin_top = 4
@@ -184,8 +192,11 @@ static func make_title(
 	label.add_theme_font_override("font", DISPLAY_FONT)
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", Palette.INK)
-	label.add_theme_constant_override("outline_size", 6 if font_size < 48 else 9)
+	# Sombra suave bajo el texto en vez de trazo de tinta.
+	label.add_theme_color_override("font_shadow_color", Color(0.05, 0.04, 0.12, 0.32))
+	label.add_theme_constant_override("shadow_offset_x", 0)
+	label.add_theme_constant_override("shadow_offset_y", 3 if font_size < 48 else 5)
+	label.add_theme_constant_override("shadow_outline_size", 3 if font_size < 48 else 5)
 	return label
 
 
@@ -229,8 +240,7 @@ static func make_pill(
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var box := StyleBoxFlat.new()
 	box.bg_color = bg
-	box.border_color = Palette.INK
-	box.set_border_width_all(2)
+	box.set_border_width_all(0)
 	box.set_corner_radius_all(999)
 	box.content_margin_left = pad_x
 	box.content_margin_right = pad_x
@@ -267,8 +277,7 @@ static func make_emblem_badge(
 	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var box := StyleBoxFlat.new()
 	box.bg_color = bg
-	box.border_color = Palette.INK
-	box.set_border_width_all(3)
+	box.set_border_width_all(0)
 	box.set_corner_radius_all(14)
 	box.content_margin_left = 7
 	box.content_margin_right = 7
@@ -391,8 +400,8 @@ static func make_game_card_button(
 static func style_text_well(edit: TextEdit) -> void:
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = CARD_WELL
-	normal.border_color = Palette.INK
-	normal.set_border_width_all(3)
+	normal.border_color = CARD_ELEVATED
+	normal.set_border_width_all(1)
 	normal.set_corner_radius_all(12)
 	normal.content_margin_left = 12
 	normal.content_margin_right = 12
