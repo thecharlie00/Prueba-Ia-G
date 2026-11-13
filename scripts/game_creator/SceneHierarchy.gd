@@ -16,7 +16,7 @@ signal entity_selected(entity: PropEntity)
 var _tree: Tree = null
 
 func _ready() -> void:
-	_build_ui()
+	build_ui()
 
 func build_ui() -> void:
 	# Limpiar hijos existentes.
@@ -64,23 +64,23 @@ func build_ui() -> void:
 	var refresh_btn := Button.new()
 	refresh_btn.text = "Refrescar"
 	refresh_btn.custom_minimum_size = Vector2(80, 28)
-	refresh_btn.pressed.connect(_refresh)
+	refresh_btn.pressed.connect(refresh)
 	bottom_hb.add_child(refresh_btn)
 
-	_refresh()
+	refresh()
 
 func add_entity(entity: PropEntity) -> void:
 	if entity in entities:
 		return
 	entities.append(entity)
-	_refresh()
+	refresh()
 
 func remove_entity(entity: PropEntity) -> void:
 	entities.erase(entity)
 	if selected_entity == entity:
 		selected_entity = null
 		entity_selected.emit(null)
-	_refresh()
+	refresh()
 
 func get_selected() -> PropEntity:
 	return selected_entity
@@ -91,17 +91,15 @@ func refresh() -> void:
 	_tree.clear()
 
 	if entities.size() == 0:
-		var empty_label := Label.new()
-		empty_label.text = "Sin entidades en la escena."
-		empty_label.add_theme_font_size_override("font_size", 12)
-		empty_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
-		_tree.add_child(empty_label)
 		return
 
+	# Raíz oculta: sin ella, cada entidad se crearía como hija de la primera.
+	_tree.hide_root = true
+	var tree_root := _tree.create_item()
 	for entity in entities:
-		var name: String = entity.entity_name if entity.entity_name != "" else entity.entity_id
-		var item := _tree.create_item()
-		item.set_text(0, name)
+		var label: String = entity.entity_name if entity.entity_name != "" else entity.entity_id
+		var item := _tree.create_item(tree_root)
+		item.set_text(0, label)
 		item.set_icon(0, _get_entity_icon(entity))
 		item.set_metadata(0, entity)
 
@@ -111,21 +109,13 @@ func refresh() -> void:
 func _get_entity_icon(entity: PropEntity) -> Texture2D:
 	# Usar un icono simple basado en si tiene VisualComponent.
 	if entity.get_component("VisualComponent") != null:
-		var cube: Texture2D = load("res://assets/icons/entity_3d.png")
-		if cube == null:
-			cube = _make_colored_icon(Color(0.4, 0.7, 1.0))
-		return cube
+		return _make_colored_icon(Color(0.4, 0.7, 1.0))
 	else:
-		var logic: Texture2D = load("res://assets/icons/entity_logic.png")
-		if logic == null:
-			logic = _make_colored_icon(Color(0.8, 0.6, 0.4))
-		return logic
+		return _make_colored_icon(Color(0.8, 0.6, 0.4))
 
 func _make_colored_icon(color: Color) -> Texture2D:
 	var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
-	for x in range(16):
-		for y in range(16):
-			img.set_pixel(x, y, color)
+	img.fill(color)
 	return ImageTexture.create_from_image(img)
 
 func _on_tree_item_selected() -> void:

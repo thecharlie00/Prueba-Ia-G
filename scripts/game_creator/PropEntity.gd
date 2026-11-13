@@ -28,7 +28,7 @@ signal entity_selected(entity: PropEntity)
 signal entity_deselected(entity: PropEntity)
 
 # Estado interno de selección del editor.
-var _is_selected: bool = False
+var _is_selected: bool = false
 
 func _init(p_entity_id: String = "", p_entity_name: String = ""):
 	entity_id = p_entity_id if p_entity_id != "" else str(Time.get_ticks_msec())
@@ -55,7 +55,7 @@ func remove_component(component: RefCounted) -> void:
 # Obtiene el primer componente del tipo dado (por nombre de clase).
 func get_component(p_component_class: String) -> RefCounted:
 	for comp in components:
-		if comp.get_class() == p_component_class:
+		if _type_of(comp) == p_component_class:
 			return comp
 	return null
 
@@ -63,9 +63,14 @@ func get_component(p_component_class: String) -> RefCounted:
 func get_components(p_component_class: String) -> Array[RefCounted]:
 	var result: Array[RefCounted] = []
 	for comp in components:
-		if comp.get_class() == p_component_class:
+		if _type_of(comp) == p_component_class:
 			result.append(comp)
 	return result
+
+# Nombre de clase del script (get_class() devuelve la clase nativa, "RefCounted").
+static func _type_of(object: Object) -> String:
+	var script: Script = object.get_script()
+	return str(script.get_global_name()) if script != null else object.get_class()
 
 # Serializa la entidad completa a Dictionary.
 func serialize() -> Dictionary:
@@ -77,9 +82,9 @@ func serialize() -> Dictionary:
 		"entity_name": entity_name,
 		"is_locked": is_locked,
 		"tags": tags,
-		"position": global_position,
-		"rotation": global_rotation,
-		"scale": global_scale,
+		"position": position,
+		"rotation": rotation,
+		"scale": scale,
 		"components": comps_data,
 	}
 
@@ -88,10 +93,10 @@ func deserialize(data: Dictionary) -> void:
 	entity_id = data.get("entity_id", entity_id)
 	entity_name = data.get("entity_name", entity_name)
 	is_locked = data.get("is_locked", is_locked)
-	tags = data.get("tags", tags)
-	global_position = data.get("position", global_position)
-	global_rotation = data.get("rotation", global_rotation)
-	global_scale = data.get("scale", global_scale)
+	tags.assign(data.get("tags", tags))
+	position = data.get("position", position)
+	rotation = data.get("rotation", rotation)
+	scale = data.get("scale", scale)
 
 	# Reconstruir componentes.
 	for comp_data in data.get("components", []):
@@ -113,13 +118,15 @@ func _instantiate_component(p_component_class: String) -> RefCounted:
 
 # Agrega el componente como nodo hijo (si es Node) para mantenerlo en el árbol.
 func add_component_node(component: RefCounted) -> void:
-	if component is Node:
-		add_child(component)
+	var node := component as Object as Node
+	if node != null:
+		add_child(node)
 
 # Remueve el componente del árbol de nodos (si es Node).
 func remove_component_node(component: RefCounted) -> void:
-	if component is Node:
-		remove_child(component)
+	var node := component as Object as Node
+	if node != null and node.get_parent() == self:
+		remove_child(node)
 
 # Marca la entidad como seleccionada/deseleccionada en el editor.
 func set_selected(selected: bool) -> void:

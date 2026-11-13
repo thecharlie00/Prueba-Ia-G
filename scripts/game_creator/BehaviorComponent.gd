@@ -25,7 +25,7 @@ func _init(p_component_id: String = "", p_display_name: String = ""):
 # Serializa el componente a un Dictionary para guardado/empacado.
 func serialize() -> Dictionary:
 	var data: Dictionary = {
-		"type": get_class(),
+		"type": str((get_script() as Script).get_global_name()),
 		"component_id": component_id,
 		"display_name": display_name,
 		"enabled": enabled,

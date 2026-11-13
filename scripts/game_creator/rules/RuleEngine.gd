@@ -56,7 +56,7 @@ func trigger_event(event_name: String, args: Array = []) -> void:
 	event_triggered.emit(event_name, args)
 	if graph != null:
 		for node in graph.nodes:
-			if node.get_class() == "RuleEventNode" and node.event_name == event_name:
+			if node is RuleEventNode and node.event_name == event_name:
 				_execute_node(node, args)
 
 # Ejecuta un nodo y propaga el resultado a sus sucesores según las conexiones.

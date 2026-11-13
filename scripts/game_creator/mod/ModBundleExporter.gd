@@ -32,13 +32,7 @@ func download_and_extract(mod_id: String) -> Dictionary:
 		"scene_path": "",
 	}
 
-# Calcula checksum SHA-256 simplificado de un archivo (placeholder).
+# Checksum SHA-256 del archivo ("" si no se puede leer).
 func _compute_checksum(path: String) -> String:
-	# Placeholder real usaría FileAccess + SHA256.
-	return "sha256:" + str(hash(path))
-
-func hash(s: String) -> String:
-	var h: int = 5381
-	for c in s.to_utf8():
-		h = ((h << 5) + h) + c
-	return str(h)
+	var sha := FileAccess.get_sha256(path)
+	return "sha256:" + sha if not sha.is_empty() else ""

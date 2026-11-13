@@ -16,14 +16,14 @@ func _ready() -> void:
 
 # Lanza el dado con fuerza y torque dados (llamado por la autoridad de red/host).
 func roll(force: Vector3, torque: Vector3) -> void:
-	apply_impulse(Vector3.ZERO, force)
+	apply_central_impulse(force)
 	apply_torque_impulse(torque)
 	_is_rolling = true
 	last_result = 0
 
 func _physics_process(delta: float) -> void:
 	if _is_rolling and linear_velocity.length() < 0.05 and angular_velocity.length() < 0.05:
-		_is_rolling = False
+		_is_rolling = false
 		last_result = _detect_face_up()
 		# Disparar evento en el motor de reglas (GameCreatorCore es autoload).
 		if GameCreatorCore != null and GameCreatorCore.rule_engine != null:

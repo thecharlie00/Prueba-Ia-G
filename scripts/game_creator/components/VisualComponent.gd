@@ -4,6 +4,8 @@ class_name VisualComponent
 extends BehaviorComponent
 
 @export var mesh_path: String = ""
+## Imagen que se ve en la pieza (ruta de ImageImporter).
+@export var texture_path: String = ""
 @export var material_path: String = ""
 @export var scale_factor: float = 1.0
 @export var color_tint: Color = Color.WHITE
@@ -14,6 +16,7 @@ var mesh_node: MeshInstance3D = null
 
 func _serialize_extra(data: Dictionary) -> void:
 	data["mesh_path"] = mesh_path
+	data["texture_path"] = texture_path
 	data["material_path"] = material_path
 	data["scale_factor"] = scale_factor
 	data["color_tint"] = color_tint
@@ -21,6 +24,7 @@ func _serialize_extra(data: Dictionary) -> void:
 
 func _deserialize_extra(data: Dictionary) -> void:
 	mesh_path = data.get("mesh_path", mesh_path)
+	texture_path = data.get("texture_path", texture_path)
 	material_path = data.get("material_path", material_path)
 	scale_factor = data.get("scale_factor", scale_factor)
 	color_tint = data.get("color_tint", color_tint)
@@ -37,7 +41,6 @@ func load_mesh() -> void:
 	if instance is MeshInstance3D:
 		mesh_node = instance
 		mesh_node.scale = Vector3.ONE * scale_factor
-		mesh_node.modulate = color_tint
 		if material_path != "":
 			var mat: Material = load(material_path)
 			if mat is Material:
