@@ -8,3 +8,6 @@ build/
 ~*.dll
 addons/fusion/bin/~*
 builds/
+
+# SDK Photon Fusion: propietario, no se versiona (ver docs/RED-ONLINE.md)
+addons/fusion/

@@ -124,7 +124,7 @@ func _start_online() -> void:
 	var net := _net()
 	if net == null or str(net.room_game) not in ["Parchis2", "Parchis", "Ludo", "Ludo3", "Ludo4"]:
 		return
-	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+	if not (FusionBridge.in_room()):
 		return
 	online = true
 	net_table = LudoNetTable.new()

@@ -96,7 +96,7 @@ func _start_online() -> void:
 	var net := _net()
 	if net == null or str(net.room_game) != "DominoOnline":
 		return
-	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+	if not (FusionBridge.in_room()):
 		return
 	online = true
 	net_table = DominoNetTable.new()
@@ -187,7 +187,7 @@ func _viewer_seat() -> int:
 	if online:
 		if _is_awaiting_sync():
 			return -1
-		var in_room := Engine.has_singleton("Fusion") and Fusion.is_in_room()
+		var in_room := FusionBridge.in_room()
 		var seat := _local_seat() if in_room else maxi(0, _local_seat())
 		if seat < 0 or seat >= 2 or _online_bots[seat]:
 			return -1

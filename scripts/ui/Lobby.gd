@@ -76,9 +76,9 @@ func _ready() -> void:
 	Net.room_info_received.connect(_refresh)
 	Net.auth_rejected.connect(_on_auth_rejected)
 	Net.kicked.connect(_on_kicked)
-	if Engine.has_singleton("Fusion"):
-		Fusion.register_broadcast_receiver(self)
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+	if FusionBridge.available():
+		FusionBridge.sdk().register_broadcast_receiver(self)
+	if FusionBridge.in_room():
 		_on_room_joined()
 	else:
 		_refresh()
@@ -89,17 +89,17 @@ func _ready() -> void:
 			and not ("--prueba-arranque" in OS.get_cmdline_user_args())
 			and not str(ProjectSettings.get_setting("net/app_id", "")).is_empty()
 		)
-		if auto_connect and not Fusion.is_connected_to_photon():
+		if auto_connect and not FusionBridge.sdk().is_connected_to_photon():
 			Net.local_name = _username.text.strip_edges()
 			_set_status("Conectando al buscador de salas…")
 			Net.connect_or_retry()
-		elif Net.is_available() and Fusion.is_connected_to_photon():
+		elif Net.is_available() and FusionBridge.sdk().is_connected_to_photon():
 			Net.refresh_room_list()
 
 
 func _exit_tree() -> void:
-	if Engine.has_singleton("Fusion"):
-		Fusion.unregister_broadcast_receiver(self)
+	if FusionBridge.available():
+		FusionBridge.sdk().unregister_broadcast_receiver(self)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -620,8 +620,8 @@ func _refresh_connection_pill() -> void:
 	for child in _conn_pill_holder.get_children():
 		_conn_pill_holder.remove_child(child)
 		child.queue_free()
-	var in_room: bool = Engine.has_singleton("Fusion") and Fusion.is_in_room()
-	var connected: bool = Engine.has_singleton("Fusion") and Fusion.is_connected_to_photon()
+	var in_room: bool = FusionBridge.in_room()
+	var connected: bool = FusionBridge.available() and FusionBridge.sdk().is_connected_to_photon()
 	if in_room:
 		_conn_pill_holder.add_child(
 			MenuStyle.make_pill("● En sala", READY_COLOR, Palette.INK, 12, 11, 4)
@@ -696,7 +696,7 @@ func _render_room_list(source_rooms: Variant = null) -> void:
 		empty.add_theme_color_override("font_color", Palette.MUTED)
 		if not Net.is_available():
 			empty.text = "SDK Photon Fusion no disponible en este entorno."
-		elif not (Engine.has_singleton("Fusion") and Fusion.is_connected_to_photon()) and raw_rooms.is_empty():
+		elif not (FusionBridge.available() and FusionBridge.sdk().is_connected_to_photon()) and raw_rooms.is_empty():
 			empty.text = "Pulsa «↻ Actualizar» para conectar y consultar las salas públicas activas."
 		elif raw_rooms.is_empty():
 			empty.text = "No hay salas públicas abiertas ahora mismo. ¡Crea una sala a la izquierda!"
@@ -788,7 +788,7 @@ func _request_list_refresh() -> void:
 	var user_name := _username.text.strip_edges()
 	if not user_name.is_empty():
 		Net.local_name = user_name
-	if Engine.has_singleton("Fusion") and Fusion.is_connected_to_photon():
+	if FusionBridge.available() and FusionBridge.sdk().is_connected_to_photon():
 		Net.refresh_room_list()
 		_set_status("Lista de salas actualizada.")
 	else:
@@ -859,7 +859,7 @@ func _show_pre_room() -> void:
 
 
 func _show_lobby() -> void:
-	var in_room := Engine.has_singleton("Fusion") and Fusion.is_in_room()
+	var in_room := FusionBridge.in_room()
 	var offline := Net.is_singleplayer()
 	var is_host := in_room and (offline or Net.is_host())
 	_name_row.visible = false
@@ -944,7 +944,7 @@ func _selected_entry() -> Dictionary:
 
 
 func _refresh() -> void:
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+	if FusionBridge.in_room():
 		_show_lobby()
 	else:
 		_show_pre_room()
@@ -959,13 +959,13 @@ func _refresh_seats() -> void:
 	for child in _seats.get_children():
 		_seats.remove_child(child)
 		child.queue_free()
-	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+	if not (FusionBridge.in_room()):
 		return
-	var local_id := Fusion.get_local_player_id()
+	var local_id: int = FusionBridge.sdk().get_local_player_id()
 	var offline := Net.is_singleplayer()
 	var is_host := offline or Net.is_host()
 	var master_id := 1
-	var room: Variant = Fusion.get_room()
+	var room: Variant = FusionBridge.sdk().get_room()
 	if room != null and room is Object and room.has_method("get_master_client_id"):
 		master_id = int(room.call("get_master_client_id"))
 
@@ -1165,7 +1165,7 @@ func _create_room() -> void:
 	var is_public := _public_toggle.button_pressed
 	var password := _room_password_input.text.strip_edges()
 	Net.local_name = user_name
-	if Engine.has_singleton("Fusion") and Fusion.is_connected_to_photon():
+	if FusionBridge.available() and FusionBridge.sdk().is_connected_to_photon():
 		Net.create_room(
 			str(entry["id"]),
 			int(entry["seats"]),
@@ -1188,7 +1188,7 @@ func _create_room() -> void:
 
 
 func _enter_button_pressed() -> void:
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room() and not Net.room_game.is_empty():
+	if FusionBridge.in_room() and not Net.room_game.is_empty():
 		_enter_running()
 	else:
 		_join_room()
@@ -1211,7 +1211,7 @@ func _join_room() -> void:
 			_set_status("Esta sala requiere una contraseña válida.")
 			return
 	Net.local_name = user_name
-	if Engine.has_singleton("Fusion") and Fusion.is_connected_to_photon():
+	if FusionBridge.available() and FusionBridge.sdk().is_connected_to_photon():
 		Net.join_room(code, typed_pw)
 		_set_status("Entrando a la sala…")
 		return
@@ -1237,8 +1237,8 @@ func _start() -> void:
 		return
 	Net.room_game = str(entry["id"])
 	Net.room_seats = int(entry["seats"])
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room() and not Net.is_singleplayer():
-		Fusion.rpc(
+	if FusionBridge.in_room() and not Net.is_singleplayer():
+		FusionBridge.sdk().rpc(
 			_rpc_start_announced,
 			str(entry["scene"]),
 			int(entry["seats"]),
@@ -1260,8 +1260,8 @@ func _send_chat() -> void:
 	if text.is_empty():
 		return
 	_chat_input.clear()
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room() and not Net.is_singleplayer():
-		Fusion.rpc(_rpc_chat, text)
+	if FusionBridge.in_room() and not Net.is_singleplayer():
+		FusionBridge.sdk().rpc(_rpc_chat, text)
 	else:
 		var my_name := Net.local_name if not Net.local_name.is_empty() else "Jugador"
 		_append_chat(my_name, text)
@@ -1274,8 +1274,8 @@ func _append_chat(who: String, text: String) -> void:
 
 func _leave() -> void:
 	_pending_action = ""
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
-		Fusion.leave_room()
+	if FusionBridge.in_room():
+		FusionBridge.sdk().leave_room()
 		Net.room_game = ""
 		Net.room_started = false
 		Net.start_scene = ""
@@ -1294,7 +1294,7 @@ func _leave() -> void:
 
 @rpc("any_peer", "call_remote")
 func _rpc_chat(text: String) -> void:
-	var sender := Fusion.get_rpc_sender()
+	var sender: int = FusionBridge.sdk().get_rpc_sender()
 	var fallback := (
 		Net.local_name
 		if sender == Net.local_id() and not Net.local_name.is_empty()

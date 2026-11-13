@@ -6,10 +6,28 @@ mesa de la Isla (2, 3 o 4 jugadores, con soporte de bots en butacas libres).
 
 ## Instalación del SDK
 
-El proyecto usa el addon oficial **Photon Fusion para Godot** (Godot 4.6+).
-Se descarga de la Asset Store de Godot o de Photon y se copia en `addons/`.
-El singleton `Fusion` solo existe si el addon está instalado; sin él, la pantalla
-de online muestra un aviso y el juego local sigue funcionando.
+El proyecto usa el addon oficial **Photon Fusion para Godot** (Godot 4.6+). Es software
+propietario de Exit Games, así que **no se versiona**: `addons/fusion/` está en
+`.gitignore` y cada máquina lo instala a mano.
+
+1. Descarga el SDK de Photon Fusion para Godot (cuenta de Photon → SDKs, o la Asset Store).
+2. Copia la carpeta `fusion/` en `addons/` (debe quedar `addons/fusion/fusion.gdextension`).
+3. Abre el proyecto en el editor una vez para que Godot registre la extensión.
+
+Ningún script nombra el singleton `Fusion` directamente: todo pasa por
+`scripts/net/FusionBridge.gd` (`FusionBridge.sdk()`, `available()`, `in_room()`,
+`room_options()` y las constantes `STATUS_*` / `TARGET_*`). Sin el SDK, `sdk()` devuelve
+`FusionStub`, un sustituto inerte con las mismas señales y métodos: el proyecto compila,
+los tests pasan y el online muestra el aviso de SDK no instalado.
+
+**Builds.** La CI no tiene el SDK, así que sus exportaciones son solo locales (bots y misma
+pantalla), que es justo lo que lleva la demo. Las builds del juego completo con online se
+exportan en una máquina con el SDK instalado. Si algún día se quieren en CI, el SDK se
+descarga en el job desde un almacén privado (secreto del repositorio), nunca desde el repo.
+
+**Historial.** Las versiones antiguas del repositorio todavía contienen el SDK. Antes de
+anunciar el repositorio o hacerlo visible a terceros, conviene confirmar con Exit Games que
+eso es aceptable o reescribir el historial (`git filter-repo --path addons/fusion --invert-paths`).
 
 ## Configuración (project.godot → `[net]`)
 
@@ -94,9 +112,13 @@ de submit con su butaca.
 
 ## Licencias
 
-La demo solo puede **entrar** a salas: el botón «Crear sala» está deshabilitado
-y «Empezar» comprueba `Edition.allows(scene)`. Sin App ID, la sala offline no
-tiene restricción (testing local).
+**La demo no incluye online.** Antes del lanzamiento nadie tiene el juego completo para
+crear salas, y una demo que solo puede entrar a salas no tiene a quién encontrar; además,
+así la demo no gasta el cupo gratuito de Photon (100 jugadores simultáneos). El modo
+«Online» aparece en el selector como «En el juego completo» y el acceso «Salas online» del
+menú se oculta. Tras el lanzamiento se puede reabrir: añadir `Lobby.tscn` a
+`Edition.DEMO_SCENES`, y el Lobby ya limita la demo a **entrar** a salas (el botón «Crear
+sala» está deshabilitado y «Empezar» comprueba `Edition.allows(scene)`).
 
 ## Limitaciones del piloto
 

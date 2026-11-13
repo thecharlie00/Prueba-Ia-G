@@ -534,8 +534,8 @@ func _process(delta: float) -> void:
 	if (
 		_cursor_send_timer >= CURSOR_SEND_INTERVAL
 		and net_table != null
-		and Engine.has_singleton("Fusion")
-		and Fusion.is_in_room()
+		and FusionBridge.available()
+		and FusionBridge.sdk().is_in_room()
 	):
 		_cursor_send_timer = 0.0
 		var state: int = 1 if (grabber != null and is_instance_valid(grabber.held)) else 0

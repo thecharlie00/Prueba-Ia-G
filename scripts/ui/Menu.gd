@@ -102,6 +102,8 @@ func _build() -> void:
 		func() -> void: get_tree().change_scene_to_file("res://scenes/Lobby.tscn")
 	)
 	quick_actions.add_child(online)
+	var edition_node := get_node_or_null("/root/Edition")
+	online.visible = edition_node == null or edition_node.allows("res://scenes/Lobby.tscn")
 
 	# 2. Cartel de edición demo (solo cuando Edition.demo == true)
 	_demo_banner(page)

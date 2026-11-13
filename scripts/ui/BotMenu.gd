@@ -43,7 +43,7 @@ func _ready() -> void:
 	top_bar.add_child(badge)
 
 	var catalog_pill := MenuStyle.make_pill(
-		"Local · Bots · Online",
+		"Local · Bots" if is_demo else "Local · Bots · Online",
 		MenuStyle.CARD_SURFACE,
 		Palette.PAPER,
 		12,
@@ -107,7 +107,10 @@ func _ready() -> void:
 	hero_col.add_child(title)
 
 	var tagline := MenuStyle.make_muted(
-		"Tu mesa de juegos en 3D con piezas físicas, reglas clásicas, bots y salas online.", 17
+		"Tu mesa de juegos en 3D con piezas físicas, reglas clásicas, bots y salas online."
+		if not is_demo
+		else "Tu mesa de juegos en 3D con piezas físicas, reglas clásicas y bots. El online llega con el juego completo.",
+		17
 	)
 	tagline.add_theme_color_override("font_color", Palette.LAVENDER)
 	tagline.custom_minimum_size.x = 480
@@ -117,7 +120,8 @@ func _ready() -> void:
 	chips.add_theme_constant_override("separation", 8)
 	chips.add_child(MenuStyle.make_pill("Física táctil", Palette.SUN, Palette.INK, 12, 11, 3))
 	chips.add_child(MenuStyle.make_pill("Rivales bot", Palette.MINT, Palette.INK, 12, 11, 3))
-	chips.add_child(MenuStyle.make_pill("Salas con código", Color("7cc6fe"), Palette.INK, 12, 11, 3))
+	if not is_demo:
+		chips.add_child(MenuStyle.make_pill("Salas con código", Color("7cc6fe"), Palette.INK, 12, 11, 3))
 	hero_col.add_child(chips)
 
 	var spacer := Control.new()
