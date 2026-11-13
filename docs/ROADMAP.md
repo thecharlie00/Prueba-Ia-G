@@ -150,9 +150,9 @@ Arquitectura del README y del GDD: servidor autoritativo, IDs estables, comandos
 
 - [ ] Catálogo de lanzamiento: ajedrez, damas, dominó, ludo, isla de recursos, cartas y **roles ocultos** (pendiente del GDD).
 - [x] Bots para completar mesas en ludo/parchís (cualquier jugador), dominó (jugador 2), damas (oscuras, minimax) y brisca, con **menú principal** (título, Jugar, Salir) y **selección de bots** (dificultad + mesa, tres niveles: fácil, normal y difícil). El ajedrez ya tenía IA.
-- [ ] Localización revisada: español, catalán e inglés; después francés, alemán, portugués.
+- [x] Localización de la demo: español, catalán e inglés, con prueba automática de texto sin traducir. Pendiente: revisión por nativos y el resto de mesas; después francés, alemán, portugués.
 - [ ] Página de Steam con capturas y tráiler cartoon.
-- [x] **Demo gratuita** local: mesa libre, brisca y parchís, exportada con la característica `demo` (presets propios en la CI). Pendiente: unión a salas online (ver §5).
+- [x] **Demo gratuita** local: mesa libre, brisca y parchís, exportada con la característica `demo` (presets propios en la CI). Sin online hasta el lanzamiento: antes nadie tiene el juego completo para alojar salas (ver [RED-ONLINE.md](RED-ONLINE.md)). Después, unión a salas (ver §5).
 - [ ] Precio de 9,99 € y precios regionales (ver §5 y `docs/MODELO-NEGOCIO.md`); pack de 4 cuando llegue el online.
 - [ ] Rama beta pública para probar cada actualización antes de publicarla.
 - [ ] Objetivo **Steam Deck Verified** y Linux nativo.
@@ -222,7 +222,7 @@ Se mantiene la idea original: basta con que **una persona** tenga el juego compl
 - Descartado **Tabletoons**: ya existe como juego de mesa.
 - En una búsqueda web (noviembre de 2026) no apareció ningún videojuego ni juego de mesa llamado Tablerama; solo comercios sin relación (una maderera mexicana y algunos importadores).
 - **Pendiente antes de publicar:** búsqueda formal de marca en EUIPO/OEPM (clases 9, 28 y 41) y comprobar que el nombre está libre en Steam, el dominio y las redes.
-- Los archivos de guardado internos (`user://diceon_*.cfg`) conservan su nombre para no perder ajustes ni partidas.
+- Los archivos del jugador se llaman `user://tablerama_*`; al arrancar, `UserFiles.migrate_legacy()` renombra los antiguos `diceon_*` para no perder ajustes ni partidas.
 
 ---
 

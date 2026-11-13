@@ -17,7 +17,7 @@ const LEFT_ZONE := Vector3(-1.05, BOARD_HEIGHT + 0.02, 1.45)
 const RIGHT_ZONE := Vector3(1.05, BOARD_HEIGHT + 0.02, 1.45)
 const ZONE_RADIUS := 0.42
 
-@export var save_path := "user://diceon_domino.json"
+@export var save_path := "user://tablerama_domino.json"
 
 var rules := DominoRules.new()
 var tiles: Array[Domino3D] = []

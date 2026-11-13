@@ -144,14 +144,14 @@ func finish() -> void:
 
 static func mark_seen() -> void:
 	var config := ConfigFile.new()
-	config.load("user://diceon_controls.cfg")
+	config.load(UserFiles.SETTINGS)
 	config.set_value("tutorial", "seen", true)
-	config.save("user://diceon_controls.cfg")
+	config.save(UserFiles.SETTINGS)
 
 
 static func was_seen() -> bool:
 	var config := ConfigFile.new()
-	if config.load("user://diceon_controls.cfg") != OK:
+	if config.load(UserFiles.SETTINGS) != OK:
 		return false
 	return config.get_value("tutorial", "seen", false) == true
 

@@ -5,6 +5,7 @@ extends Control
 
 var _sound_btn: Button
 var _fullscreen_btn: Button
+var _report_btn: Button
 
 
 func _ready() -> void:
@@ -161,14 +162,58 @@ func _ready() -> void:
 	quit_btn.pressed.connect(func() -> void: get_tree().quit())
 	secondary_row.add_child(quit_btn)
 
-	# 3. Pie discreto de compatibilidad de controles
+	# 3. Pie discreto: controles a la izquierda; versión, créditos y fallos a la derecha
+	var footer_row := HBoxContainer.new()
+	footer_row.add_theme_constant_override("separation", 8)
+	page.add_child(footer_row)
 	var footer := MenuStyle.make_muted(
 		"Ratón · Teclado · Mando y Steam Deck   ·   Pulsa F1 dentro de una mesa para ver sus atajos",
 		13
 	)
-	page.add_child(footer)
+	footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer_row.add_child(footer)
+
+	var version_label := MenuStyle.make_muted("v" + AppInfo.version(), 13)
+	version_label.name = "Version"
+	version_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	version_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	version_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer_row.add_child(version_label)
+
+	var credits_btn := Button.new()
+	credits_btn.name = "Credits"
+	credits_btn.text = "Créditos"
+	credits_btn.custom_minimum_size = Vector2(0, 34)
+	credits_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	MenuStyle.style_subtle(credits_btn, 10)
+	credits_btn.pressed.connect(
+		func() -> void: get_tree().change_scene_to_file("res://scenes/Credits.tscn")
+	)
+	footer_row.add_child(credits_btn)
+
+	_report_btn = Button.new()
+	_report_btn.name = "ReportBug"
+	_report_btn.text = "Informar de un fallo"
+	_report_btn.tooltip_text = "Copia la versión y la ruta del registro, y abre su carpeta."
+	_report_btn.custom_minimum_size = Vector2(0, 34)
+	_report_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	MenuStyle.style_subtle(_report_btn, 10)
+	_report_btn.pressed.connect(_report_bug)
+	footer_row.add_child(_report_btn)
 
 	play_btn.grab_focus.call_deferred()
+
+
+## Copia los datos del informe y avisa en el propio botón durante unos segundos.
+func _report_bug() -> void:
+	AppInfo.copy_report()
+	_report_btn.text = tr("Copiado: pégalo en tu mensaje")
+	get_tree().create_timer(4.0).timeout.connect(
+		func() -> void:
+			if is_instance_valid(_report_btn):
+				_report_btn.text = tr("Informar de un fallo")
+	)
 
 
 func _open_tutorial() -> void:

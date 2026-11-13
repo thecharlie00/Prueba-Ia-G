@@ -9,6 +9,7 @@ const SCENES := [
 	"res://scenes/ModeSelect.tscn",
 	"res://scenes/Menu.tscn",
 	"res://scenes/BotSelect.tscn",
+	"res://scenes/Credits.tscn",
 	"res://scenes/Main.tscn",
 	"res://scenes/Brisca.tscn",
 	"res://scenes/Parchis.tscn",

@@ -10,7 +10,7 @@ const SPRING := 28.0
 const DAMPING := 9.0
 const MAX_ACCELERATION := 20.0
 
-@export var save_path := "user://diceon_chess.json"
+@export var save_path := "user://tablerama_chess.json"
 
 var rules := ChessRules.new()
 var piece_squares: Dictionary = {}

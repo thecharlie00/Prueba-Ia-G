@@ -16,6 +16,7 @@ const DEMO_SCENES := [
 	"res://scenes/BotMenu.tscn",
 	"res://scenes/ModeSelect.tscn",
 	"res://scenes/BotSelect.tscn",
+	"res://scenes/Credits.tscn",
 	"res://scenes/Main.tscn",
 	"res://scenes/Brisca.tscn",
 	"res://scenes/Parchis.tscn",

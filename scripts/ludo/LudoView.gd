@@ -37,7 +37,7 @@ const MAX_SAVE_BYTES := 500000
 @export_range(2, 4) var player_count := 2
 ## "ludo" o "parchis" (LudoRules): mismo tablero, reglas del parchís español.
 @export var variant := "ludo"
-@export var save_path := "user://diceon_ludo.json"
+@export var save_path := "user://tablerama_ludo.json"
 var confirm_action: ConfirmAction
 var rules: LudoRules
 var die: Dice3D

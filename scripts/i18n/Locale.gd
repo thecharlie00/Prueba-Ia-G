@@ -9,7 +9,13 @@ const ORDER := ["es", "en", "ca"]
 signal language_changed(code: String)
 
 var language := "es"
-var settings_path := "user://diceon_controls.cfg"
+var settings_path := UserFiles.SETTINGS
+
+
+func _init() -> void:
+	# Locale es el primer autoload: aquí se renombran los archivos antiguos (diceon_*)
+	# antes de que nadie lea ajustes o partidas.
+	UserFiles.migrate_legacy()
 
 
 func _ready() -> void:

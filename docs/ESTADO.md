@@ -51,6 +51,17 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 - `-- --prueba-arranque` y paso de CI que arranca el ejecutable de Linux y abre todas las mesas.
 - [PRUEBAS.md](PRUEBAS.md): protocolo para la prueba con 3 personas, lo único que falta para cerrar la fase.
 
+### Camino a la demo · fase A, estabilizar (14 de noviembre de 2026)
+
+- **SDK de Photon fuera del repo**: `addons/fusion` ya no se versiona; `FusionBridge`/`FusionStub` hacen que el proyecto compile, arranque y pase los tests sin él. Instalación en [RED-ONLINE.md](RED-ONLINE.md).
+- **Online fuera de la demo**: modos Online y Crear juegos se ven como «En el juego completo» y no se abren; el acceso «Salas online» del menú se oculta.
+- **Traducción completa de la demo** al inglés y al catalán (172 frases nuevas) y `tests/untranslated_text.gd`, que falla si una pantalla de la demo enseña español con el inglés activo.
+- **Créditos y licencias** (`Credits.tscn`): Godot, Jolt, Lilita One, Nunito y, en el juego completo, Photon; con el texto legal del motor.
+- **Versión 0.2.0** en el proyecto, en la portada y en los ejecutables; **icono propio** (dado de arcilla) y nombre de empresa en los presets.
+- **Informar de un fallo** en la portada: copia versión, sistema, gráfica y ruta del registro, y abre su carpeta. El registro a archivo queda activado.
+- Archivos del jugador renombrados a `user://tablerama_*` con migración automática de los antiguos `diceon_*`.
+- Fuera la mención a Catán de los textos del juego.
+
 ## Pendiente para completar el GDD
 
 1. Robustecer el ajedrez con pruebas exhaustivas de reglas, casos límite, accesibilidad, relojes, una IA más avanzada para distintos niveles y juego libre opcional.

@@ -12,9 +12,10 @@ const MENU_SCENES := [
 	"res://scenes/Menu.tscn",
 	"res://scenes/BotSelect.tscn",
 	"res://scenes/Lobby.tscn",
+	"res://scenes/Credits.tscn",
 ]
 
-var settings_path := "user://diceon_controls.cfg"
+var settings_path := UserFiles.SETTINGS
 var click_to_grab := false
 var controls_status: Label
 var grab_option: CheckButton

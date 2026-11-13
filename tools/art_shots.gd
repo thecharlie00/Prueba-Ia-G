@@ -15,6 +15,7 @@ const SHOTS := {
 	"brisca": "res://scenes/Brisca.tscn",
 	"domino": "res://scenes/GuidedDomino.tscn",
 	"editor": "res://scenes/game_creator/GameCreatorEditor.tscn",
+	"creditos": "res://scenes/Credits.tscn",
 }
 
 
@@ -25,7 +26,10 @@ func _initialize() -> void:
 func _run() -> void:
 	var args := OS.get_cmdline_user_args()
 	var out: String = args[0]
-	var filter: String = args[1] if args.size() > 1 else ""
+	var filter: String = args[1] if args.size() > 1 and not args[1].begins_with("--") else ""
+	# --en: capturas en inglés. --demo: la edición demo (la lee el autoload Edition).
+	if "--en" in args:
+		root.get_node("Locale").set_language("en", false)
 	DirAccess.make_dir_recursive_absolute(out)
 	root.size = Vector2i(1600, 900)
 	for key in SHOTS:

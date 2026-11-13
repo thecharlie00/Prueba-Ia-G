@@ -20,7 +20,7 @@ const PORT_NAMES := ["Mad", "Lad", "Lan", "Tri", "Min"]
 
 var confirm_action: ConfirmAction
 var rules := IslandRules.new()
-var save_path := "user://diceon_island.json"
+var save_path := "user://tablerama_island.json"
 var dice: Array[Dice3D] = []
 var roll_results: Array[int] = [0, 0]
 var waiting_roll := false

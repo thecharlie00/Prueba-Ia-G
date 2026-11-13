@@ -61,8 +61,12 @@ func _ready() -> void:
 	title.name = "Title"
 	title_box.add_child(title)
 
+	var edition := get_node_or_null("/root/Edition")
+	var is_demo: bool = edition != null and edition.get("demo") == true
 	var subtitle := MenuStyle.make_muted(
-		"Comparte mesa en este equipo, juega contra bots, conéctate online o crea tus propios juegos en el editor.",
+		"Comparte mesa en este equipo o juega contra bots. El online y el editor llegan con el juego completo."
+		if is_demo
+		else "Comparte mesa en este equipo, juega contra bots, conéctate online o crea tus propios juegos en el editor.",
 		15,
 		HORIZONTAL_ALIGNMENT_LEFT
 	)

@@ -6,7 +6,7 @@ Condición de salida de la fase 0 ([ROADMAP.md](ROADMAP.md)): **3 personas ajena
 
 1. Descarga la compilación de la última ejecución de CI en verde (artefacto `Tablerama-windows`, `Tablerama-linux` o `Tablerama-macos`) o expórtala con Godot 4.7.1.
 2. Antes de empezar, comprueba que arranca: `Tablerama.exe -- --prueba-arranque` (o `./Tablerama.x86_64 -- --prueba-arranque`). Debe terminar con «PRUEBA DE ARRANQUE: correcta».
-3. Borra los ajustes anteriores para que la persona vea el tutorial: elimina `diceon_controls.cfg` de la carpeta de datos de Godot del usuario (`%APPDATA%\Godot\app_userdata\Tablerama` en Windows, `~/.local/share/godot/app_userdata/Tablerama` en Linux).
+3. Borra los ajustes anteriores para que la persona vea el tutorial: elimina `tablerama_controls.cfg` de la carpeta de datos de Godot del usuario (`%APPDATA%\Godot\app_userdata\Tablerama` en Windows, `~/.local/share/godot/app_userdata/Tablerama` en Linux).
 4. Ten a mano una copia de la hoja de observación (abajo) por persona.
 
 ## Reglas para quien observa
@@ -65,6 +65,10 @@ Lo peor:
 - **Revisión visual** con renderizador real (OpenGL por software) de las 16 escenas a 1280×720 y 1024×600 (`tools/review_shots.gd`).
 - **Exportaciones**: Linux arranca y abre las 16 escenas (`-- --prueba-arranque`, también en CI); Windows exportado y probado con wine; macOS solo se exporta (sin equipo para probarlo).
 - **Guardados**: escritura atómica con copia anterior (`tests/atomic_save.gd` y los tests de cada juego).
+- **Traducción**: con el inglés activo, ninguna pantalla de la demo enseña texto en español (`tests/untranslated_text.gd`; con `-- --listar` imprime lo que falte).
+- **Sin SDK de Photon**: el proyecto compila y los tests pasan sin `addons/fusion`, como en la CI.
+
+Si algo falla durante la prueba, el botón **Informar de un fallo** de la portada copia la versión y la ruta del registro: pídele a la persona que lo pegue en su mensaje.
 
 ## Lo que no se puede comprobar sin personas ni equipos reales
 
