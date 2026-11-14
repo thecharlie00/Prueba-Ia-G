@@ -10,7 +10,7 @@ const MAX_SAVE_BYTES := 262144
 @export var home_spring := 28.0
 @export var home_damping := 9.0
 @export var max_home_acceleration := 20.0
-@export var save_path := "user://diceon_checkers.json"
+@export var save_path := "user://tablerama_checkers.json"
 
 var rules := CheckersRules.new()
 var token_squares: Dictionary = {}
@@ -100,7 +100,7 @@ func _start_online() -> void:
 	var net := _net()
 	if net == null or str(net.room_game) != "CheckersOnline":
 		return
-	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+	if not (FusionBridge.in_room()):
 		return
 	online = true
 	net_table = CheckersNetTable.new()

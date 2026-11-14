@@ -6,6 +6,9 @@ extends Node
 ## (con el tutorial) y dos juegos completos, brisca y parchís; el resto de mesas se ven en el
 ## menú pero no se pueden abrir. Si alguna mesa de la demo intenta abrir otra que no lo está
 ## (por ejemplo, un botón «Cambiar de modo»), se vuelve al menú con un aviso.
+##
+## El modo online no está en la demo: antes del lanzamiento nadie tiene el juego completo
+## para crear salas, y así la demo no depende de Photon ni gasta su cupo de jugadores.
 
 ## Mesas que se pueden abrir en la demo.
 const DEMO_SCENES := [
@@ -13,7 +16,7 @@ const DEMO_SCENES := [
 	"res://scenes/BotMenu.tscn",
 	"res://scenes/ModeSelect.tscn",
 	"res://scenes/BotSelect.tscn",
-	"res://scenes/Lobby.tscn",
+	"res://scenes/Credits.tscn",
 	"res://scenes/Main.tscn",
 	"res://scenes/Brisca.tscn",
 	"res://scenes/Parchis.tscn",
@@ -45,8 +48,8 @@ func _on_scene_changed() -> void:
 	var net := get_node_or_null("/root/Net")
 	if (
 		net != null
-		and Engine.has_singleton("Fusion")
-		and Fusion.is_in_room()
+		and FusionBridge.available()
+		and FusionBridge.sdk().is_in_room()
 		and not net.is_singleplayer()
 		and not net.is_host()
 		and net.room_started

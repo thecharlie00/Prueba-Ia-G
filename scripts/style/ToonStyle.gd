@@ -53,7 +53,7 @@ var outlines_enabled := true
 ## Reduce animaciones de "juice" (rebotes, estiramientos) para quien prefiera menos movimiento.
 ## Se guarda junto a los ajustes de controles; cambiarlo con set_reduce_motion().
 var reduce_motion := false
-var settings_path := "user://diceon_controls.cfg"
+var settings_path := UserFiles.SETTINGS
 
 var _outline_by_mode := {}
 var _grain: ColorRect

@@ -33,11 +33,11 @@ var synced := true
 
 
 func _enter_tree() -> void:
-	if Engine.has_singleton("Fusion"):
-		Fusion.register_broadcast_receiver(self)
+	if FusionBridge.available():
+		FusionBridge.sdk().register_broadcast_receiver(self)
 	if is_host():
 		synced = true
-		if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+		if FusionBridge.in_room():
 			_broadcast_sync_to_room.call_deferred()
 			_host_initial_timer = Timer.new()
 			_host_initial_timer.wait_time = 0.45
@@ -46,7 +46,7 @@ func _enter_tree() -> void:
 			_host_initial_timer.timeout.connect(_broadcast_sync_to_room)
 			add_child(_host_initial_timer)
 	else:
-		synced = not (Engine.has_singleton("Fusion") and Fusion.is_in_room())
+		synced = not (FusionBridge.in_room())
 		_sync_timer = Timer.new()
 		_sync_timer.wait_time = SYNC_INTERVAL
 		_sync_timer.one_shot = false
@@ -57,8 +57,8 @@ func _enter_tree() -> void:
 
 
 func _exit_tree() -> void:
-	if Engine.has_singleton("Fusion"):
-		Fusion.unregister_broadcast_receiver(self)
+	if FusionBridge.available():
+		FusionBridge.sdk().unregister_broadcast_receiver(self)
 	if _sync_timer != null:
 		_sync_timer.stop()
 	if _host_initial_timer != null:
@@ -68,10 +68,10 @@ func _exit_tree() -> void:
 func _broadcast_sync_to_room() -> void:
 	if not is_inside_tree() or not is_host():
 		return
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+	if FusionBridge.in_room():
 		var snap := snapshot()
 		if not snap.is_empty():
-			Fusion.rpc(sync_state, snap)
+			FusionBridge.sdk().rpc(sync_state, snap)
 
 
 func _mark_synced() -> void:
@@ -83,7 +83,7 @@ func _mark_synced() -> void:
 
 
 func is_host() -> bool:
-	return Engine.has_singleton("Fusion") and Fusion.is_master_client()
+	return FusionBridge.available() and FusionBridge.sdk().is_master_client()
 
 
 func _net() -> Node:
@@ -109,8 +109,8 @@ func submit(action: Dictionary, acting_seat: int = -1) -> bool:
 	if not synced:
 		_request_sync()
 		return false
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
-		Fusion.rpc_to(Fusion.TARGET_MASTER, req_action, action, acting_seat)
+	if FusionBridge.in_room():
+		FusionBridge.sdk().rpc_to(FusionBridge.TARGET_MASTER, req_action, action, acting_seat)
 	return true
 
 
@@ -118,8 +118,8 @@ func submit(action: Dictionary, acting_seat: int = -1) -> bool:
 func _host_apply(action: Dictionary, _seat: int) -> void:
 	if _apply(action) and _event_for(action) != null:
 		var ev := _event_for(action)
-		if Engine.has_singleton("Fusion") and Fusion.is_in_room():
-			Fusion.rpc(rule_event, ev)
+		if FusionBridge.in_room():
+			FusionBridge.sdk().rpc(rule_event, ev)
 		_on_applied(ev)
 		rule_applied.emit(ev)
 
@@ -133,8 +133,8 @@ func request_sync() -> void:
 func _request_sync() -> void:
 	if is_host():
 		return
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
-		Fusion.rpc_to(Fusion.TARGET_MASTER, sync_request)
+	if FusionBridge.in_room():
+		FusionBridge.sdk().rpc_to(FusionBridge.TARGET_MASTER, sync_request)
 	_sync_tries += 1
 	if _sync_tries >= SYNC_TRIES and _sync_timer != null:
 		_sync_timer.stop()
@@ -152,7 +152,7 @@ func req_action(action: Dictionary, acting_seat: int) -> void:
 
 @rpc("any_peer", "call_remote")
 func rule_event(change: Dictionary) -> void:
-	# El host ya aplicó el cambio localmente en _host_apply; Fusion.rpc()
+	# El host ya aplicó el cambio localmente en _host_apply; FusionBridge.sdk().rpc()
 	# reenvía el broadcast al host también, así que se salta la aplicación.
 	if is_host():
 		return
@@ -167,8 +167,8 @@ func rule_event(change: Dictionary) -> void:
 
 @rpc("any_peer", "call_remote")
 func sync_request() -> void:
-	if is_host() and Engine.has_singleton("Fusion") and Fusion.is_in_room():
-		Fusion.rpc_to_player(Fusion.get_rpc_sender(), sync_state, snapshot())
+	if is_host() and FusionBridge.in_room():
+		FusionBridge.sdk().rpc_to_player(FusionBridge.sdk().get_rpc_sender(), sync_state, snapshot())
 
 
 @rpc("any_peer", "call_remote")
@@ -185,8 +185,8 @@ func net_chat(sender_id: int, text: String) -> void:
 
 func send_chat(text: String) -> void:
 	var net := _net()
-	if net != null and Engine.has_singleton("Fusion") and Fusion.is_in_room():
-		Fusion.rpc(net_chat, int(net.local_id()), text)
+	if net != null and FusionBridge.in_room():
+		FusionBridge.sdk().rpc(net_chat, int(net.local_id()), text)
 
 
 var _last_emote_ms: Dictionary = {}
@@ -213,11 +213,11 @@ func send_cursor(world_pos: Vector3, state: int = 0, seat_override: int = -1) ->
 	var seat := seat_override if seat_override >= 0 else local_seat()
 	if seat < 0 or net == null:
 		return
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+	if FusionBridge.in_room():
 		var qx := clampi(int(round(world_pos.x * 100.0)), -1800, 1800)
 		var qy := clampi(int(round(world_pos.y * 100.0)), -200, 600)
 		var qz := clampi(int(round(world_pos.z * 100.0)), -1800, 1800)
-		Fusion.rpc(net_cursor, int(net.local_id()), seat, qx, qy, qz, clampi(state, 0, 3))
+		FusionBridge.sdk().rpc(net_cursor, int(net.local_id()), seat, qx, qy, qz, clampi(state, 0, 3))
 
 
 @rpc("any_peer", "call_remote")
@@ -239,8 +239,8 @@ func send_emote(emote_id: String, seat_override: int = -1) -> void:
 	var seat := seat_override if seat_override >= 0 else local_seat()
 	if seat < 0 or net == null:
 		return
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
-		Fusion.rpc(net_emote, int(net.local_id()), seat, emote_id)
+	if FusionBridge.in_room():
+		FusionBridge.sdk().rpc(net_emote, int(net.local_id()), seat, emote_id)
 
 
 @rpc("any_peer", "call_remote")
@@ -267,11 +267,11 @@ func send_ping(world_pos: Vector3, seat_override: int = -1) -> void:
 	var seat := seat_override if seat_override >= 0 else local_seat()
 	if seat < 0 or net == null:
 		return
-	if Engine.has_singleton("Fusion") and Fusion.is_in_room():
+	if FusionBridge.in_room():
 		var qx := clampi(int(round(world_pos.x * 100.0)), -1800, 1800)
 		var qy := clampi(int(round(world_pos.y * 100.0)), -200, 600)
 		var qz := clampi(int(round(world_pos.z * 100.0)), -1800, 1800)
-		Fusion.rpc(net_ping, int(net.local_id()), seat, qx, qy, qz)
+		FusionBridge.sdk().rpc(net_ping, int(net.local_id()), seat, qx, qy, qz)
 
 
 #endregion

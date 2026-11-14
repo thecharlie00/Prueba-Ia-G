@@ -61,8 +61,12 @@ func _ready() -> void:
 	title.name = "Title"
 	title_box.add_child(title)
 
+	var edition := get_node_or_null("/root/Edition")
+	var is_demo: bool = edition != null and edition.get("demo") == true
 	var subtitle := MenuStyle.make_muted(
-		"Comparte mesa en este equipo, juega contra bots, conéctate online o crea tus propios juegos en el editor.",
+		"Comparte mesa en este equipo o juega contra bots. El online y el editor llegan con el juego completo."
+		if is_demo
+		else "Comparte mesa en este equipo, juega contra bots, conéctate online o crea tus propios juegos en el editor.",
 		15,
 		HORIZONTAL_ALIGNMENT_LEFT
 	)
@@ -206,6 +210,14 @@ func _add_mode_card(
 	col.add_child(heading)
 	var card_title := MenuStyle.make_title(heading_text, 22, HORIZONTAL_ALIGNMENT_LEFT)
 	heading.add_child(card_title)
+	# En la demo, los modos que no incluye se ven (para que se sepa lo que trae el juego
+	# completo) pero no se abren.
+	var edition := get_node_or_null("/root/Edition")
+	var locked: bool = edition != null and not edition.allows(scene_path)
+	if locked:
+		badge_text = "En el juego completo"
+		accent = Palette.LAVENDER
+		card.modulate = Color(1, 1, 1, 0.78)
 	var fg := Palette.INK if accent.get_luminance() > 0.42 else Palette.PAPER
 	var pill := MenuStyle.make_pill(badge_text, accent, fg, 11, 9, 2)
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -225,5 +237,10 @@ func _add_mode_card(
 	btn.add_theme_font_size_override("font_size", 17)
 	MenuStyle.style_primary(btn, 14, 6)
 	btn.pressed.connect(func() -> void: get_tree().change_scene_to_file(scene_path))
+	if locked:
+		btn.disabled = true
+		btn.text = "Bloqueado"
+		btn.tooltip_text = "Disponible en el juego completo."
+		btn.focus_mode = Control.FOCUS_NONE
 	row.add_child(btn)
 	return btn

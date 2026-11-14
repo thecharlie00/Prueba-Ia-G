@@ -20,7 +20,7 @@ const PORT_NAMES := ["Mad", "Lad", "Lan", "Tri", "Min"]
 
 var confirm_action: ConfirmAction
 var rules := IslandRules.new()
-var save_path := "user://diceon_island.json"
+var save_path := "user://tablerama_island.json"
 var dice: Array[Dice3D] = []
 var roll_results: Array[int] = [0, 0]
 var waiting_roll := false
@@ -109,7 +109,7 @@ func _start_online() -> void:
 	var net := _net()
 	if net == null or str(net.room_game) not in ["IslandTwo", "Island", "IslandFour"]:
 		return
-	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+	if not (FusionBridge.in_room()):
 		return
 	online = true
 	net_table = IslandNetTable.new()
@@ -1406,7 +1406,7 @@ func _active_hand_player() -> int:
 	if online:
 		if _is_awaiting_sync():
 			return -1
-		var in_room := Engine.has_singleton("Fusion") and Fusion.is_in_room()
+		var in_room := FusionBridge.in_room()
 		var seat := _local_seat() if in_room else maxi(0, _local_seat())
 		if seat < 0 or seat >= rules.players:
 			return -1

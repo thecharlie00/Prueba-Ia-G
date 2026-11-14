@@ -70,7 +70,7 @@ func _start_online() -> void:
 	var net := _net()
 	if net == null or str(net.room_game) != "BriscaOnline":
 		return
-	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+	if not (FusionBridge.in_room()):
 		return
 	online = true
 	net_table = BriscaNetTable.new()
@@ -328,40 +328,40 @@ func refresh() -> void:
 		return
 	var previous_viewer := viewer
 	if online:
-		var in_room := Engine.has_singleton("Fusion") and Fusion.is_in_room()
+		var in_room := FusionBridge.in_room()
 		var seat := _local_seat() if in_room else maxi(0, _local_seat())
 		viewer = seat if (seat >= 0 and seat < 2 and not _online_bots[seat]) else -1
 	else:
 		viewer = 0 if vs_bot else (rules.turn if rules.phase == BriscaRules.PLAYING else viewer)
 	_sync_hand(previous_viewer != viewer)
 	_sync_table()
-	var trump: String = BriscaRules.SUIT_NAMES[rules.trump_suit]
-	result_label.text = "J1 %d · %s %d · triunfo: %s" % [
+	var trump: String = tr(BriscaRules.SUIT_NAMES[rules.trump_suit])
+	result_label.text = tr("J1 %d · %s %d · triunfo: %s") % [
 		rules.points[0], "Bot" if vs_bot else "J2", rules.points[1], trump
 	]
 	if rules.phase == BriscaRules.FINISHED:
 		if rules.result == BriscaRules.DRAW:
 			status_label.text = "Empate a 60."
 		else:
-			status_label.text = "Gana %s con %d puntos." % [_name(rules.result), rules.points[rules.result]]
+			status_label.text = tr("Gana %s con %d puntos.") % [_name(rules.result), rules.points[rules.result]]
 		help_label.text = "«Nueva partida» para repartir otra vez."
 	elif not showing.is_empty():
-		status_label.text = "Baza para %s (+%d)" % [_name(int(showing["winner"])), int(showing["points"])]
+		status_label.text = tr("Baza para %s (+%d)") % [_name(int(showing["winner"])), int(showing["points"])]
 	else:
-		status_label.text = "Turno del bot" if is_bot_turn() else "Turno de %s" % _name(rules.turn)
+		status_label.text = tr("Turno del bot") if is_bot_turn() else tr("Turno de %s") % _name(rules.turn)
 		var on_table := rules.card_to_beat()
 		if is_bot_turn():
 			help_label.text = "El bot está pensando…"
 		elif online and not is_local_turn():
-			help_label.text = "Esperando a %s…" % _name(rules.turn)
+			help_label.text = tr("Esperando a %s…") % _name(rules.turn)
 		elif on_table.is_empty():
-			help_label.text = "Sales tú: juega cualquier carta. Triunfo: %s." % trump
+			help_label.text = tr("Sales tú: juega cualquier carta. Triunfo: %s.") % trump
 		else:
-			help_label.text = "Hay que superar el %s; no hace falta asistir." % BriscaRules.card_name(on_table)
+			help_label.text = tr("Hay que superar el %s; no hace falta asistir.") % BriscaRules.card_name(on_table)
 
 
 func _name(player: int) -> String:
-	return "el bot" if player == 1 and vs_bot else NAMES[player]
+	return tr("el bot") if player == 1 and vs_bot else tr(NAMES[player])
 
 
 # Mano del abanico: conserva el orden que haya puesto el jugador y añade las nuevas al final.
@@ -401,7 +401,7 @@ func _sync_table() -> void:
 	var hidden_stock := rules.stock.size() - (1 if rules.trump_card in rules.stock else 0)
 	stock_deck.visible = hidden_stock > 0
 	stock_deck.cards_remaining = hidden_stock
-	stock_deck.display_name = "Mazo · quedan %d" % rules.stock.size()
+	stock_deck.display_name = tr("Mazo · quedan %d") % rules.stock.size()
 	if rules.trump_card in rules.stock:
 		var trump := _place(rules.trump_card, Vector3(-0.92, TABLE_Y, 0.0), true)
 		trump.rotation_degrees.y = 90
@@ -445,7 +445,7 @@ func table_cards() -> Array[Card3D]:
 func save_game() -> bool:
 	var record := {"game": "brisca_table", "version": 1, "vs_bot": vs_bot, "rules": rules.export_record()}
 	var ok := SAVE_STORE.write(save_path, JSON.stringify(record), MAX_SAVE_BYTES, _decode_save)
-	help_label.text = "Partida guardada en este equipo." if ok else "No se pudo guardar; comprueba el espacio."
+	help_label.text = tr("Partida guardada en este equipo.") if ok else tr("No se pudo guardar; comprueba el espacio.")
 	return ok
 
 
@@ -493,7 +493,7 @@ func hud_active_seat() -> int:
 
 
 func hud_seat_status(index: int) -> String:
-	return "%d puntos" % rules.points[index]
+	return tr("%d puntos") % rules.points[index]
 
 
 func hud_seat_cards(index: int) -> int:

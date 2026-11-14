@@ -2,7 +2,7 @@ extends Node3D
 
 const CONFIRM_ACTION := preload("res://scripts/ui/ConfirmAction.gd")
 
-@export var sandbox_save_path := "user://diceon_sandbox.json"
+@export var sandbox_save_path := "user://tablerama_sandbox.json"
 
 var confirm_action: ConfirmAction
 @onready var selection_label: Label = $UI/Margin/Panel/Content/Selection

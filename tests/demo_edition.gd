@@ -24,6 +24,16 @@ func _run() -> void:
 	for id in ["Tutorial", "Sandbox", "Brisca", "Parchis", "Parchis2", "DemoBrisca", "DemoParchis", "DemoSandbox"]:
 		var button := menu.find_child(id, true, false) as Button
 		_check(button != null and not button.disabled, "en la demo «%s» se puede abrir" % id)
+	_check(menu.find_child("OnlineMenu", true, false).visible == false, "la demo no enseña el acceso a salas online")
+	_check(not edition.allows("res://scenes/Lobby.tscn"), "el online no está en la demo")
+	change_scene_to_file("res://scenes/ModeSelect.tscn")
+	await _frames(5)
+	for id in ["Online", "Create"]:
+		var mode := current_scene.find_child(id, true, false) as Button
+		_check(mode != null and mode.disabled, "en la demo el modo «%s» está bloqueado" % id)
+	for id in ["Local", "Bots"]:
+		var mode := current_scene.find_child(id, true, false) as Button
+		_check(mode != null and not mode.disabled, "en la demo el modo «%s» se abre" % id)
 	# Una mesa bloqueada (por ejemplo, desde un botón de otra mesa) vuelve al menú.
 	change_scene_to_file("res://scenes/Brisca.tscn")
 	await _frames(8)

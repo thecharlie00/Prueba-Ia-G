@@ -9,7 +9,7 @@ const MAX_SAVE_BYTES := SandboxPersistence.MAX_BYTES
 const ENGLISH_NAME := "Baraja_inglesa"
 const SPANISH_NAME := "Baraja_española"
 
-@export var save_path := "user://diceon_cards.json"
+@export var save_path := "user://tablerama_cards.json"
 
 var confirm_action: ConfirmAction
 var english: Deck3D

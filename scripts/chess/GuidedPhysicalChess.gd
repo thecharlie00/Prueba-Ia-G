@@ -10,7 +10,7 @@ const SPRING := 28.0
 const DAMPING := 9.0
 const MAX_ACCELERATION := 20.0
 
-@export var save_path := "user://diceon_chess.json"
+@export var save_path := "user://tablerama_chess.json"
 
 var rules := ChessRules.new()
 var piece_squares: Dictionary = {}
@@ -102,7 +102,7 @@ func _start_online() -> void:
 	var net := _net()
 	if net == null or str(net.room_game) != "ChessOnline":
 		return
-	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+	if not (FusionBridge.in_room()):
 		return
 	online = true
 	net_table = ChessNetTable.new()

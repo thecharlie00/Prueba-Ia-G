@@ -518,7 +518,7 @@ func _make_plaque(index: int) -> Control:
 	text.add_child(name_label)
 	var status := str(view.hud_seat_status(index)) if view.has_method("hud_seat_status") else ""
 	if on:
-		status = "Tu turno" if status.is_empty() else "Tu turno · " + status
+		status = tr("Tu turno") if status.is_empty() else tr("Tu turno · %s") % status
 	if not status.is_empty():
 		var status_label_node := _make_label(13, Palette.INK if on else Palette.LAVENDER)
 		status_label_node.text = status

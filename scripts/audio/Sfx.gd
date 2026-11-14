@@ -8,7 +8,7 @@ const VOICES := 8
 const SOUNDS := ["grab", "drop", "dice", "card", "ui", "turn", "pop"]
 
 var enabled := true
-var settings_path := "user://diceon_controls.cfg"
+var settings_path := UserFiles.SETTINGS
 var streams := {}
 
 var _players: Array[AudioStreamPlayer] = []

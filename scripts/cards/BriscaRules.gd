@@ -67,7 +67,9 @@ static func card_points(card: String) -> int:
 
 static func card_name(card: String) -> String:
 	var rank := rank_of(card)
-	return "%s de %s" % [RANK_NAMES.get(rank, rank), SUIT_NAMES.get(suit_of(card), "?")]
+	var tr_rank := TranslationServer.translate(RANK_NAMES.get(rank, rank))
+	var tr_suit := TranslationServer.translate(SUIT_NAMES.get(suit_of(card), "?"))
+	return TranslationServer.translate("%s de %s") % [tr_rank, tr_suit]
 
 
 func reset(seed_value: int) -> void:

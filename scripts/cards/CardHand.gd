@@ -143,7 +143,7 @@ func _rebuild() -> void:
 	for label in cards:
 		items.append({"face": "playing", "text": label})
 	hand3d.set_items(items)
-	_title.text = "Tu mano · %d" % cards.size() if not cards.is_empty() else "Tu mano está vacía"
+	_title.text = tr("Tu mano · %d") % cards.size() if not cards.is_empty() else tr("Tu mano está vacía")
 	_hide_button.text = "Mostrar" if faces_hidden else "Ocultar"
 	_hide_button.visible = not cards.is_empty()
 	_sort_button.text = "Ordenar por número" if next_sort == "rank" else "Ordenar por palo"

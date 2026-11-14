@@ -37,7 +37,7 @@ const MAX_SAVE_BYTES := 500000
 @export_range(2, 4) var player_count := 2
 ## "ludo" o "parchis" (LudoRules): mismo tablero, reglas del parchís español.
 @export var variant := "ludo"
-@export var save_path := "user://diceon_ludo.json"
+@export var save_path := "user://tablerama_ludo.json"
 var confirm_action: ConfirmAction
 var rules: LudoRules
 var die: Dice3D
@@ -124,7 +124,7 @@ func _start_online() -> void:
 	var net := _net()
 	if net == null or str(net.room_game) not in ["Parchis2", "Parchis", "Ludo", "Ludo3", "Ludo4"]:
 		return
-	if not (Engine.has_singleton("Fusion") and Fusion.is_in_room()):
+	if not (FusionBridge.in_room()):
 		return
 	online = true
 	net_table = LudoNetTable.new()
@@ -133,7 +133,7 @@ func _start_online() -> void:
 	net_table.ludo = rules
 	add_child(net_table)
 	if title_label != null:
-		title_label.text = "PARCHÍS · MESA ONLINE" if rules.is_parchis() else "LUDO · MESA ONLINE"
+		title_label.text = tr("PARCHÍS · MESA ONLINE") if rules.is_parchis() else tr("LUDO · MESA ONLINE")
 	if net_table.is_host():
 		var rbots: Array = net.room_bots
 		for seat in range(mini(rules.players, rbots.size())):
@@ -204,7 +204,7 @@ func apply_change(change: Dictionary) -> bool:
 			net_table.ludo = rules
 		_last_roll_seat = seat
 		_last_roll_value = val
-		_last_roll_note = "Última tirada: J%d sacó %d" % [seat + 1, val]
+		_last_roll_note = tr("Última tirada: J%d sacó %d") % [seat + 1, val]
 		var skip_local_manual := (
 			manual
 			and seat == _local_seat()
@@ -310,8 +310,8 @@ func _player_color(player: int) -> Color:
 
 func _player_name(player: int) -> String:
 	if _is_parchis_board():
-		return PARCHIS_NAMES[_player_house(player)]
-	return NAMES[clampi(player, 0, 3)]
+		return tr(PARCHIS_NAMES[_player_house(player)])
+	return tr(NAMES[clampi(player, 0, 3)])
 
 
 func _make_seats() -> void:
@@ -330,7 +330,7 @@ func _make_seats() -> void:
 		)
 		list.append(
 			{
-				"name": "Jugador %d" % (player + 1),
+				"name": tr("Jugador %d") % (player + 1),
 				"color": _player_color(player),
 				"bot": bots[player],
 				"position": spot,
@@ -360,7 +360,7 @@ func _update_seats() -> void:
 			elif progress == LudoRules.YARD:
 				waiting += 1
 		seats.set_status(
-			player, "%sMeta %d/4 · casa %d" % ["Bot · " if bots[player] else "", done, waiting]
+			player, tr("%sMeta %d/4 · casa %d") % [tr("Bot · ") if bots[player] else "", done, waiting]
 		)
 
 
@@ -815,7 +815,7 @@ func _make_tokens() -> void:
 		for index in range(4):
 			var token := TOKEN.instantiate() as Token3D
 			token.piece_color = _player_color(player)
-			token.display_name = "J%d · ficha %d" % [player + 1, index + 1]
+			token.display_name = tr("J%d · ficha %d") % [player + 1, index + 1]
 			token.position = _yard_position(player, index) + Vector3.UP * 0.1
 			token.mass = 0.05
 			(token.get_node("Visual") as MeshInstance3D).scale = Vector3.ONE * visual_scale
@@ -930,7 +930,7 @@ func _make_ui() -> void:
 	for player in range(rules.players):
 		var toggle := CheckBox.new()
 		toggle.name = "Bot%d" % (player + 1)
-		toggle.text = "J%d" % (player + 1)
+		toggle.text = tr("J%d") % (player + 1)
 		toggle.add_theme_color_override("font_color", _player_color(player).lightened(0.3))
 		toggle.toggled.connect(set_bot.bind(player))
 		bot_row.add_child(toggle)
@@ -1070,25 +1070,25 @@ func _refresh() -> void:
 	_update_seats()
 	var shown_turn := _remote_roll_seat if (waiting_roll and _remote_roll_seat >= 0) else rules.turn
 	status.text = (
-		"%s · %d jugadores\nTurno J%d (%s)%s"
+		tr("%s · %d jugadores\nTurno J%d (%s)%s")
 		% [
 			"Parchís" if rules.is_parchis() else "Ludo",
 			rules.players,
 			shown_turn + 1,
 			_player_name(shown_turn),
-			" · bot" if (shown_turn >= 0 and shown_turn < bots.size() and bots[shown_turn]) else "",
+			tr(" · bot") if (shown_turn >= 0 and shown_turn < bots.size() and bots[shown_turn]) else "",
 		]
 	)
 	if rules.phase == LudoRules.FINISHED and not waiting_roll:
-		status.text = "¡Gana J%d (%s)!" % [rules.winner + 1, _player_name(rules.winner)]
+		status.text = tr("¡Gana J%d (%s)!") % [rules.winner + 1, _player_name(rules.winner)]
 	elif waiting_roll or _awaiting_roll_ack:
 		status.text += " · 🎲 tirando el dado…"
 	elif rules.phase == LudoRules.MOVE and rules.bonus > 0:
-		status.text += " · premio de %d casillas" % rules.bonus
+		status.text += tr(" · premio de %d casillas") % rules.bonus
 	elif rules.phase == LudoRules.MOVE:
-		status.text += " · dado %d" % rules.die
+		status.text += tr(" · dado %d") % rules.die
 		if rules.steps() != rules.die:
-			status.text += " (cuenta %d)" % rules.steps()
+			status.text += tr(" (cuenta %d)") % rules.steps()
 	elif not _last_roll_note.is_empty():
 		status.text += "\n" + _last_roll_note
 	_update_dice_banner()
@@ -1120,11 +1120,11 @@ func _refresh() -> void:
 	if waiting_roll:
 		help.text = "El dado está rodando; espera a ver el resultado."
 	elif not can_act and rules.phase != LudoRules.FINISHED:
-		help.text = "Esperando el turno de J%d (%s)…" % [rules.turn + 1, _player_name(rules.turn)]
+		help.text = tr("Esperando el turno de J%d (%s)…") % [rules.turn + 1, _player_name(rules.turn)]
 	elif rules.phase == LudoRules.ROLL:
 		help.text = "Lanza o arrastra y suelta el dado."
 	elif rules.phase == LudoRules.MOVE and rules.bonus > 0:
-		help.text = "Premio: mueve %d casillas con la ficha que quieras." % rules.bonus
+		help.text = tr("Premio: mueve %d casillas con la ficha que quieras.") % rules.bonus
 	elif rules.phase == LudoRules.MOVE:
 		help.text = "Elige una ficha disponible o arrástrala a su destino verde."
 	else:
@@ -1136,7 +1136,7 @@ func _update_dice_banner() -> void:
 		return
 	if waiting_roll:
 		var roller := _remote_roll_seat if _remote_roll_seat >= 0 else rules.turn
-		dice_banner_label.text = "🎲 J%d (%s) tirando el dado…" % [
+		dice_banner_label.text = tr("🎲 J%d (%s) tirando el dado…") % [
 			roller + 1,
 			_player_name(roller),
 		]
@@ -1145,7 +1145,7 @@ func _update_dice_banner() -> void:
 	var val := _last_roll_value if _last_roll_value >= 1 else rules.die
 	if val >= 1 and val <= 6:
 		var seat := _last_roll_seat if _last_roll_seat >= 0 else rules.turn
-		dice_banner_label.text = "🎲 J%d (%s) sacó %d" % [
+		dice_banner_label.text = tr("🎲 J%d (%s) sacó %d") % [
 			seat + 1,
 			_player_name(seat),
 			val,
@@ -1362,12 +1362,12 @@ func _update_die(delta: float) -> void:
 		die.ensure_celebrated(value)
 		_last_roll_seat = actor
 		_last_roll_value = value
-		_last_roll_note = "Última tirada: J%d sacó %d" % [actor + 1, value]
+		_last_roll_note = tr("Última tirada: J%d sacó %d") % [actor + 1, value]
 		rules.apply_roll(value)
 		_refresh()
 		if rules.phase == LudoRules.ROLL:
 			help.text = (
-				"Salió %d; no había fichas disponibles. Continúa con la siguiente tirada." % value
+				tr("Salió %d; no había fichas disponibles. Continúa con la siguiente tirada.") % value
 			)
 
 

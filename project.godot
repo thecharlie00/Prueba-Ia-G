@@ -15,6 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Tablerama"
+config/version="0.2.0"
 run/main_scene="res://scenes/BotMenu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
@@ -31,6 +32,10 @@ PerfMeter="*res://scripts/ui/PerfMeter.gd"
 SmokeTest="*res://scripts/ui/SmokeTest.gd"
 Net="*res://scripts/net/NetManager.gd"
 GameCreatorCore="*res://scripts/game_creator/GameCreatorCore.gd"
+
+[debug]
+
+file_logging/enable_file_logging=true
 
 [display]
 

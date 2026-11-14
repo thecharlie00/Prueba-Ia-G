@@ -102,6 +102,8 @@ func _build() -> void:
 		func() -> void: get_tree().change_scene_to_file("res://scenes/Lobby.tscn")
 	)
 	quick_actions.add_child(online)
+	var edition_node := get_node_or_null("/root/Edition")
+	online.visible = edition_node == null or edition_node.allows("res://scenes/Lobby.tscn")
 
 	# 2. Cartel de edición demo (solo cuando Edition.demo == true)
 	_demo_banner(page)
@@ -245,7 +247,7 @@ func _build_catalog_entries(list: VBoxContainer) -> void:
 	var island_grid := _family_section(
 		list,
 		"ISLA DE RECURSOS",
-		"Dos, tres o cuatro jugadores · estrategia inspirada en Catán.",
+		"Dos, tres o cuatro jugadores · estrategia de comercio y construcción.",
 		"island",
 		"2–4 jugadores",
 		"strategy",

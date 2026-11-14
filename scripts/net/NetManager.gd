@@ -84,25 +84,25 @@ var singleplayer_room := false  # sala offline creada sin App ID (testing)
 func _ready() -> void:
 	if not is_available():
 		return
-	Fusion.register_broadcast_receiver(self)
-	Fusion.room_joined.connect(_on_room_joined)
-	Fusion.room_left.connect(_on_room_left)
-	Fusion.room_list_updated.connect(_on_room_list_updated)
-	Fusion.player_joined.connect(_on_player_joined)
-	Fusion.player_left.connect(_on_player_left)
-	Fusion.master_client_changed.connect(_on_master_changed)
-	Fusion.connection_failed.connect(_on_connection_failed)
-	Fusion.connected_to_photon.connect(_on_connected)
-	Fusion.disconnected_from_photon.connect(_on_disconnected)
+	FusionBridge.sdk().register_broadcast_receiver(self)
+	FusionBridge.sdk().room_joined.connect(_on_room_joined)
+	FusionBridge.sdk().room_left.connect(_on_room_left)
+	FusionBridge.sdk().room_list_updated.connect(_on_room_list_updated)
+	FusionBridge.sdk().player_joined.connect(_on_player_joined)
+	FusionBridge.sdk().player_left.connect(_on_player_left)
+	FusionBridge.sdk().master_client_changed.connect(_on_master_changed)
+	FusionBridge.sdk().connection_failed.connect(_on_connection_failed)
+	FusionBridge.sdk().connected_to_photon.connect(_on_connected)
+	FusionBridge.sdk().disconnected_from_photon.connect(_on_disconnected)
 
 
 func _exit_tree() -> void:
 	if is_available():
-		Fusion.unregister_broadcast_receiver(self)
+		FusionBridge.sdk().unregister_broadcast_receiver(self)
 
 
 func is_available() -> bool:
-	return Engine.has_singleton("Fusion")
+	return FusionBridge.available()
 
 
 func is_singleplayer() -> bool:
@@ -139,13 +139,13 @@ func start_session(user_name: String) -> void:
 	var app_id := str(ProjectSettings.get_setting("net/app_id", ""))
 	if app_id.is_empty():
 		singleplayer_room = true
-		Fusion.create_singleplayer_room()
+		FusionBridge.sdk().create_singleplayer_room()
 		return
-	if Fusion.is_connected_to_photon():
+	if FusionBridge.sdk().is_connected_to_photon():
 		connected.emit()
 		return
-	Fusion.set_app_id(app_id)
-	Fusion.connect_to_photon.call_deferred(
+	FusionBridge.sdk().set_app_id(app_id)
+	FusionBridge.sdk().connect_to_photon.call_deferred(
 		ensure_session_user_id(),
 		str(ProjectSettings.get_setting("net/region", "eu"))
 	)
@@ -154,15 +154,15 @@ func start_session(user_name: String) -> void:
 func connect_or_retry() -> void:
 	if not is_available():
 		return
-	if Fusion.is_connected_to_photon():
+	if FusionBridge.sdk().is_connected_to_photon():
 		refresh_room_list()
 		return
 	if local_name.is_empty():
 		local_name = str(ProjectSettings.get_setting("net/user", "Jugador"))
 	var app_id := str(ProjectSettings.get_setting("net/app_id", ""))
 	if not app_id.is_empty():
-		Fusion.set_app_id(app_id)
-		Fusion.connect_to_photon.call_deferred(
+		FusionBridge.sdk().set_app_id(app_id)
+		FusionBridge.sdk().connect_to_photon.call_deferred(
 			ensure_session_user_id(),
 			str(ProjectSettings.get_setting("net/region", "eu"))
 		)
@@ -170,9 +170,9 @@ func connect_or_retry() -> void:
 
 ## Refresca la caché local de salas públicas desde el cliente nativo de Fusion.
 func refresh_room_list() -> void:
-	if not is_available() or not Fusion.is_connected_to_photon():
+	if not is_available() or not FusionBridge.sdk().is_connected_to_photon():
 		return
-	var raw: Array = Fusion.get_room_list()
+	var raw: Array = FusionBridge.sdk().get_room_list()
 	_update_listings_from_raw(raw)
 
 
@@ -335,9 +335,9 @@ func create_room(
 ) -> void:
 	if not is_available():
 		return
-	if Fusion.is_in_room() or Fusion.get_connection_status() == Fusion.STATUS_JOINING_ROOM:
+	if FusionBridge.sdk().is_in_room() or FusionBridge.sdk().get_connection_status() == FusionBridge.STATUS_JOINING_ROOM:
 		return
-	if not Fusion.is_connected_to_photon():
+	if not FusionBridge.sdk().is_connected_to_photon():
 		return
 	singleplayer_room = false
 	room_game = game_id
@@ -360,7 +360,7 @@ func create_room(
 
 	var edition := get_node_or_null("/root/Edition")
 	var is_demo := bool(edition.get("demo")) if edition != null else false
-	var options := FusionRoomOptions.new()
+	var options: RefCounted = FusionBridge.room_options()
 	options.max_players = room_seats
 	options.is_visible = is_public
 	options.is_open = true
@@ -378,14 +378,14 @@ func create_room(
 		"host_edition": "demo" if is_demo else "full",
 	}
 	_configure_lobby_properties(options)
-	Fusion.join_or_create_room(room_code, options)
+	FusionBridge.sdk().join_or_create_room(room_code, options)
 
 
 ## Un invitado entra con el código de la sala (o desde el buscador público).
 func join_room(code: String, password: String = "") -> void:
-	if not is_available() or not Fusion.is_connected_to_photon():
+	if not is_available() or not FusionBridge.sdk().is_connected_to_photon():
 		return
-	if Fusion.is_in_room() or Fusion.get_connection_status() == Fusion.STATUS_JOINING_ROOM:
+	if FusionBridge.sdk().is_in_room() or FusionBridge.sdk().get_connection_status() == FusionBridge.STATUS_JOINING_ROOM:
 		return
 	singleplayer_room = false
 	reset_room_bots()
@@ -395,8 +395,8 @@ func join_room(code: String, password: String = "") -> void:
 	room_code = code.strip_edges().to_upper()
 	pending_join_password = password.strip_edges()
 	_auth_sent_for_room = ""
-	var options := FusionRoomOptions.new()
-	Fusion.join_room(room_code, options)
+	var options: RefCounted = FusionBridge.room_options()
+	FusionBridge.sdk().join_room(room_code, options)
 
 
 func reset_room_bots() -> void:
@@ -410,7 +410,7 @@ func reset_room_ready() -> void:
 func set_room_bot(seat: int, enabled: bool) -> void:
 	if seat < 0 or seat >= room_bots.size():
 		return
-	if is_available() and Fusion.is_in_room() and not (is_host() or singleplayer_room):
+	if is_available() and FusionBridge.sdk().is_in_room() and not (is_host() or singleplayer_room):
 		return
 	room_bots[seat] = enabled
 	if enabled and seat < room_ready.size():
@@ -436,15 +436,15 @@ func set_local_ready(ready_flag: bool) -> void:
 		_broadcast_lobby_masks()
 		room_info_received.emit()
 		return
-	if is_available() and Fusion.is_in_room():
+	if is_available() and FusionBridge.sdk().is_in_room():
 		room_ready[seat] = ready_flag
-		Fusion.rpc_to(Fusion.TARGET_MASTER, _rpc_set_ready, ready_flag)
+		FusionBridge.sdk().rpc_to(FusionBridge.TARGET_MASTER, _rpc_set_ready, ready_flag)
 		room_info_received.emit()
 
 
 ## Todos los invitados humanos conectados deben haber marcado «Listo» (y estar autenticados si hay clave).
 func are_all_guests_ready() -> bool:
-	if singleplayer_room or not is_available() or not Fusion.is_in_room():
+	if singleplayer_room or not is_available() or not FusionBridge.sdk().is_in_room():
 		return true
 	var my_id := local_id()
 	for pid_var in players:
@@ -462,11 +462,11 @@ func are_all_guests_ready() -> bool:
 
 
 func kick_player(player_id: int) -> void:
-	if not is_available() or not Fusion.is_in_room() or not is_host():
+	if not is_available() or not FusionBridge.sdk().is_in_room() or not is_host():
 		return
 	if player_id == local_id():
 		return
-	Fusion.rpc_to_player(
+	FusionBridge.sdk().rpc_to_player(
 		player_id,
 		_rpc_kicked,
 		"El anfitrión te ha retirado de la sala."
@@ -500,17 +500,17 @@ func _apply_ready_mask(mask: int) -> void:
 
 
 func _broadcast_lobby_masks() -> void:
-	if is_available() and Fusion.is_in_room() and not singleplayer_room and is_host():
-		Fusion.rpc(_rpc_room_masks, _bots_mask(), _ready_mask())
+	if is_available() and FusionBridge.sdk().is_in_room() and not singleplayer_room and is_host():
+		FusionBridge.sdk().rpc(_rpc_room_masks, _bots_mask(), _ready_mask())
 
 #endregion
 
 func is_host() -> bool:
-	return is_available() and Fusion.is_master_client()
+	return is_available() and FusionBridge.sdk().is_master_client()
 
 
 func local_id() -> int:
-	return Fusion.get_local_player_id() if is_available() else 1
+	return FusionBridge.sdk().get_local_player_id() if is_available() else 1
 
 
 func local_seat() -> int:
@@ -518,14 +518,14 @@ func local_seat() -> int:
 
 
 func leave_room() -> void:
-	if is_available() and Fusion.is_in_room():
-		Fusion.leave_room()
+	if is_available() and FusionBridge.sdk().is_in_room():
+		FusionBridge.sdk().leave_room()
 
 
 ## Cierra la conexión a Photon Cloud (evita chocar con Object.disconnect).
 func disconnect_session() -> void:
-	if is_available() and Fusion.is_connected_to_photon():
-		Fusion.disconnect_from_photon()
+	if is_available() and FusionBridge.sdk().is_connected_to_photon():
+		FusionBridge.sdk().disconnect_from_photon()
 
 
 ## El anfitrión anuncia el inicio de la partida: cierra la sala pública y difunde el anuncio.
@@ -533,8 +533,8 @@ func start_game(scene: String, seats: int) -> void:
 	start_scene = scene
 	start_seats = seats
 	room_started = true
-	if is_available() and Fusion.is_in_room() and not singleplayer_room and is_host():
-		var room: Variant = Fusion.get_room()
+	if is_available() and FusionBridge.sdk().is_in_room() and not singleplayer_room and is_host():
+		var room: Variant = FusionBridge.sdk().get_room()
 		if room != null and room is Object:
 			if room.has_method("set_open"):
 				room.call("set_open", false)
@@ -555,14 +555,14 @@ func consume_start() -> bool:
 
 ## El invitado pregunta al anfitrión por el estado de la sala.
 func request_room_info() -> void:
-	if is_available() and Fusion.is_in_room():
-		Fusion.rpc_to(Fusion.TARGET_MASTER, _rpc_room_info_request)
+	if is_available() and FusionBridge.sdk().is_in_room():
+		FusionBridge.sdk().rpc_to(FusionBridge.TARGET_MASTER, _rpc_room_info_request)
 
 
 ## El anfitrión envía la mesa, contraseña (salt) y máscaras a un invitado concreto.
 func send_room_info_to(player_id: int) -> void:
-	if is_host() and is_available() and Fusion.is_in_room():
-		Fusion.rpc_to_player(
+	if is_host() and is_available() and FusionBridge.sdk().is_in_room():
+		FusionBridge.sdk().rpc_to_player(
 			player_id,
 			_rpc_room_info,
 			room_title,
@@ -578,9 +578,9 @@ func send_room_info_to(player_id: int) -> void:
 
 
 func _sync_room_snapshot() -> void:
-	if not is_available() or not Fusion.is_in_room():
+	if not is_available() or not FusionBridge.sdk().is_in_room():
 		return
-	var room: Variant = Fusion.get_room()
+	var room: Variant = FusionBridge.sdk().get_room()
 	if room == null or not (room is Object):
 		return
 	if room.has_method("get_room_name"):
@@ -624,7 +624,7 @@ func _sync_room_snapshot() -> void:
 
 
 func _maybe_send_password_to_host() -> void:
-	if singleplayer_room or not is_available() or not Fusion.is_in_room() or is_host():
+	if singleplayer_room or not is_available() or not FusionBridge.sdk().is_in_room() or is_host():
 		return
 	if not room_locked or room_salt.is_empty():
 		return
@@ -632,28 +632,28 @@ func _maybe_send_password_to_host() -> void:
 		return
 	_auth_sent_for_room = room_code
 	var candidate := hash_password(pending_join_password, room_salt)
-	Fusion.rpc_to(Fusion.TARGET_MASTER, _rpc_submit_password, candidate)
+	FusionBridge.sdk().rpc_to(FusionBridge.TARGET_MASTER, _rpc_submit_password, candidate)
 
 
 #region RPCs
 
 @rpc("any_peer", "call_remote")
 func _rpc_hello(peer_name: String, reply: bool) -> void:
-	var sender := Fusion.get_rpc_sender()
+	var sender: int = FusionBridge.sdk().get_rpc_sender()
 	if sender <= 0:
 		return
 	var cleaned := peer_name.strip_edges()
 	if not cleaned.is_empty():
 		players[sender] = cleaned
-	if reply and sender != local_id() and is_available() and Fusion.is_in_room() and not singleplayer_room:
-		Fusion.rpc_to_player(sender, _rpc_hello, display_name(), false)
+	if reply and sender != local_id() and is_available() and FusionBridge.sdk().is_in_room() and not singleplayer_room:
+		FusionBridge.sdk().rpc_to_player(sender, _rpc_hello, display_name(), false)
 	room_info_received.emit()
 
 
 @rpc("any_peer", "call_remote")
 func _rpc_room_info_request() -> void:
 	if is_host():
-		send_room_info_to(Fusion.get_rpc_sender())
+		send_room_info_to(FusionBridge.sdk().get_rpc_sender())
 
 
 @rpc("any_peer", "call_remote")
@@ -694,7 +694,7 @@ func _rpc_room_masks(bots_mask: int, ready_mask: int) -> void:
 func _rpc_set_ready(ready_flag: bool) -> void:
 	if not is_host():
 		return
-	var sender := Fusion.get_rpc_sender()
+	var sender: int = FusionBridge.sdk().get_rpc_sender()
 	if room_locked and not bool(authenticated_peers.get(sender, false)):
 		return
 	var seat := sender - 1
@@ -708,13 +708,13 @@ func _rpc_set_ready(ready_flag: bool) -> void:
 func _rpc_submit_password(candidate_hash: String) -> void:
 	if not is_host():
 		return
-	var sender := Fusion.get_rpc_sender()
+	var sender: int = FusionBridge.sdk().get_rpc_sender()
 	if not room_locked or (not candidate_hash.is_empty() and candidate_hash == room_pw_hash):
 		authenticated_peers[sender] = true
 		room_info_received.emit()
 		return
 	authenticated_peers.erase(sender)
-	Fusion.rpc_to_player(sender, _rpc_auth_failed, "Contraseña incorrecta para esta sala.")
+	FusionBridge.sdk().rpc_to_player(sender, _rpc_auth_failed, "Contraseña incorrecta para esta sala.")
 
 
 @rpc("any_peer", "call_remote")
@@ -762,8 +762,8 @@ func _on_room_joined() -> void:
 		authenticated_peers[local_id()] = true
 	else:
 		_maybe_send_password_to_host()
-	if is_available() and Fusion.is_in_room() and not singleplayer_room:
-		Fusion.rpc(_rpc_hello, display_name(), true)
+	if is_available() and FusionBridge.sdk().is_in_room() and not singleplayer_room:
+		FusionBridge.sdk().rpc(_rpc_hello, display_name(), true)
 	room_joined.emit()
 
 

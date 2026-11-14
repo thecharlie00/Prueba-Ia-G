@@ -12,7 +12,7 @@ const CELL := 0.46
 const BOARD_HEIGHT := 0.83
 const MAX_SAVE_BYTES := 262144
 
-@export var save_path := "user://diceon_checkers.json"
+@export var save_path := "user://tablerama_checkers.json"
 
 var confirm_action: ConfirmAction
 var rules := CheckersRules.new()
