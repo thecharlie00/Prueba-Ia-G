@@ -27,6 +27,8 @@ const LAYER_PICK := 1 << 3
 static var last_item_id := ""
 ## La primera vez de la sesión, la cámara baja desde arriba hasta la sala.
 static var _intro_done := false
+## Las pruebas lo activan para recorrer la caída animada aunque no haya pantalla.
+static var force_drop_animation := false
 
 var pawn: HomePawn
 var camera: Camera3D
@@ -65,6 +67,8 @@ var _coin_label: Label
 var _decor := {}
 var _parcels: Array[Node3D] = []
 var _wardrobe_focus := false
+## Temblor de cámara (segundos que le quedan).
+var _shake := 0.0
 const DOOR_DROP := Vector3(-6.9, 0, -0.3)
 
 
@@ -776,6 +780,7 @@ func _show_toast(text: String) -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	_shake = maxf(0.0, _shake - delta)
 	_place_camera(minf(1.0, delta * 4.0))
 	if not _reduce_motion():
 		for i in _bots.size():
@@ -812,6 +817,9 @@ func _place_camera(weight: float) -> void:
 	var wanted := focus + CAMERA_OFFSET
 	camera.position = camera.position.lerp(wanted, weight) if weight < 1.0 else wanted
 	camera.look_at(camera.position - CAMERA_OFFSET + Vector3(0, 0.2, 0), Vector3.UP)
+	if _shake > 0.0:
+		var strength := _shake * 0.5
+		camera.position += Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * strength
 
 
 ## Objeto más cercano al alcance del peón (o null).
@@ -1008,9 +1016,9 @@ func _on_shop_closed() -> void:
 		if not is_inside_tree():
 			return
 		_sfx("turn", -2.0)
-		_show_toast(tr("¡Ding dong! Ha llegado tu pedido de Dadazon."))
-		for id in pending:
-			_spawn_parcel(str(id), true)
+		_show_toast(tr("¡Mira arriba! Tu pedido de Dadazon llega en paracaídas."))
+		for i in pending.size():
+			_spawn_parcel(str(pending[i]), true, i * 0.45)
 	)
 
 
@@ -1057,35 +1065,51 @@ func _has_parcel(id: String) -> bool:
 
 
 ## Caja de Dadazon junto a la puerta. Con «animated», cae desde arriba y rebota.
-func _spawn_parcel(id: String, animated: bool) -> void:
+## Caja de Dadazon junto a la puerta. Con «animated», cae del cielo en paracaídas.
+func _spawn_parcel(id: String, animated: bool, delay := 0.0) -> void:
 	var count := _parcels.filter(func(p: Node3D) -> bool: return is_instance_valid(p)).size()
-	var spot := DOOR_DROP + Vector3(0.25 * (count % 3), 0, 0.95 * (count % 3) + 0.0) + Vector3(0, 0.0, 0)
-	spot.y = 0.0
+	var offsets: Array[Vector3] = [Vector3.ZERO, Vector3(1.15, 0, 1.0), Vector3(0.1, 0, 2.0), Vector3(1.3, 0, -0.9)]
+	var spot: Vector3 = DOOR_DROP + offsets[count % 4]
 	var parcel := Node3D.new()
 	parcel.name = "Parcel_" + id
 	parcel.set_meta(&"order", id)
-	parcel.position = spot + Vector3(0, 0.0 if not animated else 5.0, 0)
+	parcel.position = spot
 	parcel.rotation.y = randf_range(-0.4, 0.4)
 	add_child(parcel)
+	var box := Node3D.new()
+	box.name = "Box"
+	parcel.add_child(box)
+	parcel.scale = Vector3.ONE * 1.25
 	var cardboard := Color("c99a63")
-	HomeDecor.add_mesh(parcel, PieceKit.rounded_box(Vector3(0.9, 0.7, 0.9), 0.05), Vector3(0, 0.35, 0), cardboard)
-	var lid := HomeDecor.add_mesh(parcel, PieceKit.rounded_box(Vector3(0.94, 0.08, 0.94), 0.03), Vector3(0, 0.72, 0), cardboard.darkened(0.08))
+	HomeDecor.add_mesh(box, PieceKit.rounded_box(Vector3(0.9, 0.7, 0.9), 0.05), Vector3(0, 0.35, 0), cardboard)
+	var lid := HomeDecor.add_mesh(box, PieceKit.rounded_box(Vector3(0.94, 0.08, 0.94), 0.03), Vector3(0, 0.72, 0), cardboard.darkened(0.08))
 	lid.name = "Lid"
 	HomeDecor.add_mesh(lid, PieceKit.rounded_box(Vector3(0.96, 0.03, 0.2), 0.01), Vector3(0, 0.04, 0), Palette.SUN)
-	var brand := Label3D.new()
-	brand.text = "dadazon"
-	brand.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	brand.font = MenuStyle.DISPLAY_FONT
-	brand.font_size = 40
-	brand.pixel_size = 0.005
-	brand.modulate = Palette.INK
-	brand.position = Vector3(0, 0.4, 0.46)
-	parcel.add_child(brand)
+	for side in [-1.0, 1.0]:
+		var brand := Label3D.new()
+		brand.text = "dadazon"
+		brand.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		brand.font = MenuStyle.DISPLAY_FONT
+		brand.font_size = 40
+		brand.pixel_size = 0.005
+		brand.modulate = Palette.INK
+		brand.position = Vector3(0, 0.4, side * 0.46)
+		brand.rotation.y = 0.0 if side > 0 else PI
+		box.add_child(brand)
+	_parcels.append(parcel)
+	var calm := (_reduce_motion() or DisplayServer.get_name() == "headless") and not force_drop_animation
+	if not animated or calm:
+		_add_parcel_item(parcel, id, spot)
+		return
+	_sky_drop(parcel, id, spot, delay)
+
+
+func _add_parcel_item(parcel: Node3D, id: String, spot: Vector3) -> void:
 	var item := Interactable.new()
 	item.name = "Item_paquete_" + id
 	item.id = "paquete"
 	item.label = "Abrir paquete de Dadazon"
-	item.approach = spot + Vector3(1.0, 0, 0.2)
+	item.approach = spot + Vector3(1.15, 0, 0.2)
 	item.reach = 1.2
 	item.set_meta("extent", 0.5)
 	item.set_meta(&"order", id)
@@ -1096,11 +1120,186 @@ func _spawn_parcel(id: String, animated: bool) -> void:
 	add_child(item)
 	items.append(item)
 	parcel.set_meta(&"item", item)
-	_parcels.append(parcel)
-	if animated:
-		var tween := create_tween()
-		tween.tween_property(parcel, "position:y", 0.0, 0.45).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
-		tween.tween_callback(func() -> void: _sfx("drop"))
+
+
+## La caja cae del cielo: sombra que crece en el suelo, caída en picado, paracaídas de
+## Dadazon que se abre de golpe y la frena meciéndose, aterrizaje con aplastón, polvo,
+## temblor de cámara y un «¡PLOF!»; el paracaídas se suelta y se va volando.
+func _sky_drop(parcel: Node3D, id: String, spot: Vector3, delay: float) -> void:
+	var box := parcel.get_node("Box") as Node3D
+	box.position.y = 18.0
+	box.rotation = Vector3(randf_range(-0.6, 0.6), randf_range(0, TAU), randf_range(-0.6, 0.6))
+	# Sombra que avisa de dónde va a caer.
+	var shadow := MeshInstance3D.new()
+	shadow.mesh = PieceKit.rounded_disc(0.7, 0.01, 0.005, 32)
+	var shadow_mat := StandardMaterial3D.new()
+	shadow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	shadow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shadow_mat.albedo_color = Color(Palette.INK, 0.0)
+	shadow.material_override = shadow_mat
+	shadow.position = Vector3(0, 0.03, 0)
+	shadow.scale = Vector3(0.15, 1.0, 0.15)
+	parcel.add_child(shadow)
+	# Paracaídas (plegado hasta que se abre).
+	var chute := _make_parachute()
+	chute.scale = Vector3.ONE * 0.05
+	chute.visible = false
+	box.add_child(chute)
+
+	var fall := create_tween()
+	fall.tween_interval(delay)
+	fall.tween_callback(func() -> void: _sfx("grab", -4.0))
+	fall.set_parallel(true)
+	fall.tween_property(shadow, "scale", Vector3(0.6, 1.0, 0.6), 0.55)
+	fall.tween_property(shadow_mat, "albedo_color:a", 0.18, 0.55)
+	fall.tween_property(box, "position:y", 7.5, 0.55).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	fall.tween_property(box, "rotation", Vector3(0, box.rotation.y + 1.5, 0), 0.55)
+	fall.set_parallel(false)
+	# ¡Paf! Se abre el paracaídas: sacudida hacia arriba y rebote elástico.
+	fall.tween_callback(func() -> void:
+		chute.visible = true
+		_sfx("pop", -2.0)
+		_float_text("!", pawn.position + Vector3(0, 2.6, 0), Palette.SUN, 90)
+	)
+	fall.set_parallel(true)
+	fall.tween_property(chute, "scale", Vector3.ONE, 0.45).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+	fall.tween_property(box, "position:y", 8.1, 0.18).set_ease(Tween.EASE_OUT)
+	fall.set_parallel(false)
+	# Descenso suave meciéndose; la sombra se oscurece y se hace grande.
+	fall.set_parallel(true)
+	fall.tween_property(box, "position:y", 0.9, 1.6).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	fall.tween_method(func(t: float) -> void:
+		box.rotation.z = sin(t * TAU * 1.5) * 0.22 * (1.0 - t)
+		box.rotation.x = cos(t * TAU * 1.2) * 0.12 * (1.0 - t)
+	, 0.0, 1.0, 1.6)
+	fall.tween_property(shadow, "scale", Vector3(1.15, 1.0, 1.15), 1.6)
+	fall.tween_property(shadow_mat, "albedo_color:a", 0.38, 1.6)
+	fall.set_parallel(false)
+	# Se suelta el paracaídas y la caja cae el último tramo.
+	fall.tween_callback(func() -> void: _release_parachute(chute))
+	fall.tween_property(box, "position:y", 0.0, 0.16).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	fall.tween_callback(func() -> void:
+		_land(parcel, box, spot)
+		shadow.queue_free()
+		_add_parcel_item(parcel, id, spot)
+	)
+	# Aplastón y rebote.
+	fall.tween_property(box, "scale", Vector3(1.35, 0.55, 1.35), 0.07)
+	fall.tween_property(box, "scale", Vector3.ONE, 0.5).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
+func _make_parachute() -> Node3D:
+	var chute := Node3D.new()
+	chute.name = "Parachute"
+	var dome := MeshInstance3D.new()
+	var half := SphereMesh.new()
+	half.radius = 1.0
+	half.height = 1.0
+	half.is_hemisphere = true
+	dome.mesh = half
+	var cloth := StandardMaterial3D.new()
+	cloth.albedo_color = Palette.CORAL
+	cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
+	dome.material_override = cloth
+	dome.position.y = 2.2
+	dome.scale = Vector3(1.0, 0.7, 1.0)
+	chute.add_child(dome)
+	var band := HomeDecor.add_mesh(chute, PieceKit.torus(0.92, 0.07, 40), Vector3(0, 2.45, 0), Palette.SUN)
+	band.scale = Vector3(1.0, 1.0, 1.0)
+	HomeDecor.add_mesh(chute, PieceKit.rounded_disc(0.2, 0.08, 0.03, 20), Vector3(0, 2.92, 0), Palette.SUN)
+	for k in 4:
+		var angle := TAU * (k + 0.5) / 4.0
+		var top := Vector3(cos(angle) * 0.95, 2.2, sin(angle) * 0.95)
+		var bottom := Vector3(cos(angle) * 0.38, 0.75, sin(angle) * 0.38)
+		var rope := CylinderMesh.new()
+		rope.top_radius = 0.012
+		rope.bottom_radius = 0.012
+		rope.height = top.distance_to(bottom)
+		var line := HomeDecor.add_mesh(chute, rope, (top + bottom) * 0.5, Palette.PAPER)
+		var up := (top - bottom).normalized()
+		var side := up.cross(Vector3.FORWARD).normalized() if absf(up.z) < 0.95 else Vector3.RIGHT
+		line.basis = Basis(side, up, side.cross(up)).orthonormalized()
+	var logo := Label3D.new()
+	logo.text = "dadazon"
+	logo.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	logo.font = MenuStyle.DISPLAY_FONT
+	logo.font_size = 64
+	logo.pixel_size = 0.006
+	logo.modulate = Palette.PAPER
+	logo.outline_size = 12
+	logo.outline_modulate = Palette.INK
+	logo.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
+	logo.position = Vector3(0, 2.55, 0)
+	chute.add_child(logo)
+	return chute
+
+
+## El paracaídas se suelta, sube flotando, se aleja girando y se desvanece.
+func _release_parachute(chute: Node3D) -> void:
+	var where := chute.global_transform
+	chute.get_parent().remove_child(chute)
+	add_child(chute)
+	chute.global_transform = where
+	var drift := Vector3(randf_range(-2.5, 2.5), 4.5, randf_range(-2.0, 0.5))
+	var tween := chute.create_tween().set_parallel(true)
+	tween.tween_property(chute, "position", chute.position + drift, 1.6).set_ease(Tween.EASE_OUT)
+	tween.tween_property(chute, "rotation", Vector3(0.6, 2.5, -0.5), 1.6)
+	tween.tween_property(chute, "scale", Vector3(1.3, 0.3, 1.3), 1.6).set_ease(Tween.EASE_IN)
+	tween.chain().tween_callback(chute.queue_free)
+
+
+func _land(parcel: Node3D, box: Node3D, spot: Vector3) -> void:
+	box.rotation = Vector3(0, box.rotation.y, 0)
+	pawn.hop()
+	_sfx("drop", 2.0)
+	_sfx("dice", -4.0)
+	_shake = 0.35
+	# Anillo de polvo que se abre.
+	var ring := MeshInstance3D.new()
+	ring.mesh = PieceKit.torus(0.6, 0.12, 40)
+	var ring_mat := StandardMaterial3D.new()
+	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ring_mat.albedo_color = Color(1, 0.96, 0.88, 0.85)
+	ring.material_override = ring_mat
+	ring.position = spot + Vector3(0, 0.08, 0)
+	add_child(ring)
+	var tween := ring.create_tween().set_parallel(true)
+	tween.tween_property(ring, "scale", Vector3(3.2, 1.0, 3.2), 0.5).set_ease(Tween.EASE_OUT)
+	tween.tween_property(ring_mat, "albedo_color:a", 0.0, 0.5)
+	tween.chain().tween_callback(ring.queue_free)
+	# Bocanadas de polvo alrededor.
+	for k in 8:
+		var angle := TAU * k / 8.0
+		pawn.call("_puff", spot + Vector3(cos(angle), 0, sin(angle)) * 0.7)
+	# Los juguetes cercanos dan un saltito.
+	for node in get_children():
+		if node is RigidBody3D and (node as RigidBody3D).position.distance_to(spot) < 4.0:
+			(node as RigidBody3D).apply_central_impulse(Vector3(randf_range(-0.4, 0.4), 2.2, randf_range(-0.4, 0.4)))
+	# ¡PLOF!
+	var bang := Label3D.new()
+	bang.text = "¡PLOF!"
+	bang.font = MenuStyle.DISPLAY_FONT
+	bang.font_size = 96
+	bang.pixel_size = 0.008
+	bang.modulate = Palette.SUN
+	bang.outline_size = 24
+	bang.outline_modulate = Palette.INK
+	bang.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	bang.no_depth_test = true
+	bang.position = spot + Vector3(0, 1.6, 0)
+	bang.scale = Vector3.ONE * 0.2
+	add_child(bang)
+	var pop := bang.create_tween()
+	pop.tween_property(bang, "scale", Vector3.ONE * 1.15, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	pop.tween_property(bang, "scale", Vector3.ONE, 0.12)
+	pop.tween_interval(0.45)
+	pop.set_parallel(true)
+	pop.tween_property(bang, "position:y", bang.position.y + 0.8, 0.4)
+	pop.tween_property(bang, "modulate:a", 0.0, 0.4)
+	pop.set_parallel(false)
+	pop.tween_callback(bang.queue_free)
+	_confetti(spot + Vector3(0, 0.8, 0))
 
 
 func _open_parcel(item: Interactable) -> void:

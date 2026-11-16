@@ -77,7 +77,11 @@ corona; pajarita, bufanda, bigote). Catálogo en `ShopCatalog`, miniaturas en `a
 - **Fichas**: se empieza con 150; se ganan 5 por minuto jugado en cualquier mesa (mínimo un
   minuto, tope 40 por partida, `SessionNavigation.award_play_time`). Al volver a la habitación
   sale «+N fichas por jugar».
-- **Pedido**: al cerrar la tienda suena el timbre y cae una caja de Dadazon junto a la puerta.
+- **Pedido**: al cerrar la tienda, «¡Mira arriba!»: la caja cae del cielo junto a la puerta.
+  Primero aparece su sombra en el suelo; cae en picado, se abre de golpe un paracaídas de
+  Dadazon que la frena meciéndose, se suelta y se va volando, y la caja aterriza con aplastón,
+  anillo de polvo, temblor de cámara, confeti, los juguetes saltan y un «¡PLOF!». El peón se
+  sobresalta («!») y da un salto. Secuencia de capturas: `tools/parcel_shots.gd`.
   Las cajas sin abrir se guardan. Al abrirla: confeti; la decoración aparece en su sitio con
   rebote (`DecorItems.SLOTS`) y la ropa se estrena puesta.
 - **Armario**: colores (todos gratis), gorro y gafas de serie; lo demás sale con candado hasta

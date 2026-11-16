@@ -66,6 +66,17 @@ func _run() -> void:
 	_check(HomePrefs.accessory() == "gafas" and HomePrefs.color_index() == 2, "el armario cambia complemento y color")
 	home.wardrobe.close_wardrobe()
 
+	# Caída animada desde el cielo: la caja aterriza y entonces se puede abrir.
+	Home.force_drop_animation = true
+	var falling := home.items.size()
+	home.call("_spawn_parcel", "bigote", true, 0.0)
+	_check(home.items.size() == falling, "mientras cae, la caja aún no se puede abrir")
+	await create_timer(3.4).timeout
+	_check(home.items.size() == falling + 1, "al aterrizar, la caja se puede abrir")
+	await create_timer(2.0).timeout
+	_check(home.find_child("Parachute", true, false) == null, "el paracaídas se va y desaparece")
+	Home.force_drop_animation = false
+
 	# Fichas por jugar: al menos un minuto, con tope.
 	var nav := root.get_node("SessionNavigation")
 	var before := HomePrefs.coins()

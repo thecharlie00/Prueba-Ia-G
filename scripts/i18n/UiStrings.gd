@@ -712,5 +712,7 @@ const ROWS := [
 	["Tejida a mano por una abuela que gana al dominó.", "Hand-knitted by a grandma who wins at dominoes.", "Teixida a mà per una àvia que guanya al dòmino."],
 	["Bigote", "Moustache", "Bigoti"],
 	["Da un aire de jugador veterano.", "Gives you a seasoned-player look.", "Dona un aire de jugador veterà."],
+	["¡Mira arriba! Tu pedido de Dadazon llega en paracaídas.", "Look up! Your Dadazon order is parachuting in.", "Mira amunt! La teva comanda de Dadazon arriba en paracaigudes."],
+	["¡PLOF!", "THUD!", "PATAPAM!"],
 ]
 
