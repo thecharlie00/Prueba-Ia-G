@@ -3,7 +3,7 @@ extends Control
 ## (motor, física, fuentes y, en el juego completo, la red). El texto legal completo de
 ## Godot y de sus componentes se despliega abajo, sin salir del juego.
 
-const BACK_SCENE := "res://scenes/BotMenu.tscn"
+const BACK_SCENE := "res://scenes/ModeSelect.tscn"
 
 ## [título, detalle, licencia]
 const CREDITS := [
@@ -143,4 +143,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _go_back() -> void:
-	get_tree().change_scene_to_file(BACK_SCENE)
+	var nav := get_node_or_null("/root/SessionNavigation")
+	var fallback := SessionNavigation.home_scene()
+	get_tree().change_scene_to_file(nav.back_target(fallback) if nav != null else fallback)

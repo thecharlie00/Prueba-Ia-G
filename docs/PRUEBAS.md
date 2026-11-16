@@ -20,6 +20,7 @@ Condición de salida de la fase 0 ([ROADMAP.md](ROADMAP.md)): **3 personas ajena
 
 | # | Modo | Qué tiene que hacer | Cuenta como completado |
 |---|---|---|---|
+| 0 | Habitación | Sin explicarle nada, desde que arranca el juego: llegar a una partida contra bots, volver y abrir el tutorial desde la pizarra. Apuntar los segundos hasta la primera partida | Juega en 10 s o menos y no pregunta qué hacer |
 | 1 | Tutorial jugable | Seguir los 9 pasos | Llega a «¡Ya sabes jugar!» |
 | 2 | Mesa libre | Tirar un dado, robar una carta, voltearla, guardar y cargar la mesa | La mesa cargada es la guardada |
 | 3 | Ajedrez físico con reglas | Partida contra la IA casual | Mate, tablas o abandono consciente |
@@ -28,7 +29,7 @@ Condición de salida de la fase 0 ([ROADMAP.md](ROADMAP.md)): **3 personas ajena
 | 6 | Ludo (2 jugadores) | Partida contra un bot | Gana alguien |
 | 7 | Isla de recursos (3 jugadores) | 3 rondas completas en el mismo equipo (puede ser con otras dos personas) | Tres vueltas de turno sin bloqueo |
 | 8 | Mesa de cartas | Mezclar, robar a la mano, jugar una carta, apilar dos cartas | Se forma un mazo nuevo |
-| 9 | Pausa y salida | En cualquier mesa: Esc, «Volver al menú principal», confirmar | Vuelve al menú |
+| 9 | Pausa y salida | En cualquier mesa: Esc, «Volver al menú principal», confirmar | Vuelve a la habitación |
 
 ## Hoja de observación (una por persona)
 

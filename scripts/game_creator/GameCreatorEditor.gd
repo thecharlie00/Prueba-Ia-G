@@ -604,7 +604,7 @@ func _say(message: String) -> void:
 
 func _back_to_menu() -> void:
 	get_tree().paused = false
-	get_tree().change_scene_to_file(MENU_SCENE)
+	get_tree().change_scene_to_file(SessionNavigation.home_scene())
 
 
 func _on_state_changed(new_state: GameCreatorCore.EditorState) -> void:

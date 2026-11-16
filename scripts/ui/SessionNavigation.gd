@@ -3,10 +3,12 @@ extends CanvasLayer
 signal controls_changed(click_to_grab: bool)
 
 const MENU_PATH := "res://scenes/BotMenu.tscn"
+const HOME_PATH := "res://scenes/Home.tscn"
 
 ## Pantallas de menú (no son mesas): en ellas no aparecen los botones de
 ## sesión ni la pausa. La salida desde una mesa siempre vuelve al menú principal.
 const MENU_SCENES := [
+	"res://scenes/Home.tscn",
 	"res://scenes/BotMenu.tscn",
 	"res://scenes/ModeSelect.tscn",
 	"res://scenes/Menu.tscn",
@@ -41,12 +43,57 @@ const HUD_RESERVE := 172.0
 var _top_reserve := -1.0
 
 
+## Escena anterior (para que «Volver» regrese a la habitación si se vino de ella).
+var previous_scene := ""
+var _current_scene_path := ""
+## Fichas ganadas en la última mesa (la habitación lo enseña y lo pone a 0).
+var last_reward := 0
+var _game_started_ms := 0
+## Fichas por minuto jugado y tope por partida (hay que jugar al menos un minuto).
+const COINS_PER_MINUTE := 5
+const MAX_COINS_PER_GAME := 40
+
+
+## El inicio: la habitación, o la portada clásica si el jugador la prefiere.
+static func home_scene() -> String:
+	return MENU_PATH if HomePrefs.classic_menu() else HOME_PATH
+
+
+## Destino de «Volver» en los menús: la habitación si se llegó desde ella; si no, fallback.
+func back_target(fallback: String) -> String:
+	return HOME_PATH if previous_scene == HOME_PATH else fallback
+
+
+func _track_scene() -> void:
+	var scene := get_tree().current_scene
+	var path := scene.scene_file_path if scene != null else ""
+	if path != _current_scene_path:
+		var was_game := not _current_scene_path.is_empty() and not MENU_SCENES.has(_current_scene_path)
+		if was_game and _game_started_ms > 0:
+			award_play_time(Time.get_ticks_msec() - _game_started_ms)
+		_game_started_ms = Time.get_ticks_msec() if not path.is_empty() and not MENU_SCENES.has(path) else 0
+		previous_scene = _current_scene_path
+		_current_scene_path = path
+
+
+## Suma las fichas por el tiempo jugado en una mesa. Devuelve cuántas.
+func award_play_time(milliseconds: int) -> int:
+	var minutes := float(milliseconds) / 60000.0
+	if minutes < 1.0:
+		return 0
+	var reward := mini(int(minutes * COINS_PER_MINUTE), MAX_COINS_PER_GAME)
+	HomePrefs.add_coins(reward)
+	last_reward += reward
+	return reward
+
+
 func _in_game(scene: Node) -> bool:
 	return scene != null and not MENU_SCENES.has(scene.scene_file_path)
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().scene_changed.connect(_track_scene)
 	_load_controls()
 	layer = 100
 
@@ -524,7 +571,7 @@ func _return_to_menu() -> void:
 		var net := get_node_or_null("/root/Net")
 		if net != null and net.has_method("leave_room"):
 			net.leave_room()
-	get_tree().change_scene_to_file(MENU_PATH)
+	get_tree().change_scene_to_file(home_scene())
 
 
 func _request_return_to_menu() -> void:

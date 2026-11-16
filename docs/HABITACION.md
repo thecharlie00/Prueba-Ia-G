@@ -1,0 +1,91 @@
+# La habitación · menú principal jugable
+
+Desde la 0.2, Tablerama arranca en **la habitación**: la sala de juegos del diorama, por la
+que se anda con un peón de arcilla. Cada mueble es una opción del menú. Es la fase 1 de la
+propuesta «La habitación y el salón de salas»; el salón (salas online como mesas) llega con
+el transporte de Steam.
+
+## Objetos
+
+| Objeto | Qué hace | Escena |
+|---|---|---|
+| Mesa central con los bots | Jugar contra bots | `BotSelect.tscn` |
+| Estantería «Juegos» | Elegir un juego (mesa local) | `Menu.tscn` |
+| Pizarra «Cómo se juega» | Tutorial jugable | `Main.tscn` con `Tutorial.requested` |
+| Puerta «Salas» | Salas online (bloqueada en la demo) | `Lobby.tscn` |
+| Taller | Estudio de creación (bloqueado en la demo) | `GameCreatorEditor.tscn` |
+| Armario con espejo | Color, sombrero y complemento del peón (primer plano del peón) | panel |
+| Ordenador | Dadazon, la tienda: decoración y ropa con fichas | panel |
+| Paquetes de Dadazon | Llegan a la puerta tras comprar; al abrirlos, confeti y el objeto aparece | — |
+| Tocadiscos | Sonido sí/no | — |
+| Corcho «Ajustes» | Idioma, sonido, pantalla completa, menú clásico, créditos, informar de un fallo, salir | panel |
+
+| Gato en el puf | Se despierta al acercarte; acariciarlo suelta corazones | — |
+
+Juguetes sueltos (dados y fichas con física) que el peón empuja al pasar y que suenan al chocar.
+
+## Vida de la sala
+
+- **Portadas**: cajas en la estantería y cuadros en las paredes con las portadas de los juegos
+  (`assets/covers`, ver `GameCovers`); las mismas portadas salen en el catálogo y en los bots.
+- **Atrezo** (`HomeProps`): ventana con cielo, cortinas que se mecen y haz de luz; plantas;
+  guirnalda de bombillas que titilan; reloj con la hora real; suelo de tablas; motas de polvo
+  bajo la lámpara.
+- **Personajes**: los bots siguen al peón con la mirada y le invitan («¿Echamos una partida?»)
+  cuando se acerca a la mesa; el gato duerme («z z») y se despierta al pasar.
+- **El peón**: se estira al arrancar y se aplasta al parar, levanta polvo a cada paso, parpadea
+  y da un saltito al usar algo.
+- **Respuesta**: aro amarillo en el suelo donde hay que ponerse, etiqueta que aparece con rebote
+  y sonido, notas musicales del tocadiscos y transición de salida (la cámara se acerca y funde).
+- «Reducir movimiento» desactiva balanceos, titileos, notas y la transición.
+
+## Controles
+
+- **Andar:** WASD, flechas o stick; o clic en el suelo.
+- **Usar:** E, Intro o A al estar cerca (sale la etiqueta); o clic en el objeto: el peón va y lo usa.
+- **Tab:** menú clásico (selector de modos). **Esc:** ajustes.
+- Al volver de una pantalla, el peón aparece junto al objeto que usó.
+
+## Reglas de diseño
+
+- De abrir el juego a jugar, 10 segundos o menos: el peón empieza al lado de la mesa con «E · Jugar contra bots».
+- Siempre hay atajo: Tab, Esc y la opción **«Abrir con el menú clásico»**, que hace que el inicio
+  (y la vuelta desde una mesa) sea la portada de siempre (`BotMenu.tscn`). Desde ella, «Ir a la
+  habitación» lo deshace.
+- «Volver» en Elegir juego, Bots, Salas y Créditos regresa a la habitación si se vino de ella
+  (`SessionNavigation.back_target`).
+- Cámara fija que sigue a medias al peón; sin cámara libre. «Reducir movimiento» quita el
+  balanceo de los bots y la bajada inicial de la cámara.
+
+## Código
+
+- `scripts/home/Home.gd`: escena, objetos, cámara, interfaz y acciones.
+- `scripts/home/HomePawn.gd`: el peón (CharacterBody3D) y el empuje de juguetes.
+- `scripts/home/Interactable.gd`: objeto usable (id, texto, alcance, punto de llegada, bloqueo).
+- `scripts/home/HomeDecor.gd`: piezas de la sala compartidas con el diorama de los menús.
+- `scripts/home/HomePrefs.gd`: color del peón y menú clásico (`user://tablerama_home.cfg`).
+- Pruebas: `tests/home_room.gd`. Capturas: `tools/home_shots.gd -- carpeta [--demo] [--en]`.
+
+## Dadazon, fichas y armario
+
+**Dadazon** («lo tiras hoy, lo tienes en un turno») es la tienda del ordenador. Vende
+decoración (Botito, sofá, bola de discoteca, pecera con Pipo, lámpara de pie, neón «¡A jugar!»,
+trofeo de peón dorado, cactus) y ropa (gorra, gorro de fiesta, flor, auriculares, chistera,
+corona; pajarita, bufanda, bigote). Catálogo en `ShopCatalog`, miniaturas en `assets/shop`
+(las genera `tools/shop_thumbs.gd`).
+
+- **Fichas**: se empieza con 150; se ganan 5 por minuto jugado en cualquier mesa (mínimo un
+  minuto, tope 40 por partida, `SessionNavigation.award_play_time`). Al volver a la habitación
+  sale «+N fichas por jugar».
+- **Pedido**: al cerrar la tienda, «¡Mira arriba!»: la caja cae del cielo junto a la puerta.
+  Primero aparece su sombra en el suelo; cae en picado, se abre de golpe un paracaídas de
+  Dadazon que la frena meciéndose, se suelta y se va volando, y la caja aterriza con aplastón,
+  anillo de polvo, temblor de cámara, confeti, los juguetes saltan y un «¡PLOF!». El peón se
+  sobresalta («!») y da un salto. Secuencia de capturas: `tools/parcel_shots.gd`.
+  Las cajas sin abrir se guardan. Al abrirla: confeti; la decoración aparece en su sitio con
+  rebote (`DecorItems.SLOTS`) y la ropa se estrena puesta.
+- **Armario**: colores (todos gratis), gorro y gafas de serie; lo demás sale con candado hasta
+  comprarlo. La cámara hace primer plano del peón mientras eliges.
+- La decoración tiene vida: Botito te sigue, Pipo nada, la bola gira y el neón parpadea.
+- Todo se guarda en `user://tablerama_home.cfg` (`HomePrefs`).
+- Pruebas: `tests/home_shop.gd`. Capturas: `tools/home_shop_shots.gd -- carpeta [--es]`.

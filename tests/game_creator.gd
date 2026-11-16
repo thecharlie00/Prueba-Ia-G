@@ -76,7 +76,7 @@ func _run() -> void:
 	editor._back_to_menu()
 	for i in 5:
 		await process_frame
-	_check(current_scene.scene_file_path == "res://scenes/BotMenu.tscn" and not paused, "se vuelve al menú principal sin pausa")
+	_check(current_scene.scene_file_path == root.get_node("SessionNavigation").home_scene() and not paused, "se vuelve al menú principal sin pausa")
 	if _failed:
 		quit(1)
 	else:

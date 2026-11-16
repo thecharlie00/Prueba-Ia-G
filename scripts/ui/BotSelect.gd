@@ -127,7 +127,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
-		get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
+		get_tree().change_scene_to_file(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
 		get_viewport().set_input_as_handled()
 
 
@@ -163,7 +163,7 @@ func _build() -> void:
 	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	MenuStyle.style_secondary(back, 12, 6)
 	back.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
+		func() -> void: get_tree().change_scene_to_file(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
 	)
 	header.add_child(back)
 

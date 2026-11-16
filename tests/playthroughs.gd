@@ -318,7 +318,7 @@ func _pause_and_exit() -> void:
 		navigation._return_to_menu()
 		for i in 6:
 			await process_frame
-		_check(current_scene != null and current_scene.scene_file_path.ends_with("Menu.tscn"), "%s: la salida confirmada vuelve al menú" % scene)
+		_check(current_scene != null and (current_scene.scene_file_path.ends_with("Menu.tscn") or current_scene.scene_file_path.ends_with("Home.tscn")), "%s: la salida confirmada vuelve al menú" % scene)
 		_check(not paused, "%s: el menú no queda en pausa" % scene)
 	_report.append("pausa y salida al menú: 14 mesas")
 

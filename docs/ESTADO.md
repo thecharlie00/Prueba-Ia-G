@@ -62,6 +62,10 @@ Este archivo diferencia la implementación actual de los objetivos del [GDD](GDD
 - Archivos del jugador renombrados a `user://tablerama_*` con migración automática de los antiguos `diceon_*`.
 - Fuera la mención a Catán de los textos del juego.
 
+### La habitación (16 de noviembre de 2026)
+
+- El juego arranca en una **habitación jugable**: el peón de arcilla anda por la sala y cada mueble es una opción (mesa con bots, estantería de juegos, pizarra del tutorial, puerta de salas, taller, espejo, tocadiscos y corcho de ajustes). Tab abre el menú clásico; hay opción para arrancar siempre con él. Detalle en [HABITACION.md](HABITACION.md).
+
 ## Pendiente para completar el GDD
 
 1. Robustecer el ajedrez con pruebas exhaustivas de reglas, casos límite, accesibilidad, relojes, una IA más avanzada para distintos niveles y juego libre opcional.

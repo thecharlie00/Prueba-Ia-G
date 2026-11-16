@@ -166,7 +166,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _go_back() -> void:
-	get_tree().change_scene_to_file("res://scenes/BotMenu.tscn")
+	get_tree().change_scene_to_file(SessionNavigation.home_scene())
 
 
 func _add_mode_card(
