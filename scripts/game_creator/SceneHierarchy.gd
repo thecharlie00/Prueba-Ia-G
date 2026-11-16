@@ -1,73 +1,71 @@
 # SceneHierarchy.gd
-# Árbol de jerarquía de escena que muestra las entidades del tablero.
-# Permite seleccionar entidades para editarlas en el Inspector.
+# Lista de las piezas de la mesa. Se pueden elegir varias (Ctrl/Mayús+clic); cada una
+# lleva un punto de su color y un candado si está fija.
 class_name SceneHierarchy
 extends VBoxContainer
 
 # Lista de entidades conocidas.
 var entities: Array[PropEntity] = []
 
-# Entidad seleccionada actualmente.
+# Pieza principal seleccionada (la última elegida).
 var selected_entity: PropEntity = null
+var _selected: Array = []
 
-# Señal emitida cuando se selecciona una entidad.
+## Compatibilidad: una pieza (o null).
 signal entity_selected(entity: PropEntity)
+## Selección completa tras un cambio hecho en la lista.
+signal selection_changed(entities: Array)
+## Se pulsó «+»: el editor pone una pieza nueva.
+signal add_requested
 
 var _tree: Tree = null
+var _count: Label = null
+var _syncing := false
+var _pending := false
+var _icons := {}
+
 
 func _ready() -> void:
 	build_ui()
 
+
 func build_ui() -> void:
-	# Limpiar hijos existentes.
 	for child in get_children():
 		child.queue_free()
-
-	var col := VBoxContainer.new()
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", 8)
-	add_child(col)
-
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 8)
-	col.add_child(header)
-
+	add_child(header)
 	var title := Label.new()
-	title.text = "JERARQUÍA DE ESCENA"
-	title.add_theme_font_size_override("font_size", 11)
-	title.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+	title.text = "PIEZAS EN LA MESA"
+	title.add_theme_font_size_override("font_size", 12)
+	title.add_theme_color_override("font_color", Color(0.62, 0.6, 0.7))
 	header.add_child(title)
-
+	_count = Label.new()
+	_count.name = "PieceCount"
+	_count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_count.add_theme_font_size_override("font_size", 12)
+	_count.add_theme_color_override("font_color", Color(0.62, 0.6, 0.7))
+	header.add_child(_count)
 	var add_btn := Button.new()
+	add_btn.name = "AddPieceQuick"
 	add_btn.text = "+"
-	add_btn.custom_minimum_size = Vector2(28, 28)
-	add_btn.pressed.connect(_on_add_entity)
+	add_btn.tooltip_text = "Nueva ficha"
+	add_btn.focus_mode = Control.FOCUS_NONE
+	add_btn.custom_minimum_size = Vector2(30, 30)
+	add_btn.pressed.connect(func() -> void: add_requested.emit())
 	header.add_child(add_btn)
 
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(spacer)
-
 	_tree = Tree.new()
+	_tree.name = "PieceList"
 	_tree.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tree.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_tree.columns = 1
-	_tree.set_column_title(0, "Entidades")
-	_tree.item_selected.connect(_on_tree_item_selected)
-	col.add_child(_tree)
-
-	var bottom_hb := HBoxContainer.new()
-	bottom_hb.add_theme_constant_override("separation", 8)
-	col.add_child(bottom_hb)
-
-	var refresh_btn := Button.new()
-	refresh_btn.text = "Refrescar"
-	refresh_btn.custom_minimum_size = Vector2(80, 28)
-	refresh_btn.pressed.connect(refresh)
-	bottom_hb.add_child(refresh_btn)
-
+	_tree.hide_root = true
+	_tree.select_mode = Tree.SELECT_MULTI
+	_tree.multi_selected.connect(_on_multi_selected)
+	add_child(_tree)
 	refresh()
+
 
 func add_entity(entity: PropEntity) -> void:
 	if entity in entities:
@@ -75,61 +73,89 @@ func add_entity(entity: PropEntity) -> void:
 	entities.append(entity)
 	refresh()
 
+
 func remove_entity(entity: PropEntity) -> void:
 	entities.erase(entity)
+	_selected.erase(entity)
 	if selected_entity == entity:
-		selected_entity = null
-		entity_selected.emit(null)
+		selected_entity = _selected.back() if not _selected.is_empty() else null
+		entity_selected.emit(selected_entity)
 	refresh()
+
 
 func get_selected() -> PropEntity:
 	return selected_entity
 
+
+## Marca en la lista la selección hecha fuera (en la mesa) sin volver a avisar.
+func show_selection(list: Array) -> void:
+	_selected = list.duplicate()
+	selected_entity = _selected.back() if not _selected.is_empty() else null
+	refresh()
+
+
 func refresh() -> void:
 	if _tree == null:
 		return
+	_syncing = true
 	_tree.clear()
-
-	if entities.size() == 0:
-		return
-
-	# Raíz oculta: sin ella, cada entidad se crearía como hija de la primera.
-	_tree.hide_root = true
 	var tree_root := _tree.create_item()
 	for entity in entities:
+		if not is_instance_valid(entity):
+			continue
 		var label: String = entity.entity_name if entity.entity_name != "" else entity.entity_id
+		if entity.is_locked:
+			label += "  🔒"
 		var item := _tree.create_item(tree_root)
 		item.set_text(0, label)
-		item.set_icon(0, _get_entity_icon(entity))
+		item.set_icon(0, _icon_for(entity))
 		item.set_metadata(0, entity)
+		if _selected.has(entity):
+			item.select(0)
+			if entity == selected_entity:
+				_tree.scroll_to_item(item)
+	if _count != null:
+		_count.text = str(entities.size())
+	_syncing = false
 
-		if selected_entity == entity:
-			_tree.select(item, 0)
 
-func _get_entity_icon(entity: PropEntity) -> Texture2D:
-	# Usar un icono simple basado en si tiene VisualComponent.
-	if entity.get_component("VisualComponent") != null:
-		return _make_colored_icon(Color(0.4, 0.7, 1.0))
-	else:
-		return _make_colored_icon(Color(0.8, 0.6, 0.4))
+func _icon_for(entity: PropEntity) -> Texture2D:
+	var visual := entity.get_component("VisualComponent") as VisualComponent
+	var color := visual.color_tint if visual != null else Color(0.8, 0.6, 0.4)
+	var key := color.to_html()
+	if not _icons.has(key):
+		var img := Image.create(14, 14, false, Image.FORMAT_RGBA8)
+		for y in 14:
+			for x in 14:
+				var d := Vector2(x - 6.5, y - 6.5).length()
+				img.set_pixel(x, y, Color(color, clampf(6.8 - d, 0.0, 1.0)))
+		_icons[key] = ImageTexture.create_from_image(img)
+	return _icons[key]
 
-func _make_colored_icon(color: Color) -> Texture2D:
-	var img := Image.create(16, 16, false, Image.FORMAT_RGBA8)
-	img.fill(color)
-	return ImageTexture.create_from_image(img)
 
-func _on_tree_item_selected() -> void:
-	var item := _tree.get_selected()
-	if item == null:
+# Tree avisa una vez por fila; se junta todo en un solo cambio al final del cuadro.
+func _on_multi_selected(_item: TreeItem, _column: int, _selected_now: bool) -> void:
+	if _syncing or _pending:
 		return
-	var entity: PropEntity = item.get_metadata(0)
-	if entity != null:
-		selected_entity = entity
-		entity_selected.emit(entity)
+	_pending = true
+	_emit_selection.call_deferred()
 
-func _on_add_entity() -> void:
-	# Señal para que el editor cree una nueva entidad.
-	pass
 
-func _on_entity_removed(entity: PropEntity) -> void:
-	remove_entity(entity)
+func _emit_selection() -> void:
+	_pending = false
+	var chosen: Array = []
+	var item := _tree.get_next_selected(null)
+	while item != null:
+		var entity: PropEntity = item.get_metadata(0)
+		if entity != null and is_instance_valid(entity):
+			chosen.append(entity)
+		item = _tree.get_next_selected(item)
+	# La que tiene el foco del árbol pasa a ser la principal.
+	var focused := _tree.get_selected()
+	if focused != null and chosen.has(focused.get_metadata(0)):
+		chosen.erase(focused.get_metadata(0))
+		chosen.append(focused.get_metadata(0))
+	_selected = chosen
+	selected_entity = chosen.back() if not chosen.is_empty() else null
+	selection_changed.emit(chosen)
+	entity_selected.emit(selected_entity)

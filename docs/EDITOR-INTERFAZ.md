@@ -5,7 +5,7 @@ jugadores: marcadores, botones, carteles, paneles e imágenes.
 
 ## Cómo se usa
 
-1. En el panel izquierdo, bajo **Interfaz del juego · añadir**, pulsa el tipo de elemento:
+1. En el panel izquierdo, en la pestaña **Interfaz**, bajo **Interfaz del juego · añadir**, pulsa el tipo de elemento:
    Texto, Botón, Panel, Imagen o Contador. Aparece en el centro de la pantalla del juego
    (el recuadro claro entre los dos paneles).
 2. **Arrástralo** a su sitio. Para cambiarlo de tamaño, tira del cuadrado azul de su esquina
@@ -16,7 +16,7 @@ jugadores: marcadores, botones, carteles, paneles e imágenes.
    - sumar 1 o restar 1 a un contador,
    - tirar un dado (deja de 1 a 6 en un contador),
    - mostrar u ocultar otro elemento (por ejemplo, un panel de reglas).
-5. Si es una **imagen**, importa primero la imagen, selecciónala en la galería y pulsa «Usar
+5. Si es una **imagen**, importa primero la imagen (pestaña **Imágenes**), selecciónala en la galería y pulsa «Usar
    imagen seleccionada».
 6. Pulsa **Probar la mesa**: los paneles del editor se apartan y la interfaz funciona de
    verdad. «Volver a editar» deja todo como estaba (probar no cambia el diseño).
@@ -44,3 +44,7 @@ con la ventana.
 - `scripts/game_creator/ui/UiLayoutView.gd`: dibuja el diseño; modo diseño (mover, cambiar de
   tamaño) y modo juego (acciones).
 - `tests/ui_designer.gd`: modelo, vista y uso desde el editor.
+
+
+Las piezas de la mesa (formas, arrastre, deshacer, guardar la mesa…) se explican en
+[EDITOR-MESA.md](EDITOR-MESA.md).

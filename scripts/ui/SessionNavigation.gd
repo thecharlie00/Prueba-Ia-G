@@ -439,6 +439,12 @@ func _toggle_help() -> void:
 		controls_dialog.hide()
 		return
 	_cancel_grab()
+	# Pantallas con controles propios (el editor de juegos) dan su propia ayuda.
+	var scene := get_tree().current_scene
+	if scene != null and scene.has_method("help_text"):
+		controls_dialog.dialog_text = scene.help_text()
+		controls_dialog.popup_centered(Vector2i(640, 440))
+		return
 	var grabber := _find_grabber()
 	var guide := "CÁMARA\nDerecho: orbitar · Rueda: zoom · Inicio: recentrar.\n"
 	if grabber != null:

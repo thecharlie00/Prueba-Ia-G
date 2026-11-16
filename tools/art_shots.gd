@@ -16,6 +16,7 @@ const SHOTS := {
 	"brisca": "res://scenes/Brisca.tscn",
 	"domino": "res://scenes/GuidedDomino.tscn",
 	"editor": "res://scenes/game_creator/GameCreatorEditor.tscn",
+	"editor_piezas": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"creditos": "res://scenes/Credits.tscn",
 }
 
@@ -46,6 +47,36 @@ func _run() -> void:
 				hud.set_drawer_open(true)
 				for i in 10:
 					await process_frame
+		if key == "editor_piezas" and current_scene.has_method("add_piece"):
+			# Una mesa de ejemplo con las formas nuevas y dos piezas seleccionadas.
+			var editor := current_scene
+			editor.add_piece("tablero")
+			var colors := [Palette.PLAYER_RED, Palette.PLAYER_BLUE, Palette.PLAYER_GREEN, Palette.PLAYER_YELLOW]
+			var pawns: Array = []
+			for i in 4:
+				var pawn: PropEntity = editor.add_piece("peon")
+				pawn.position = Vector3(-0.6 + i * 0.4, pawn.position.y, 0.6)
+				editor.select_pieces([pawn])
+				editor._edit_selection("color", colors[i])
+				pawns.append(pawn)
+			var deck: Array = []
+			for i in 5:
+				deck.append(editor.add_piece("carta"))
+			editor.select_pieces(deck)
+			editor._edit_selection("color", Palette.PIECE_DARK)
+			editor.stack_selection()
+			for card in deck:
+				card.position += Vector3(1.6, 0, -0.3)
+			var die: PropEntity = editor.add_piece("dado")
+			die.position = Vector3(-1.5, 0, -0.5)
+			editor._settle([die])
+			editor.rotate_selection(30)
+			for i in 3:
+				var coin: PropEntity = editor.add_piece("moneda")
+				coin.position = Vector3(1.5, 0.035 * i, 0.9)
+			editor.select_pieces([pawns[1], pawns[2]])
+			for i in 30:
+				await process_frame
 		if key == "editor" and current_scene.has_method("_spawn_example_entity"):
 			for i in 3:
 				current_scene._spawn_example_entity()

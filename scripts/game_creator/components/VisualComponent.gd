@@ -3,6 +3,8 @@
 class_name VisualComponent
 extends BehaviorComponent
 
+## Forma de la pieza (PieceShapes.SHAPES).
+@export var shape: String = "ficha"
 @export var mesh_path: String = ""
 ## Imagen que se ve en la pieza (ruta de ImageImporter).
 @export var texture_path: String = ""
@@ -15,6 +17,7 @@ extends BehaviorComponent
 var mesh_node: MeshInstance3D = null
 
 func _serialize_extra(data: Dictionary) -> void:
+	data["shape"] = shape
 	data["mesh_path"] = mesh_path
 	data["texture_path"] = texture_path
 	data["material_path"] = material_path
@@ -23,6 +26,7 @@ func _serialize_extra(data: Dictionary) -> void:
 	data["billboard"] = billboard
 
 func _deserialize_extra(data: Dictionary) -> void:
+	shape = PieceShapes.valid(str(data.get("shape", shape)))
 	mesh_path = data.get("mesh_path", mesh_path)
 	texture_path = data.get("texture_path", texture_path)
 	material_path = data.get("material_path", material_path)
