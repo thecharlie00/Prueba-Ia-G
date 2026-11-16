@@ -35,6 +35,9 @@ static func piece_record(entity: PropEntity) -> Dictionary:
 		"notes": visual.notes if visual != null else "",
 		"shuffle": visual.shuffle_on_play if visual != null else false,
 		"tags": Array(entity.tags),
+		"zkind": visual.zone_kind if visual != null else "normal",
+		"model": visual.mesh_path if visual != null else "",
+		"msize": [visual.model_size.x, visual.model_size.y, visual.model_size.z] if visual != null else [0, 0, 0],
 		"pos": [snappedf(entity.position.x, 0.001), snappedf(entity.position.y, 0.001), snappedf(entity.position.z, 0.001)],
 		"rot": [snappedf(entity.rotation_degrees.x, 0.01), snappedf(entity.rotation_degrees.y, 0.01), snappedf(entity.rotation_degrees.z, 0.01)],
 		"scale": visual.scale_factor if visual != null else 1.0,
@@ -84,8 +87,13 @@ static func valid_piece(item: Variant) -> Dictionary:
 		return {}
 	var texture := str(d.get("texture", ""))
 	var back := str(d.get("back", ""))
-	if not (_valid_path(texture) and _valid_path(back)):
+	var model := str(d.get("model", ""))
+	if not (_valid_path(texture) and _valid_path(back) and _valid_path(model)):
 		return {}
+	var model_size: Variant = _vec3(d.get("msize", [0, 0, 0]))
+	if model_size == null:
+		return {}
+	var zone_kind := str(d.get("zkind", "normal"))
 	var scale_value: Variant = d.get("scale", 1.0)
 	var mass_value: Variant = d.get("mass", 1.0)
 	var bounce_value: Variant = d.get("bounce", 0.1)
@@ -108,6 +116,9 @@ static func valid_piece(item: Variant) -> Dictionary:
 		"notes": str(d.get("notes", "")).left(MAX_NOTES),
 		"shuffle": d.get("shuffle", false) == true,
 		"tags": clean_tags(d.get("tags", [])),
+		"zkind": zone_kind if zone_kind in PieceShapes.ZONE_KINDS else "normal",
+		"model": model,
+		"msize": (model_size as Vector3).clamp(Vector3.ZERO, Vector3.ONE),
 		"pos": p,
 		"rot": rot,
 		"scale": clampf(float(scale_value), PieceShapes.MIN_SCALE, PieceShapes.MAX_SCALE),
@@ -139,6 +150,9 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 	visual.back_path = piece.get("back", "")
 	visual.notes = piece.get("notes", "")
 	visual.shuffle_on_play = piece.get("shuffle", false)
+	visual.zone_kind = piece.get("zkind", "normal")
+	visual.mesh_path = piece.get("model", "")
+	visual.model_size = piece.get("msize", Vector3.ZERO)
 	var physics := entity.get_component("PhysicsComponent") as PhysicsComponent
 	if physics == null:
 		physics = PhysicsComponent.new()

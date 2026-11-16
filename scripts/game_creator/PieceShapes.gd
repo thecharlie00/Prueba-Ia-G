@@ -5,7 +5,7 @@
 class_name PieceShapes
 extends RefCounted
 
-const SHAPES := ["ficha", "carta", "dado", "disco", "peon", "bloque", "moneda", "tablero", "zona", "anclaje"]
+const SHAPES := ["ficha", "carta", "dado", "disco", "peon", "bloque", "moneda", "tablero", "zona", "anclaje", "modelo"]
 const NAMES := {
 	"ficha": "Ficha",
 	"carta": "Carta",
@@ -17,6 +17,7 @@ const NAMES := {
 	"tablero": "Tablero",
 	"zona": "Zona",
 	"anclaje": "Anclaje",
+	"modelo": "Modelo 3D",
 }
 const ICONS := {
 	"ficha": "▭",
@@ -29,6 +30,7 @@ const ICONS := {
 	"tablero": "▦",
 	"zona": "⬚",
 	"anclaje": "⊕",
+	"modelo": "◈",
 }
 const DEFAULT := "ficha"
 const MIN_SCALE := 0.25
@@ -46,6 +48,7 @@ const SIZES := {
 	"tablero": Vector3(2.0, 0.05, 2.0),
 	"zona": Vector3(1.0, 0.006, 0.7),
 	"anclaje": Vector3(0.34, 0.006, 0.34),
+	"modelo": Vector3(0.5, 0.5, 0.5),
 }
 ## Formas redondas: su cuerpo físico es un cilindro.
 const ROUND := ["disco", "peon", "moneda"]
@@ -57,6 +60,10 @@ const ZONE := "zona"
 const ANCHOR := "anclaje"
 ## Marcas en la mesa: no chocan, no sostienen piezas y no caen al probar.
 const MARKERS := ["zona", "anclaje"]
+const MODEL := "modelo"
+## Tipos de zona: normal, mano (ordena boca arriba en fila) y oculta (tapa lo de dentro al probar).
+const ZONE_KINDS := ["normal", "mano", "oculta"]
+const ZONE_KIND_NAMES := {"normal": "Normal", "mano": "Mano (en fila, boca arriba)", "oculta": "Oculta (tapada al probar)"}
 const ANCHOR_RADIUS := 0.3
 
 ## Dibujos que se pueden pintar en la cara de arriba (sobre todo de tableros).
@@ -84,6 +91,15 @@ const FINISH_NAMES := {
 
 static func valid(shape: String) -> String:
 	return shape if SIZES.has(shape) else DEFAULT
+
+
+## Tamaño real de una pieza: el de su forma o, si es un modelo 3D, el del modelo encajado.
+static func piece_size(visual: VisualComponent) -> Vector3:
+	if visual == null:
+		return SIZES[DEFAULT]
+	if visual.shape == MODEL and visual.model_size != Vector3.ZERO:
+		return visual.model_size * clampf(visual.scale_factor, MIN_SCALE, MAX_SCALE)
+	return size_of(visual.shape, visual.scale_factor)
 
 
 static func size_of(shape: String, scale_factor := 1.0) -> Vector3:

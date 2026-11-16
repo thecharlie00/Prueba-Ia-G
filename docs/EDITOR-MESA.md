@@ -88,6 +88,27 @@ Con varias piezas, **Ordenar la selección** ofrece:
 - **Numerar**: escribe 1, 2, 3… de izquierda a derecha y de fondo a frente.
 - **Mezclar**: baraja los sitios de las piezas entre ellas (un mazo, fichas ocultas).
 
+## Modelos 3D y arrastrar archivos
+
+- **Importar modelo 3D…** (pestaña Imágenes, o la forma «Modelo 3D») acepta **.glb** (con
+  sus materiales y colores) y **.obj** (se pinta con el color, el acabado o la imagen de la
+  pieza). El modelo se encaja para que su lado mayor mida 0,5 y apoye en la mesa; luego se
+  cambia de tamaño, se apila y se usa como cualquier pieza. Se copia al juego y viaja dentro
+  del `.tablerama` exportado.
+- Se pueden **arrastrar archivos a la ventana**: las imágenes van a la galería, los modelos a
+  la mesa y los juegos `.tablerama` se abren.
+
+## Tipos de zona
+
+En el inspector de una zona, **Tipo**:
+
+- **Normal**: una marca con texto.
+- **Mano**: lo que se suelta o se reparte ahí se coloca en fila, boca arriba y ordenado.
+- **Oculta**: al probar, una tapa con «?» esconde lo de dentro; se puede meter la mano y
+  sacar una pieza a ciegas, como de una bolsa.
+
+Y la casilla **Mezclar lo de dentro al probar** vale para cualquier tipo.
+
 ## Mazos desde imágenes
 
 En la pestaña **Imágenes**:
@@ -126,6 +147,11 @@ pasar el ratón, al editar y al probar.
 - **C** o **doble clic**: enfocar la selección. **Inicio**: volver a la vista inicial.
 
 **F1** muestra todos estos atajos dentro del editor.
+
+## Lógica
+
+Las reglas del juego se montan con bloques (blueprints) y bloques GDScript: ver
+[EDITOR-LOGICA.md](EDITOR-LOGICA.md).
 
 ## Probar
 

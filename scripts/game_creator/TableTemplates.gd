@@ -52,7 +52,7 @@ static func pieces(name: String) -> Array:
 		"cartas":
 			list.append(_piece("zona", _t("Zona mazo"), Vector3(-0.75, 0, -0.45), Palette.LAVENDER, {"id": "zona_mazo", "label": _t("MAZO"), "scale": 0.9, "locked": true}))
 			list.append(_piece("zona", _t("Zona descarte"), Vector3(0.75, 0, -0.45), Palette.LAVENDER, {"id": "zona_descarte", "label": _t("DESCARTE"), "scale": 0.9, "locked": true}))
-			list.append(_piece("zona", _t("Zona mano"), Vector3(0, 0, 0.9), Palette.MINT, {"id": "zona_mano", "label": _t("MANO"), "scale": 1.8, "locked": true}))
+			list.append(_piece("zona", _t("Zona mano"), Vector3(0, 0, 0.9), Palette.MINT, {"id": "zona_mano", "label": _t("MANO"), "scale": 1.8, "locked": true, "zkind": "mano"}))
 			var height := PieceShapes.size_of("zona").y * 0.9
 			var card := PieceShapes.size_of("carta").y
 			for suit in 2:

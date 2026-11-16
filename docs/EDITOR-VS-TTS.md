@@ -38,15 +38,17 @@ guías y comentarios de la comunidad (noviembre de 2026).
 | Colocar | Gizmo, rejilla | Arrastrar con imán, apilado automático, flechas, rejillas de copias, en fila, apilar, centrar |
 | Probar | Es el mismo modo | **Probar la mesa** y volver a editar: todo vuelve a su sitio |
 | Lógica | Lua escrito a mano, script global y por objeto | **Blueprints** (eventos, flujo, acciones, datos) y **bloques GDScript** aislados con la API `mesa` ([EDITOR-LOGICA.md](EDITOR-LOGICA.md)) |
+| Modelos 3D | Sólo OBJ por URL; asset bundles con Unity | **.glb** (con materiales) y **.obj**, del disco o arrastrados a la ventana, encajados solos y dentro del archivo exportado |
+| Zonas de mano y ocultas | Herramientas aparte | Tipo de zona en el inspector: **mano** (en fila, boca arriba) u **oculta** (tapada al probar) |
 | Etiquetas | Tags para zonas y snap points | Etiquetas en cada pieza, usables desde la lógica |
 | Idiomas | Inglés en las herramientas | Editor en español, inglés y catalán |
 
 ## Lo que TTS tiene y aún falta (siguientes pasos propuestos)
 
 1. ~~Reglas sin programar~~ Hecho: blueprints con bloques GDScript.
-2. **Zonas de mano y ocultas** para el online: piezas que sólo ve su dueño.
+2. **Zonas de mano y ocultas por jugador** para el online (las de ahora valen para la prueba local).
 3. **Estados de un objeto** (una pieza con varias caras, como una carta de doble cara).
 4. **Bolsas** (incluida la infinita) y **contadores** en la mesa.
-5. **Modelos 3D** (glTF/OBJ) importados, con la misma idea de llevarlos dentro del archivo.
+5. ~~Modelos 3D~~ Hecho: .glb y .obj dentro del archivo.
 6. **Publicar y descargar juegos** desde Tablerama (Steam Workshop o lista propia), cuando
    esté el online con Steam.

@@ -88,6 +88,7 @@ var _tags_edit: LineEdit
 var _package_dialog: FileDialog
 var _notes_edit: LineEdit
 var _shuffle_check: CheckBox
+var _zone_kind: OptionButton
 var _pattern_option: OptionButton
 var _repeat_cols: SpinBox
 var _repeat_rows: SpinBox
@@ -145,6 +146,7 @@ func _ready() -> void:
 	ui_view.element_selected.connect(_on_ui_selected)
 	ui_view.element_changed.connect(_on_ui_changed)
 	ui_view.button_pressed.connect(_on_ui_button)
+	get_window().files_dropped.connect(handle_dropped_files)
 	ui_view.show_layout(ui_layout, true)
 	_marquee = Panel.new()
 	_marquee.name = "SelectionBox"
@@ -167,6 +169,8 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if get_window() != null and get_window().files_dropped.is_connected(handle_dropped_files):
+		get_window().files_dropped.disconnect(handle_dropped_files)
 	var core: GameCreatorCore = get_node_or_null("/root/GameCreatorCore")
 	if core != null and core.state_changed.is_connected(_on_state_changed):
 		core.state_changed.disconnect(_on_state_changed)
@@ -393,7 +397,8 @@ func _build_editor_ui() -> void:
 	shapes.add_theme_constant_override("v_separation", 8)
 	pieces_tab.add_child(shapes)
 	for shape in PieceShapes.SHAPES:
-		var add := _button("%s  %s" % [PieceShapes.ICONS[shape], tr(PieceShapes.NAMES[shape])], add_piece.bind(shape))
+		var action: Callable = _open_model_dialog if shape == PieceShapes.MODEL else add_piece.bind(shape)
+		var add := _button("%s  %s" % [PieceShapes.ICONS[shape], tr(PieceShapes.NAMES[shape])], action)
 		add.name = "AddPiece_" + shape
 		add.add_theme_font_size_override("font_size", 14)
 		add.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -483,6 +488,12 @@ func _build_editor_ui() -> void:
 	_asset_browser.build_ui()
 	_asset_browser.set_image_importer(_image_importer)
 	_asset_browser.image_selected.connect(_on_asset_selected)
+	images_tab.add_child(_caption("MODELOS 3D"))
+	var model_button := _button("Importar modelo 3D…", _open_model_dialog)
+	model_button.name = "ImportModelButton"
+	model_button.tooltip_text = "Un .glb (con sus colores) o un .obj; se pone en la mesa"
+	images_tab.add_child(model_button)
+	images_tab.add_child(_small("También puedes arrastrar imágenes, modelos y juegos .tablerama a la ventana."))
 	images_tab.add_child(_caption("CARTAS DESDE IMÁGENES"))
 	images_tab.add_child(_small("Una hoja con las cartas en rejilla (como las de Tabletop Simulator) se corta sola en cartas."))
 	var sheet_grid := GridContainer.new()
@@ -767,6 +778,13 @@ func _build_piece_inspector(column: VBoxContainer) -> void:
 		cell.add_child(spin)
 		grid.add_child(cell)
 		_spins[entry[0]] = spin
+	_zone_kind = OptionButton.new()
+	_zone_kind.name = "ZoneKind"
+	_zone_kind.tooltip_text = "Qué hace la zona al probar"
+	for kind in PieceShapes.ZONE_KINDS:
+		_zone_kind.add_item(PieceShapes.ZONE_KIND_NAMES[kind])
+	_zone_kind.item_selected.connect(func(index: int) -> void: _edit_selection("zone_kind", PieceShapes.ZONE_KINDS[index]))
+	fields.add_child(_zone_kind)
 	_shuffle_check = CheckBox.new()
 	_shuffle_check.name = "ZoneShuffle"
 	_shuffle_check.text = "Mezclar lo de dentro al probar"
@@ -1212,9 +1230,11 @@ func _on_state_changed(new_state: GameCreatorCore.EditorState) -> void:
 			(entity.get_node("Body/Mesh") as Node3D).visible = _build_mode
 	if not _build_mode:
 		shuffle_zones()
+		_cover_hidden_zones(true)
 		_start_logic()
 	else:
 		_stop_logic()
+		_cover_hidden_zones(false)
 		if _toast != null:
 			_toast.modulate.a = 0.0
 	_grid.visible = snap and _build_mode
@@ -1337,6 +1357,8 @@ func _refresh_piece_inspector() -> void:
 	_cells_box.visible = visual.shape in PieceShapes.FLAT and visual.pattern != "liso"
 	_back_row.visible = visual.shape in PieceShapes.FLAT and visual.shape != PieceShapes.ZONE
 	_shuffle_check.visible = visual.shape == PieceShapes.ZONE
+	_zone_kind.visible = visual.shape == PieceShapes.ZONE
+	_zone_kind.select(maxi(0, PieceShapes.ZONE_KINDS.find(visual.zone_kind)))
 	_shuffle_check.set_pressed_no_signal(visual.shuffle_on_play)
 	if _notes_edit.text != visual.notes:
 		_notes_edit.text = visual.notes
@@ -1424,7 +1446,7 @@ func repeat_selection(cols: int, rows: int) -> Array:
 	_remember("repeat")
 	var source := _selected_entity
 	var visual := source.get_component("VisualComponent") as VisualComponent
-	var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
+	var size := PieceShapes.piece_size(visual)
 	var step := Vector2(size.x + 0.06, size.z + 0.06)
 	var record: Dictionary = TableRecord.valid_piece(TableRecord.piece_record(source))
 	var made: Array = [source]
@@ -1637,6 +1659,8 @@ func _edit_selection(property: String, value: Variant) -> void:
 				visual.notes = str(value).left(TableRecord.MAX_NOTES)
 			"shuffle":
 				visual.shuffle_on_play = bool(value)
+			"zone_kind":
+				visual.zone_kind = str(value) if str(value) in PieceShapes.ZONE_KINDS else "normal"
 			"tags":
 				entity.tags.assign(TableRecord.clean_tags(value))
 		_refresh_entity_visual(entity)
@@ -1818,7 +1842,7 @@ func logic_pieces(zone_id: String, tag: String) -> Array:
 
 func _inside_zone(zone: PropEntity, point: Vector3) -> bool:
 	var visual := zone.get_component("VisualComponent") as VisualComponent
-	var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
+	var size := PieceShapes.piece_size(visual)
 	var local: Vector3 = zone.global_transform.affine_inverse() * point
 	return absf(local.x) <= size.x * 0.5 and absf(local.z) <= size.z * 0.5
 
@@ -1875,9 +1899,9 @@ func logic_move(piece_id: String, zone_id: String) -> void:
 
 func _place_in_zone(entity: PropEntity, zone: PropEntity, slot: int) -> void:
 	var zone_visual := zone.get_component("VisualComponent") as VisualComponent
-	var zone_size := PieceShapes.size_of(zone_visual.shape, zone_visual.scale_factor)
+	var zone_size := PieceShapes.piece_size(zone_visual)
 	var visual := entity.get_component("VisualComponent") as VisualComponent
-	var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
+	var size := PieceShapes.piece_size(visual)
 	var step := size.x + 0.04
 	var per_row := maxi(1, int(zone_size.x / step))
 	var row := slot / per_row
@@ -1909,6 +1933,8 @@ func logic_deal(count: int, from_zone: String, to_zone: String, tag := "") -> in
 	var already := logic_pieces(to.entity_id, "").filter(func(id: String) -> bool: return not id in moving).size()
 	for i in moving.size():
 		_place_in_zone(_find_piece(moving[i]), to, already + i)
+	if (to.get_component("VisualComponent") as VisualComponent).zone_kind == "mano" and not _build_mode:
+		_arrange_hand(to)
 	if not moving.is_empty():
 		_play("card")
 	return moving.size()
@@ -1929,7 +1955,7 @@ func logic_flip(piece_id: String) -> void:
 		return
 	var visual := entity.get_component("VisualComponent") as VisualComponent
 	var xform := body.global_transform
-	var center := xform * (Vector3.UP * PieceShapes.size_of(visual.shape, visual.scale_factor).y * 0.5)
+	var center := xform * (Vector3.UP * PieceShapes.piece_size(visual).y * 0.5)
 	xform = Transform3D.IDENTITY.translated(center) * Transform3D(Basis(Vector3.BACK, PI), Vector3.ZERO) * Transform3D.IDENTITY.translated(-center) * xform
 	xform.origin.y += 0.1
 	body.global_transform = xform
@@ -2002,6 +2028,77 @@ func logic_message(text: String) -> void:
 		tween.tween_property(_toast, "scale", Vector2.ONE, 0.18)
 		tween.tween_interval(2.2)
 		tween.tween_property(_toast, "modulate:a", 0.0, 0.5)
+
+
+# ===================================================================================
+# Modelos 3D y archivos arrastrados a la ventana
+# ===================================================================================
+
+## Pone una pieza con este modelo (.glb u .obj de fuera: se copia al juego).
+func add_model_piece(source: String) -> PropEntity:
+	var imported := ModelLoader.import_model(source) if not source.begins_with(ModelLoader.FOLDER) else {"path": source, "size": ModelLoader.model_size(source)}
+	if imported.has("error"):
+		_say(str(imported["error"]))
+		return null
+	if _scene_hierarchy.entities.size() >= TableRecord.MAX_PIECES:
+		_say(tr("No caben más piezas (máximo %d).") % TableRecord.MAX_PIECES)
+		return null
+	_remember("model")
+	var piece := TableRecord.valid_piece({
+		"name": source.get_file().get_basename(), "shape": PieceShapes.MODEL, "color": Palette.PAPER.to_html(true),
+		"model": imported["path"], "msize": [imported["size"].x, imported["size"].y, imported["size"].z],
+		"pos": [0, 0, 0], "rot": [0, 0, 0],
+	})
+	var spot := _free_spot()
+	piece["pos"] = Vector3(spot.x, 0, spot.z)
+	var entity := _make_piece(piece)
+	entity.position.y = _surface_height(entity.position, [entity])
+	_pop_in(entity)
+	select_pieces([entity])
+	_play("pop")
+	_say(tr("Modelo 3D puesto: %s. Cambia su tamaño, color o acabado en el inspector.") % entity.entity_name)
+	return entity
+
+
+func _open_model_dialog() -> void:
+	var dialog := FileDialog.new()
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.use_native_dialog = true
+	dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	dialog.title = tr("Elegir un modelo 3D")
+	dialog.filters = PackedStringArray(["*.glb, *.obj ; " + tr("Modelos 3D")])
+	dialog.file_selected.connect(func(path: String) -> void:
+		add_model_piece(path)
+		dialog.queue_free()
+	)
+	dialog.canceled.connect(dialog.queue_free)
+	add_child(dialog)
+	dialog.popup_centered_ratio(0.7)
+
+
+## Archivos soltados en la ventana: imágenes a la galería, modelos a la mesa y juegos
+## exportados, abiertos. Devuelve cuántos se usaron.
+func handle_dropped_files(files: PackedStringArray) -> int:
+	if not _build_mode:
+		return 0
+	var used := 0
+	var images := 0
+	for path in files:
+		var ext := path.get_extension().to_lower()
+		if ext == "tablerama":
+			used += 1 if import_game(path) else 0
+		elif ModelLoader.supported(path):
+			used += 1 if add_model_piece(path) != null else 0
+		elif ext in _image_importer.supported_extensions:
+			if _image_importer.import_image(path).get("success") == true:
+				images += 1
+				used += 1
+	if images > 0:
+		_asset_browser.refresh()
+		_say(tr("%d imágenes añadidas a la galería (pestaña Imágenes).") % images)
+	if used == 0 and not files.is_empty():
+		_say("Esos archivos no se pueden usar: imágenes, modelos .glb/.obj o juegos .tablerama.")
+	return used
 
 
 # ===================================================================================
@@ -2127,6 +2224,11 @@ func export_game(path: String) -> bool:
 	var table := table_state()
 	var ui := ui_layout.to_record()
 	var images := {}
+	var models := {}
+	for piece in table["pieces"]:
+		var model_path := str(piece.get("model", ""))
+		if model_path != "" and not models.has(model_path) and FileAccess.file_exists(model_path):
+			models[model_path] = Marshalls.raw_to_base64(FileAccess.get_file_as_bytes(model_path))
 	var used: Array = []
 	for piece in table["pieces"]:
 		for key in ["texture", "back"]:
@@ -2145,6 +2247,7 @@ func export_game(path: String) -> bool:
 		"table": table,
 		"ui": ui,
 		"images": images,
+		"models": models,
 	}
 	var text := JSON.stringify(package)
 	if text.length() > PACKAGE_MAX_BYTES:
@@ -2194,8 +2297,16 @@ func import_game(path: String) -> bool:
 		var saved := _image_importer.save_image(image, str(old_path).get_file())
 		if saved.get("success") == true:
 			remap[str(old_path)] = saved["path"]
+	var raw_models: Variant = parsed.get("models", {})
+	if raw_models is Dictionary:
+		for old_path in raw_models:
+			var saved_model := ModelLoader.save_bytes(Marshalls.base64_to_raw(str(raw_models[old_path])), str(old_path).get_file())
+			if saved_model.has("path"):
+				remap[str(old_path)] = saved_model["path"]
 	var table: Dictionary = (parsed["table"] as Dictionary).duplicate(true)
 	for piece in table["pieces"]:
+		if piece is Dictionary and str(piece.get("model", "")) != "":
+			piece["model"] = remap.get(str(piece["model"]), "")
 		if piece is Dictionary:
 			for key in ["texture", "back"]:
 				var image_path := str(piece.get(key, ""))
@@ -2254,7 +2365,7 @@ func flip_selection() -> void:
 		entity.rotation_degrees.z = 180.0 if absf(entity.rotation_degrees.z) < 90.0 else 0.0
 		# La pieza volteada sigue apoyada: el giro se hace sobre su centro.
 		var visual := entity.get_component("VisualComponent") as VisualComponent
-		var height := PieceShapes.size_of(visual.shape, visual.scale_factor).y
+		var height := PieceShapes.piece_size(visual).y
 		entity.position.y += height if entity.rotation_degrees.z > 90.0 else -height
 		entity.position.y = maxf(entity.position.y, 0.0)
 	_bump(selection)
@@ -2295,7 +2406,7 @@ func arrange_row_selection() -> void:
 	var center := Vector3.ZERO
 	for entity in ordered:
 		var visual := entity.get_component("VisualComponent") as VisualComponent
-		var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
+		var size := PieceShapes.piece_size(visual)
 		widths.append(size.x)
 		total += size.x
 		center += entity.position
@@ -2324,7 +2435,7 @@ func stack_selection() -> void:
 		var visual := entity.get_component("VisualComponent") as VisualComponent
 		entity.position = Vector3(base.position.x, height, base.position.z)
 		entity.rotation_degrees = Vector3(0, base.rotation_degrees.y, 0)
-		height += PieceShapes.size_of(visual.shape, visual.scale_factor).y
+		height += PieceShapes.piece_size(visual).y
 	_bump(selection)
 	_play("card")
 	_say(tr("Apiladas: %d.") % selection.size())
@@ -2487,7 +2598,7 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 		visual = VisualComponent.new()
 		entity.add_component(visual)
 	var shape_name := PieceShapes.valid(visual.shape)
-	var size := PieceShapes.size_of(shape_name, visual.scale_factor)
+	var size := PieceShapes.piece_size(visual)
 	var zone := shape_name in PieceShapes.MARKERS
 	var body := entity.get_node_or_null("Body") as RigidBody3D
 	if body == null:
@@ -2507,14 +2618,19 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 		body.add_child(mesh_instance)
 		entity.add_child(body)
 	var shape_node := body.get_node("Shape") as CollisionShape3D
-	shape_node.shape = PieceShapes.collision_for(shape_name, visual.scale_factor)
+	if shape_name == PieceShapes.MODEL:
+		var model_box := BoxShape3D.new()
+		model_box.size = size
+		shape_node.shape = model_box
+	else:
+		shape_node.shape = PieceShapes.collision_for(shape_name, visual.scale_factor)
 	shape_node.position.y = size.y * 0.5
 	# Las zonas son marcas en la mesa: no chocan con nada.
 	shape_node.disabled = zone
 	var mesh_node := body.get_node("Mesh") as MeshInstance3D
-	mesh_node.mesh = PieceShapes.mesh_for(shape_name, visual.scale_factor)
+	mesh_node.mesh = PieceShapes.mesh_for(shape_name, visual.scale_factor) if shape_name != PieceShapes.MODEL else null
 	mesh_node.position.y = size.y * 0.5
-	for extra in ["Face", "Back", "Label", "Pips"]:
+	for extra in ["Face", "Back", "Label", "Pips", "Model"]:
 		var old := mesh_node.get_node_or_null(extra)
 		if old != null:
 			mesh_node.remove_child(old)
@@ -2534,14 +2650,19 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 		# Dados, bloques y peones: la imagen envuelve la pieza.
 		material.albedo_texture = texture
 		material.albedo_color = Color.WHITE
-		material.uv1_triplanar = true
-		material.uv1_scale = Vector3.ONE / maxf(size.x, 0.01)
+		# Un modelo .obj usa sus propias coordenadas de textura.
+		if shape_name != PieceShapes.MODEL:
+			material.uv1_triplanar = true
+			material.uv1_scale = Vector3.ONE / maxf(size.x, 0.01)
 	elif visual.finish == "madera":
 		material.albedo_texture = PieceLooks.wood_texture()
 		material.uv1_triplanar = true
 		material.uv1_scale = Vector3.ONE * 1.6
 	mesh_node.material_override = material
-	_style_piece_material(mesh_node, material, visual.finish)
+	if shape_name == PieceShapes.MODEL:
+		_add_model(mesh_node, visual, size, material)
+	else:
+		_style_piece_material(mesh_node, material, visual.finish)
 
 	# La cara de arriba de las piezas planas: la imagen o el dibujo, enteros y sin deformar.
 	var face_texture: Texture2D = texture if texture != null and shape_name in PieceShapes.FLAT else pattern
@@ -2618,6 +2739,28 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 		physics_material.bounce = physics.bounce
 		physics_material.friction = physics.friction
 		body.physics_material_override = physics_material
+
+
+## El modelo 3D dentro de la pieza: base sobre la mesa y a su escala. Un .obj toma el color
+## o la imagen de la pieza; un .glb conserva sus materiales.
+func _add_model(mesh_node: MeshInstance3D, visual: VisualComponent, size: Vector3, material: StandardMaterial3D) -> void:
+	var loaded := ModelLoader.load_model(visual.mesh_path)
+	if loaded.is_empty():
+		# Sin modelo (archivo perdido): un bloque para que la pieza se vea y se pueda quitar.
+		mesh_node.mesh = PieceKit.rounded_box(size, size.x * 0.1)
+		_style_piece_material(mesh_node, material, visual.finish)
+		return
+	var model: Node3D = loaded["node"]
+	model.name = "Model"
+	model.scale = Vector3.ONE * clampf(visual.scale_factor, PieceShapes.MIN_SCALE, PieceShapes.MAX_SCALE)
+	model.position.y = -size.y * 0.5
+	mesh_node.add_child(model)
+	if visual.mesh_path.get_extension().to_lower() == "obj":
+		for child in model.find_children("*", "MeshInstance3D", true, false):
+			(child as MeshInstance3D).material_override = material
+			_style_piece_material(child, material, visual.finish)
+	for child in model.find_children("*", "GeometryInstance3D", true, false):
+		(child as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 
 ## Estilo de juguete (como el resto del juego) y, encima, el acabado elegido.
@@ -2730,7 +2873,7 @@ func _refresh_markers() -> void:
 
 func _fit_marker(marker: MeshInstance3D, entity: PropEntity) -> void:
 	var visual := entity.get_component("VisualComponent") as VisualComponent
-	var size := PieceShapes.size_of(visual.shape, visual.scale_factor) + Vector3.ONE * 0.06
+	var size := PieceShapes.piece_size(visual) + Vector3.ONE * 0.06
 	var local := Transform3D(Basis.from_scale(size), Vector3(0, size.y * 0.5 - 0.03, 0))
 	marker.global_transform = entity.global_transform * local
 
@@ -2763,7 +2906,7 @@ func piece_at(screen: Vector2) -> PropEntity:
 
 func _hit_piece(entity: PropEntity, from: Vector3, direction: Vector3) -> Variant:
 	var visual := entity.get_component("VisualComponent") as VisualComponent
-	var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
+	var size := PieceShapes.piece_size(visual)
 	var xform := _piece_transform(entity)
 	var inverse := xform.affine_inverse()
 	var local_from := inverse * from
@@ -2973,7 +3116,7 @@ func _rest_offset(entity: PropEntity) -> float:
 	if absf(entity.rotation_degrees.z) < 90.0 and absf(entity.rotation_degrees.x) < 90.0:
 		return 0.0
 	var visual := entity.get_component("VisualComponent") as VisualComponent
-	return PieceShapes.size_of(visual.shape, visual.scale_factor).y
+	return PieceShapes.piece_size(visual).y
 
 
 func _end_drag() -> void:
@@ -2991,7 +3134,7 @@ func _select_in_box(rect: Rect2) -> void:
 	var chosen: Array = (_drag["base"] as Array).duplicate() if _drag.get("additive", false) else []
 	for entity in _scene_hierarchy.entities:
 		var visual := entity.get_component("VisualComponent") as VisualComponent
-		var center: Vector3 = entity.global_position + Vector3.UP * PieceShapes.size_of(visual.shape, visual.scale_factor).y * 0.5
+		var center: Vector3 = entity.global_position + Vector3.UP * PieceShapes.piece_size(visual).y * 0.5
 		if _camera.is_position_behind(center):
 			continue
 		if rect.has_point(_camera.unproject_position(center)) and not chosen.has(entity):
@@ -3236,6 +3379,8 @@ func _release_in_play() -> void:
 	for zone in _scene_hierarchy.entities:
 		var zone_visual := zone.get_component("VisualComponent") as VisualComponent
 		if zone_visual != null and zone_visual.shape == PieceShapes.ZONE and _inside_zone(zone, body.global_position):
+			if zone_visual.zone_kind == "mano":
+				_arrange_hand(zone)
 			var zone_id := zone.entity_id
 			_fire_logic("ev_soltar", func(p: Dictionary) -> bool: return logic_zone_id(str(p["zona"])) == zone_id, {"pieza": entity.entity_id})
 	if _shape_of(entity) == "dado":
@@ -3254,6 +3399,45 @@ func _snap_body_to_anchor(entity: PropEntity, body: RigidBody3D) -> void:
 	body.global_transform = Transform3D(basis, Vector3(anchor.position.x, body.global_position.y, anchor.position.z))
 	body.linear_velocity = Vector3.ZERO
 	body.angular_velocity = Vector3.ZERO
+
+
+## Zonas ocultas: al probar, una tapa con «?» esconde lo de dentro (se puede meter la mano
+## y sacar una pieza a ciegas, como de una bolsa).
+func _cover_hidden_zones(on: bool) -> void:
+	for zone in _scene_hierarchy.entities:
+		var old := zone.get_node_or_null("HiddenCover")
+		if old != null:
+			zone.remove_child(old)
+			old.queue_free()
+		var visual := zone.get_component("VisualComponent") as VisualComponent
+		if not on or visual == null or visual.shape != PieceShapes.ZONE or visual.zone_kind != "oculta":
+			continue
+		var size := PieceShapes.piece_size(visual)
+		var cover := MeshInstance3D.new()
+		cover.name = "HiddenCover"
+		cover.mesh = PieceKit.rounded_box(Vector3(size.x, 0.32, size.z), 0.05)
+		var material := StandardMaterial3D.new()
+		material.albedo_color = visual.color_tint.darkened(0.55)
+		cover.material_override = material
+		cover.position.y = 0.16
+		zone.add_child(cover)
+		var mark := Label3D.new()
+		mark.text = "?"
+		mark.font_size = 160
+		mark.pixel_size = 0.004
+		mark.outline_size = 24
+		mark.rotation_degrees.x = -90
+		mark.position.y = 0.33
+		cover.add_child(mark)
+
+
+## Zonas de mano: lo que entra se coloca en fila, boca arriba y ordenado de izquierda a derecha.
+func _arrange_hand(zone: PropEntity) -> void:
+	var entities: Array = logic_pieces(zone.entity_id, "").map(func(id: String) -> PropEntity: return _find_piece(id))
+	var inverse := zone.global_transform.affine_inverse()
+	entities.sort_custom(func(a: PropEntity, b: PropEntity) -> bool: return (inverse * _piece_transform(a).origin).x < (inverse * _piece_transform(b).origin).x)
+	for i in entities.size():
+		_place_in_zone(entities[i], zone, i)
 
 
 ## Zonas «mezclar al probar»: las piezas de dentro se barajan de sitio al empezar.
@@ -3374,7 +3558,7 @@ func flip_in_play() -> void:
 		return
 	var xform := body.global_transform
 	var visual := entity.get_component("VisualComponent") as VisualComponent
-	var center := xform * (Vector3.UP * PieceShapes.size_of(visual.shape, visual.scale_factor).y * 0.5)
+	var center := xform * (Vector3.UP * PieceShapes.piece_size(visual).y * 0.5)
 	var flip := Transform3D(Basis(Vector3.BACK, PI), Vector3.ZERO)
 	xform = Transform3D.IDENTITY.translated(center) * flip * Transform3D.IDENTITY.translated(-center) * xform
 	xform.origin.y += 0.25
@@ -3429,7 +3613,7 @@ func focus_selection() -> void:
 	center /= selection.size()
 	for entity in selection:
 		var visual := entity.get_component("VisualComponent") as VisualComponent
-		reach = maxf(reach, entity.global_position.distance_to(center) + PieceShapes.size_of(visual.shape, visual.scale_factor).length())
+		reach = maxf(reach, entity.global_position.distance_to(center) + PieceShapes.piece_size(visual).length())
 	_orbit_goal["target"] = center
 	_orbit_goal["distance"] = clampf(reach * 3.2, 1.6, 11.0)
 	_say("Cámara en la selección · Inicio la recoloca.")

@@ -19,17 +19,18 @@ func _run() -> void:
 	_remove(editor.table_save_path)
 
 	# 1. Todas las formas se pueden poner y tienen malla y cuerpo con su tamaño.
-	for shape in PieceShapes.SHAPES:
+	var shapes: Array = PieceShapes.SHAPES.filter(func(shape: String) -> bool: return shape != PieceShapes.MODEL)
+	for shape in shapes:
 		var made: PropEntity = editor.add_piece(shape)
 		var visual := made.get_component("VisualComponent") as VisualComponent
 		_check(visual.shape == shape and made.get_node_or_null("Body/Mesh") != null, "se pone una pieza «%s»" % shape)
-	_check(editor._scene_hierarchy.entities.size() == PieceShapes.SHAPES.size(), "todas aparecen en la lista")
-	var board: PropEntity = editor._scene_hierarchy.entities.back()
+	_check(editor._scene_hierarchy.entities.size() == shapes.size(), "todas aparecen en la lista")
+	var board: PropEntity = editor._scene_hierarchy.entities.filter(func(e: PropEntity) -> bool: return (e.get_component("VisualComponent") as VisualComponent).shape == "tablero")[0]
 	_check(board.is_locked, "el tablero nace fijo")
 	editor.clear_table()
 	_check(editor._scene_hierarchy.entities.is_empty(), "«Vaciar» deja la mesa vacía")
 	editor.undo()
-	_check(editor._scene_hierarchy.entities.size() == PieceShapes.SHAPES.size(), "y Ctrl+Z la recupera entera")
+	_check(editor._scene_hierarchy.entities.size() == shapes.size(), "y Ctrl+Z la recupera entera")
 	editor.clear_table()
 	editor.history.clear()
 
