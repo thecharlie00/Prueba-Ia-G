@@ -167,6 +167,10 @@ func _exec(id: int) -> void:
 			_editor.logic_store(str(node["params"]["nombre"]), _value(id, "valor"))
 		"gd_bloque":
 			_outputs[id] = {"resultado": _run_code(id)}
+		"ac_pasar_turno":
+			_editor.logic_pass_turn()
+		"ac_dar_turno":
+			_editor.logic_give_turn(int(_number(_value(id, "jugador"))) - 1)
 	_follow(id, "out")
 
 
@@ -245,6 +249,10 @@ func _compute_inner(id: int, _out: String) -> Variant:
 			return _editor.logic_piece_name(str(_value(id, "pieza")))
 		"gd_expresion":
 			return _run_code(id)
+		"da_jugador":
+			return float(_editor.current_player + 1) if _out == "jugador" else GamePlayers.player_name(_editor.current_player)
+		"da_jugadores":
+			return float(_editor.players)
 	return null
 
 

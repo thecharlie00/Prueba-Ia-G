@@ -14,13 +14,14 @@ const TYPE_COLORS := {
 	PIECE: Color("5a8ae8"), LIST: Color("b58cf0"), ANY: Color("a8a4c8"),
 }
 
-const CATEGORIES := ["eventos", "flujo", "acciones", "datos", "codigo"]
+const CATEGORIES := ["eventos", "flujo", "acciones", "jugadores", "datos", "codigo", "notas"]
 const CATEGORY_NAMES := {
-	"eventos": "Eventos", "flujo": "Flujo", "acciones": "Acciones", "datos": "Datos", "codigo": "GDScript",
+	"eventos": "Eventos", "flujo": "Flujo", "acciones": "Acciones", "jugadores": "Jugadores y turnos",
+	"datos": "Datos", "codigo": "GDScript", "notas": "Notas",
 }
 const CATEGORY_COLORS := {
 	"eventos": Color("ee6f60"), "flujo": Color("8b87b3"), "acciones": Color("5a8ae8"),
-	"datos": Color("58c08f"), "codigo": Color("f09a50"),
+	"jugadores": Color("d98ad6"), "datos": Color("58c08f"), "codigo": Color("f09a50"), "notas": Color("6e6a92"),
 }
 
 const COMPARE_OPS := ["==", "!=", "<", ">", "<=", ">="]
@@ -66,6 +67,34 @@ const DEFS := {
 		"cat": "eventos", "title": "Cada cierto tiempo",
 		"help": "Se repite mientras se prueba (relojes, turnos con tiempo).",
 		"in": [], "out": [["out", EXEC, ""]], "params": [["segundos", "number", "Segundos", 5.0]],
+	},
+	"ev_turno": {
+		"cat": "jugadores", "title": "Al empezar un turno",
+		"help": "Cada vez que el turno pasa a un jugador (también el primero).",
+		"in": [], "out": [["out", EXEC, ""], ["jugador", NUM, "jugador"], ["nombre", TEXT, "nombre"]], "params": [],
+	},
+	"ac_pasar_turno": {
+		"cat": "jugadores", "title": "Pasar turno",
+		"help": "Al siguiente jugador (tras el último, vuelve el primero).",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]], "params": [],
+	},
+	"ac_dar_turno": {
+		"cat": "jugadores", "title": "Dar el turno a",
+		"in": [["in", EXEC, ""], ["jugador", NUM, "jugador"]], "out": [["out", EXEC, ""]],
+		"params": [["jugador", "number", "Jugador (1, 2…)", 1]],
+	},
+	"da_jugador": {
+		"cat": "jugadores", "title": "Jugador del turno",
+		"in": [], "out": [["jugador", NUM, "número"], ["nombre", TEXT, "nombre"]], "params": [],
+	},
+	"da_jugadores": {
+		"cat": "jugadores", "title": "Número de jugadores",
+		"in": [], "out": [["n", NUM, "jugadores"]], "params": [],
+	},
+	"nota": {
+		"cat": "notas", "title": "Nota",
+		"help": "Un comentario para explicar la lógica. No hace nada al jugar.",
+		"in": [], "out": [], "params": [["texto", "note", "", "Explica aquí qué hace esta parte."]],
 	},
 	# ---------------------------------------------------------------- Flujo
 	"fl_si": {

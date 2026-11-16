@@ -78,6 +78,14 @@ var _pattern_box: Control
 var _cells_box: Control
 var _back_row: Control
 var _sheet_spins := {}
+## Jugadores del juego y de quién es el turno al probar (0 = el primero).
+var players := 2
+var current_player := 0
+var _turn_bar: PanelContainer
+var _turn_label: Label
+var _turn_dot: Panel
+var _players_spin: SpinBox
+var _zone_owner: OptionButton
 ## Lógica del juego (blueprints) y quien la ejecuta al probar.
 var logic := LogicGraph.new()
 var logic_editor: LogicEditor
@@ -372,6 +380,10 @@ func _build_editor_ui() -> void:
 	_snap_check.toggled.connect(set_snap)
 	tools.add_child(_snap_check)
 
+	var wizard := _button("✨  Nuevo juego…", open_new_game_dialog)
+	wizard.name = "NewGameButton"
+	wizard.tooltip_text = "Elige el tipo de juego y cuántos juegan: se monta la mesa, las manos, los marcadores y la lógica"
+	left_col.add_child(wizard)
 	var logic_button := _button("🧩  Lógica del juego…", open_logic_editor)
 	logic_button.name = "OpenLogic"
 	logic_button.tooltip_text = "Blueprints: eventos, acciones y bloques GDScript que dan reglas al juego"
@@ -422,6 +434,24 @@ func _build_editor_ui() -> void:
 		start.add_theme_font_size_override("font_size", 14)
 		start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		templates.add_child(start)
+	pieces_tab.add_child(_caption("JUGADORES"))
+	var players_row := HBoxContainer.new()
+	players_row.add_theme_constant_override("separation", 8)
+	pieces_tab.add_child(players_row)
+	_players_spin = SpinBox.new()
+	_players_spin.name = "PlayersCount"
+	_players_spin.min_value = 1
+	_players_spin.max_value = GamePlayers.MAX
+	_players_spin.value = players
+	_players_spin.tooltip_text = "Cuántos juegan: al probar se reparten los turnos"
+	_players_spin.value_changed.connect(func(v: float) -> void: set_players(int(v)))
+	players_row.add_child(_players_spin)
+	var hands := _button("Zonas de mano", create_player_hands)
+	hands.name = "PlayerHands"
+	hands.tooltip_text = "Una zona de mano de su color para cada jugador, alrededor de la mesa"
+	hands.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hands.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	players_row.add_child(hands)
 	pieces_tab.add_child(_caption("LA MESA"))
 	var table_files := HBoxContainer.new()
 	table_files.add_theme_constant_override("separation", 8)
@@ -785,6 +815,14 @@ func _build_piece_inspector(column: VBoxContainer) -> void:
 		_zone_kind.add_item(PieceShapes.ZONE_KIND_NAMES[kind])
 	_zone_kind.item_selected.connect(func(index: int) -> void: _edit_selection("zone_kind", PieceShapes.ZONE_KINDS[index]))
 	fields.add_child(_zone_kind)
+	_zone_owner = OptionButton.new()
+	_zone_owner.name = "ZoneOwner"
+	_zone_owner.tooltip_text = "De qué jugador es la zona (para «mano del jugador del turno»)"
+	_zone_owner.add_item(tr("De nadie"))
+	for i in GamePlayers.MAX:
+		_zone_owner.add_item(tr("De %s") % GamePlayers.player_name(i))
+	_zone_owner.item_selected.connect(func(index: int) -> void: _edit_selection("owner", index))
+	fields.add_child(_zone_owner)
 	_shuffle_check = CheckBox.new()
 	_shuffle_check.name = "ZoneShuffle"
 	_shuffle_check.text = "Mezclar lo de dentro al probar"
@@ -1229,6 +1267,7 @@ func _on_state_changed(new_state: GameCreatorCore.EditorState) -> void:
 		if _is_anchor(entity):
 			(entity.get_node("Body/Mesh") as Node3D).visible = _build_mode
 	if not _build_mode:
+		_hold_zone_contents()
 		shuffle_zones()
 		_cover_hidden_zones(true)
 		_start_logic()
@@ -1358,6 +1397,8 @@ func _refresh_piece_inspector() -> void:
 	_back_row.visible = visual.shape in PieceShapes.FLAT and visual.shape != PieceShapes.ZONE
 	_shuffle_check.visible = visual.shape == PieceShapes.ZONE
 	_zone_kind.visible = visual.shape == PieceShapes.ZONE
+	_zone_owner.visible = visual.shape == PieceShapes.ZONE
+	_zone_owner.select(clampi(visual.owner_player, 0, GamePlayers.MAX))
 	_zone_kind.select(maxi(0, PieceShapes.ZONE_KINDS.find(visual.zone_kind)))
 	_shuffle_check.set_pressed_no_signal(visual.shuffle_on_play)
 	if _notes_edit.text != visual.notes:
@@ -1659,6 +1700,8 @@ func _edit_selection(property: String, value: Variant) -> void:
 				visual.notes = str(value).left(TableRecord.MAX_NOTES)
 			"shuffle":
 				visual.shuffle_on_play = bool(value)
+			"owner":
+				visual.owner_player = clampi(int(value), 0, GamePlayers.MAX)
 			"zone_kind":
 				visual.zone_kind = str(value) if str(value) in PieceShapes.ZONE_KINDS else "normal"
 			"tags":
@@ -1744,7 +1787,7 @@ func open_logic_editor() -> void:
 		logic_editor = LogicEditor.new()
 		logic_editor.name = "LogicEditor"
 		logic_editor.before_change = _remember
-		logic_editor.zones_provider = _zone_options
+		logic_editor.zones_provider = func() -> Array: return [[GamePlayers.CURRENT_HAND, tr("(mano del jugador del turno)")]] + _zone_options()
 		logic_editor.buttons_provider = _ui_options.bind("button")
 		logic_editor.counters_provider = _ui_options.bind("counter")
 		logic_editor.elements_provider = _ui_options.bind("")
@@ -1775,16 +1818,20 @@ func _ui_options(type: String) -> Array:
 
 func _start_logic() -> void:
 	_logic_vars.clear()
+	current_player = 0
+	_show_turn_bar(true)
 	if logic.is_empty():
 		return
 	_logic_runner = LogicRunner.new(logic, self)
 	_logic_runner.start()
+	_fire_turn()
 	for id in _logic_runner.errors:
 		logic_message(tr("Un bloque GDScript tiene un error: ") + str(_logic_runner.errors[id]))
 		break
 
 
 func _stop_logic() -> void:
+	_show_turn_bar(false)
 	if _logic_runner != null:
 		_logic_runner.stop()
 		_logic_runner = null
@@ -1799,6 +1846,225 @@ func _on_ui_button(id: int) -> void:
 	_fire_logic("ev_boton", func(p: Dictionary) -> bool: return int(p["boton"]) == id)
 
 
+# --- Jugadores y turnos ---------------------------------------------------------------
+
+func set_players(count: int, remember := true) -> void:
+	count = GamePlayers.clamp_count(count)
+	if count == players:
+		if _players_spin != null:
+			_players_spin.set_value_no_signal(count)
+		return
+	if remember:
+		_remember("players")
+	players = count
+	if _players_spin != null:
+		_players_spin.set_value_no_signal(count)
+	_update_status()
+
+
+## Zona de mano del jugador `index` (0 = el primero): la suya de tipo mano, o cualquiera suya.
+func hand_zone_of(index: int) -> String:
+	var fallback := ""
+	for entity in _scene_hierarchy.entities:
+		var visual := entity.get_component("VisualComponent") as VisualComponent
+		if visual == null or visual.shape != PieceShapes.ZONE or visual.owner_player != index + 1:
+			continue
+		if visual.zone_kind == "mano":
+			return entity.entity_id
+		if fallback == "":
+			fallback = entity.entity_id
+	return fallback
+
+
+## Pone una zona de mano por jugador alrededor de la mesa (las que falten).
+func create_player_hands() -> Array:
+	var missing := 0
+	for i in players:
+		if hand_zone_of(i) == "":
+			missing += 1
+	if missing == 0:
+		_say("Cada jugador ya tiene su zona de mano.")
+		return []
+	_remember("hands")
+	var made := _make_hands()
+	for entity in made:
+		_pop_in(entity)
+	select_pieces(made)
+	_play("pop")
+	_say(tr("Zonas de mano para %d jugadores. En la lógica, «(mano del jugador del turno)» reparte a quien le toca.") % players)
+	return made
+
+
+func _show_turn_bar(on: bool) -> void:
+	if _turn_bar == null:
+		_turn_bar = PanelContainer.new()
+		_turn_bar.name = "TurnBar"
+		_turn_bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+		_turn_bar.offset_top = 14
+		_turn_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		_turn_bar.add_child(row)
+		_turn_dot = Panel.new()
+		_turn_dot.custom_minimum_size = Vector2(22, 22)
+		_turn_dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(_turn_dot)
+		_turn_label = Label.new()
+		_turn_label.name = "TurnLabel"
+		_turn_label.add_theme_font_size_override("font_size", 18)
+		row.add_child(_turn_label)
+		var next := Button.new()
+		next.name = "PassTurn"
+		next.text = "Pasar turno ▶ · T"
+		next.focus_mode = Control.FOCUS_NONE
+		next.pressed.connect(logic_pass_turn)
+		row.add_child(next)
+		add_child(_turn_bar)
+	_turn_bar.visible = on and players > 1
+	_refresh_turn_bar()
+
+
+func _refresh_turn_bar() -> void:
+	if _turn_bar == null:
+		return
+	_turn_label.text = tr("Turno de %s") % GamePlayers.player_name(current_player)
+	var dot := StyleBoxFlat.new()
+	dot.bg_color = GamePlayers.player_color(current_player)
+	dot.set_corner_radius_all(11)
+	_turn_dot.add_theme_stylebox_override("panel", dot)
+
+
+func logic_pass_turn() -> void:
+	logic_give_turn((current_player + 1) % players)
+
+
+func logic_give_turn(index: int) -> void:
+	if _build_mode:
+		return
+	current_player = clampi(index, 0, players - 1)
+	_refresh_turn_bar()
+	_play("turn")
+	_update_status(tr("Turno de %s") % GamePlayers.player_name(current_player))
+	# Diferido: si la lógica pasa turno al empezar cada turno, el juego no se cuelga.
+	_fire_turn.call_deferred()
+
+
+func _fire_turn() -> void:
+	_fire_logic("ev_turno", Callable(), {"jugador": float(current_player + 1), "nombre": GamePlayers.player_name(current_player)})
+
+
+# --- Nuevo juego (asistente) -----------------------------------------------------------
+
+const NEW_GAME_KINDS := ["vacio", "cartas", "damas", "recorrido", "dados"]
+const NEW_GAME_NAMES := {
+	"vacio": "Mesa vacía", "cartas": "Juego de cartas", "damas": "Juego de tablero (damas)",
+	"recorrido": "Carrera con dado", "dados": "Juego de dados",
+}
+var new_game_dialog: ConfirmationDialog
+
+
+func open_new_game_dialog() -> void:
+	if new_game_dialog == null:
+		new_game_dialog = ConfirmationDialog.new()
+		new_game_dialog.name = "NewGameDialog"
+		new_game_dialog.title = tr("Nuevo juego")
+		new_game_dialog.ok_button_text = tr("Crear")
+		var column := VBoxContainer.new()
+		column.add_theme_constant_override("separation", 10)
+		new_game_dialog.add_child(column)
+		column.add_child(_small("Elige el tipo de juego y cuántos juegan. Se cambia todo después; Ctrl+Z vuelve a la mesa de antes."))
+		var kind := OptionButton.new()
+		kind.name = "Kind"
+		for key in NEW_GAME_KINDS:
+			kind.add_item(NEW_GAME_NAMES[key])
+		kind.select(1)
+		column.add_child(_labelled("Tipo", kind))
+		var count := SpinBox.new()
+		count.name = "Count"
+		count.min_value = 1
+		count.max_value = GamePlayers.MAX
+		count.value = maxi(players, 2)
+		column.add_child(_labelled("Jugadores", count))
+		var hands := CheckBox.new()
+		hands.name = "Hands"
+		hands.text = tr("Una zona de mano para cada jugador")
+		hands.button_pressed = true
+		column.add_child(hands)
+		var scores := CheckBox.new()
+		scores.name = "Scores"
+		scores.text = tr("Un marcador de puntos para cada jugador")
+		scores.button_pressed = true
+		column.add_child(scores)
+		new_game_dialog.confirmed.connect(func() -> void:
+			new_game(NEW_GAME_KINDS[kind.selected], int(count.value), hands.button_pressed, scores.button_pressed)
+		)
+		add_child(new_game_dialog)
+	new_game_dialog.popup_centered(Vector2i(520, 0))
+
+
+## Monta un juego listo para probar: mesa de la plantilla, jugadores, manos, marcadores y
+## lógica. Es un único paso para deshacer (la interfaz es aparte).
+func new_game(kind: String, count: int, hands: bool, scores: bool) -> void:
+	_remember("new_game")
+	var pieces: Array = TableTemplates.pieces(kind) if kind != "vacio" else []
+	_rebuild_table(pieces)
+	_apply_logic(TableTemplates.logic(kind) if kind != "vacio" else null)
+	players = GamePlayers.clamp_count(count)
+	if _players_spin != null:
+		_players_spin.set_value_no_signal(players)
+	if hands:
+		_make_hands()
+		if kind == "cartas":
+			# La mano común de la plantilla se cambia por una por jugador, y la lógica reparte a todos.
+			var shared := _find_piece("zona_mano")
+			if shared != null:
+				_scene_hierarchy.remove_entity(shared)
+				shared.queue_free()
+			_apply_logic(TableTemplates.cards_logic_for_players())
+	if scores:
+		_make_score_counters()
+	for entity in _scene_hierarchy.entities:
+		_pop_in(entity)
+	select_pieces([])
+	focus_all()
+	_play("pop")
+	_say(tr("Nuevo juego para %d: pulsa «Probar la mesa» para jugarlo, o cámbialo a tu gusto.") % players)
+
+
+func _make_hands() -> Array:
+	var made: Array = []
+	for i in players:
+		if hand_zone_of(i) != "":
+			continue
+		var place := GamePlayers.hand_transform(i, players)
+		var piece := TableRecord.valid_piece({
+			"id": "mano_%d" % (i + 1), "name": tr("Mano de %s") % GamePlayers.player_name(i), "shape": PieceShapes.ZONE,
+			"color": GamePlayers.player_color(i).to_html(true), "label": GamePlayers.player_name(i).to_upper(),
+			"zkind": "mano", "player": i + 1, "scale": 1.3, "locked": true,
+			"pos": [place.origin.x, 0, place.origin.z], "rot": [0, rad_to_deg(place.basis.get_euler().y), 0],
+		})
+		made.append(_make_piece(piece))
+	return made
+
+
+## Un contador «Puntos <jugador>» por jugador, en fila abajo de la pantalla.
+func _make_score_counters() -> void:
+	for i in players:
+		var name := tr("Puntos %s") % GamePlayers.player_name(i)
+		if ui_layout.elements.any(func(e: Dictionary) -> bool: return str(e["name"]) == name):
+			continue
+		var element := ui_layout.add("counter")
+		if element.is_empty():
+			break
+		element["name"] = name
+		element["text"] = GamePlayers.player_name(i)
+		element["bg"] = GamePlayers.player_color(i).darkened(0.35).to_html(false)
+		# Abajo, en fila: arriba están «Volver a editar», el turno y la ayuda.
+		element["pos"] = Vector2(UiLayout.REFERENCE.x * 0.5 - players * 118 + i * 236, UiLayout.REFERENCE.y - 84)
+		ui_layout.reanchor(element)
+	ui_view.rebuild()
+
+
 # --- Lo que la lógica (y «mesa» en los bloques GDScript) puede hacer en la mesa -------
 
 ## Id de una zona a partir de su id, su nombre o su texto (sin distinguir mayúsculas).
@@ -1806,6 +2072,8 @@ func logic_zone_id(name_or_id: String) -> String:
 	var wanted := name_or_id.strip_edges().to_lower()
 	if wanted == "":
 		return ""
+	if wanted == GamePlayers.CURRENT_HAND:
+		return hand_zone_of(current_player)
 	for entity in _scene_hierarchy.entities:
 		var visual := entity.get_component("VisualComponent") as VisualComponent
 		if visual == null or visual.shape != PieceShapes.ZONE:
@@ -1897,26 +2165,39 @@ func logic_move(piece_id: String, zone_id: String) -> void:
 	_place_in_zone(entity, zone, already)
 
 
-func _place_in_zone(entity: PropEntity, zone: PropEntity, slot: int) -> void:
+func _place_in_zone(entity: PropEntity, zone: PropEntity, slot: int, count := -1, hold := false) -> void:
 	var zone_visual := zone.get_component("VisualComponent") as VisualComponent
 	var zone_size := PieceShapes.piece_size(zone_visual)
 	var visual := entity.get_component("VisualComponent") as VisualComponent
 	var size := PieceShapes.piece_size(visual)
-	var step := size.x + 0.04
-	var per_row := maxi(1, int(zone_size.x / step))
-	var row := slot / per_row
-	var col := slot % per_row
-	var used := minf(per_row, 1e9) * step
-	var local := Vector3(-used * 0.5 + step * (col + 0.5), 0, -zone_size.z * 0.5 + (size.z + 0.04) * (row + 0.5))
-	local.z = clampf(local.z, -zone_size.z * 0.5, zone_size.z * 0.5)
+	var local := Vector3.ZERO
+	var lift := 0.12
+	if count > 0:
+		# Una fila: si no caben, se solapan como un abanico de cartas en la mano.
+		var step := size.x + 0.04
+		if count > 1 and step * (count - 1) + size.x > zone_size.x:
+			step = maxf((zone_size.x - size.x) / float(count - 1), size.x * 0.18)
+		local = Vector3(-step * (count - 1) * 0.5 + step * slot, 0, 0)
+		lift = 0.004 + slot * (size.y + 0.002)
+	else:
+		# Rejilla dentro de la zona; si se llena, la siguiente capa va encima.
+		var step := Vector2(size.x + 0.04, size.z + 0.04)
+		var cols := maxi(1, int(zone_size.x / step.x))
+		var rows := maxi(1, int(zone_size.z / step.y))
+		var spot := slot % (cols * rows)
+		var layer := slot / (cols * rows)
+		local = Vector3(-cols * step.x * 0.5 + step.x * (spot % cols + 0.5), 0, -rows * step.y * 0.5 + step.y * (spot / cols + 0.5))
+		lift = 0.004 + layer * (size.y + 0.002)
 	var target: Vector3 = zone.global_transform * local
 	var body := entity.get_node_or_null("Body") as RigidBody3D
 	var basis := Basis(Vector3.UP, zone.rotation.y)
 	if body != null and not _build_mode:
-		body.global_transform = Transform3D(basis, target + Vector3.UP * (0.12 + row * 0.02))
+		body.global_transform = Transform3D(basis, target + Vector3.UP * lift)
 		body.linear_velocity = Vector3.ZERO
 		body.angular_velocity = Vector3.ZERO
-		body.freeze = entity.is_locked
+		# Lo que se coloca en una zona se queda quieto donde se pone (como un mazo de TTS)
+		# hasta que alguien lo agarra.
+		body.freeze = true
 		body.sleeping = false
 	else:
 		entity.position = target
@@ -2330,6 +2611,7 @@ func import_game(path: String) -> bool:
 	_remember("import")
 	_rebuild_table(pieces)
 	logic = imported_logic
+	set_players(GamePlayers.from_record((parsed["table"] as Dictionary).get("game")), false)
 	if logic.has_code():
 		_say("Este juego trae bloques GDScript: se ejecutan aislados, sin acceso a tus archivos.")
 	if layout != null:
@@ -2466,6 +2748,7 @@ func center_selection() -> void:
 func table_state() -> Dictionary:
 	var state := TableRecord.table_record(_scene_hierarchy.entities)
 	state["logic"] = logic.to_record()
+	state["game"] = GamePlayers.record(players)
 	return state
 
 
@@ -2518,6 +2801,7 @@ func _restore(state: Dictionary) -> void:
 	var keep: Array = state.get("selection", []) if state.get("selection") is Array else []
 	_rebuild_table(pieces)
 	_apply_logic(state.get("logic"))
+	set_players(GamePlayers.from_record(state.get("game")), false)
 	var reselect: Array = []
 	for id in keep:
 		var entity := _find_piece(str(id))
@@ -2553,6 +2837,7 @@ func load_table() -> bool:
 	_remember("load")
 	_rebuild_table(TableRecord.pieces_of(loaded["record"]))
 	_apply_logic(loaded["record"].get("logic"))
+	set_players(GamePlayers.from_record(loaded["record"].get("game")), false)
 	_say(tr("Mesa cargada: %d piezas.") % _scene_hierarchy.entities.size())
 	return true
 
@@ -2630,7 +2915,7 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 	var mesh_node := body.get_node("Mesh") as MeshInstance3D
 	mesh_node.mesh = PieceShapes.mesh_for(shape_name, visual.scale_factor) if shape_name != PieceShapes.MODEL else null
 	mesh_node.position.y = size.y * 0.5
-	for extra in ["Face", "Back", "Label", "Pips", "Model"]:
+	for extra in ["Face", "Back", "Label", "LabelCorner", "Pips", "Model"]:
 		var old := mesh_node.get_node_or_null(extra)
 		if old != null:
 			mesh_node.remove_child(old)
@@ -2725,6 +3010,14 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 		label.double_sided = false
 		label.alpha_cut = Label3D.ALPHA_CUT_DISCARD
 		mesh_node.add_child(label)
+		# Las cartas llevan además el índice en la esquina, como las de verdad: se lee en un
+		# abanico aunque se solapen.
+		if shape_name == "carta":
+			var corner := label.duplicate() as Label3D
+			corner.name = "LabelCorner"
+			corner.pixel_size = label.pixel_size * 0.38
+			corner.position = Vector3(-size.x * 0.32, label.position.y, -size.z * 0.36)
+			mesh_node.add_child(corner)
 
 	if shape_name == "dado" and texture == null:
 		PieceLooks.add_pips(mesh_node, size.x, PieceLooks.ink_for(visual.color_tint))
@@ -2819,6 +3112,9 @@ func _set_entity_physics(entity: PropEntity, active: bool) -> void:
 		return
 	# Las piezas fijas (tableros, decorados) no se mueven tampoco al probar.
 	body.freeze = not active or entity.is_locked or _is_zone(entity)
+	if active:
+		# Empiezan dormidas: un mazo apilado no salta en pedazos al empezar; despiertan al tocarlas.
+		body.sleeping = true
 	if not active:
 		# Al volver a editar, cada pieza regresa a donde se colocó.
 		body.transform = Transform3D.IDENTITY
@@ -3006,9 +3302,13 @@ func _on_mouse_button(event: InputEventMouseButton) -> void:
 		MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE:
 			if event.pressed:
 				var pan := event.button_index == MOUSE_BUTTON_MIDDLE or event.shift_pressed
-				_drag = {"kind": "pan" if pan else "orbit", "last": event.position}
+				_drag = {"kind": "pan" if pan else "orbit", "last": event.position, "start": event.position}
 			elif _drag.get("kind", "") in ["orbit", "pan"]:
+				var clicked: bool = event.button_index == MOUSE_BUTTON_RIGHT and event.position.distance_to(_drag.get("start", event.position)) < PICK_SLOP
 				_drag = {}
+				# Clic derecho sin arrastrar: el menú de la pieza.
+				if clicked:
+					open_context_menu(event.position)
 			accept_event()
 		MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN:
 			if not event.pressed:
@@ -3020,6 +3320,72 @@ func _on_mouse_button(event: InputEventMouseButton) -> void:
 			else:
 				zoom_camera(0.88 if up else 1.14)
 			accept_event()
+
+
+# --- Menú contextual (clic derecho en una pieza) ---------------------------------------
+
+var _context_menu: PopupMenu
+var _context_piece: PropEntity
+## Acciones del menú: id → [texto, Callable]. Público para los tests.
+var context_actions := {}
+
+
+## Abre el menú de la pieza bajo el ratón. Devuelve los textos de sus opciones.
+func open_context_menu(screen: Vector2) -> Array:
+	var piece := piece_at(screen)
+	if piece == null:
+		return []
+	_context_piece = piece
+	context_actions.clear()
+	var add := func(text: String, action: Callable) -> void:
+		context_actions[context_actions.size()] = [text, action]
+	var shape := _shape_of(piece)
+	if _build_mode:
+		if not selection.has(piece):
+			select_pieces([piece])
+		add.call(tr("Duplicar") + "  ·  Ctrl+D", duplicate_selection)
+		add.call(tr("Copiar") + "  ·  Ctrl+C", copy_selection)
+		add.call(tr("Voltear") + "  ·  F", flip_selection)
+		add.call(tr("Girar 90°"), rotate_selection.bind(90.0))
+		add.call(tr("Soltar (dejar de estar fija)") if piece.is_locked else tr("Fijar en la mesa"), func() -> void: _edit_selection("locked", not piece.is_locked))
+		if _asset_browser != null and _asset_browser.selected_image.has("path"):
+			add.call(tr("Poner la imagen elegida"), _apply_selected_texture)
+		if shape == PieceShapes.ZONE and players > 1:
+			add.call(tr("Zonas de mano para los jugadores"), create_player_hands)
+		add.call(tr("Enfocar la cámara") + "  ·  C", focus_selection)
+		add.call(tr("Quitar") + "  ·  Supr", _remove_selected_entity)
+	else:
+		if shape == "dado":
+			add.call(tr("Tirar") + "  ·  R", func() -> void: roll_dice([piece]))
+		if shape == PieceShapes.ZONE:
+			add.call(tr("Mezclar lo de dentro"), func() -> void: _shuffle_zone(piece))
+		elif _movable_in_play(piece):
+			add.call(tr("Voltear") + "  ·  F", func() -> void: logic_flip(piece.entity_id))
+		var notes := (piece.get_component("VisualComponent") as VisualComponent).notes
+		if notes.strip_edges() != "":
+			add.call("ℹ  " + notes.left(60), func() -> void: logic_message(notes))
+		if players > 1:
+			add.call(tr("Pasar turno") + "  ·  T", logic_pass_turn)
+	if context_actions.is_empty():
+		return []
+	if _context_menu == null:
+		_context_menu = PopupMenu.new()
+		_context_menu.name = "PieceMenu"
+		_context_menu.id_pressed.connect(func(id: int) -> void: run_context_action(id))
+		add_child(_context_menu)
+	_context_menu.clear()
+	_context_menu.add_separator(piece.entity_name)
+	for id in context_actions:
+		_context_menu.add_item(context_actions[id][0], id)
+	_context_menu.position = Vector2i(get_screen_position() + screen)
+	_context_menu.reset_size()
+	_context_menu.popup()
+	return context_actions.values().map(func(entry: Array) -> String: return entry[0])
+
+
+func run_context_action(id: int) -> void:
+	if context_actions.has(id):
+		(context_actions[id][1] as Callable).call()
 
 
 func _begin_move(screen: Vector2, piece: PropEntity, clone: bool) -> void:
@@ -3167,6 +3533,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				flip_in_play()
 			KEY_HOME:
 				reset_camera()
+			KEY_T:
+				logic_pass_turn()
 			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9:
 				var digit := str(play_key.keycode - KEY_0)
 				_fire_logic("ev_tecla", func(p: Dictionary) -> bool: return str(p["tecla"]) == digit)
@@ -3271,9 +3639,12 @@ func _playtest_input(event: InputEvent) -> void:
 			MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE:
 				if button.pressed:
 					var pan := button.button_index == MOUSE_BUTTON_MIDDLE or button.shift_pressed
-					_drag = {"kind": "pan" if pan else "orbit", "last": button.position}
+					_drag = {"kind": "pan" if pan else "orbit", "last": button.position, "start": button.position}
 				else:
+					var clicked: bool = button.button_index == MOUSE_BUTTON_RIGHT and button.position.distance_to(_drag.get("start", button.position)) < PICK_SLOP
 					_drag = {}
+					if clicked:
+						open_context_menu(button.position)
 				accept_event()
 			MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN:
 				if not button.pressed:
@@ -3401,6 +3772,19 @@ func _snap_body_to_anchor(entity: PropEntity, body: RigidBody3D) -> void:
 	body.angular_velocity = Vector3.ZERO
 
 
+## Al empezar a probar, lo que está en una zona (un mazo, una pila) se queda quieto hasta
+## que se agarra: un mazo de cartas finas no se desparrama.
+func _hold_zone_contents() -> void:
+	for zone in _scene_hierarchy.entities:
+		var visual := zone.get_component("VisualComponent") as VisualComponent
+		if visual == null or visual.shape != PieceShapes.ZONE:
+			continue
+		for id in logic_pieces(zone.entity_id, ""):
+			var body := _find_piece(id).get_node_or_null("Body") as RigidBody3D
+			if body != null:
+				body.freeze = true
+
+
 ## Zonas ocultas: al probar, una tapa con «?» esconde lo de dentro (se puede meter la mano
 ## y sacar una pieza a ciegas, como de una bolsa).
 func _cover_hidden_zones(on: bool) -> void:
@@ -3437,7 +3821,7 @@ func _arrange_hand(zone: PropEntity) -> void:
 	var inverse := zone.global_transform.affine_inverse()
 	entities.sort_custom(func(a: PropEntity, b: PropEntity) -> bool: return (inverse * _piece_transform(a).origin).x < (inverse * _piece_transform(b).origin).x)
 	for i in entities.size():
-		_place_in_zone(entities[i], zone, i)
+		_place_in_zone(entities[i], zone, i, entities.size(), true)
 
 
 ## Zonas «mezclar al probar»: las piezas de dentro se barajan de sitio al empezar.
@@ -3689,6 +4073,9 @@ func help_text() -> String:
 		tr("Imágenes: corta una hoja de cartas en un mazo, o una carta por imagen; «Poner reverso» les da dorso."),
 		tr("Exportar juego: un solo archivo con todo, imágenes incluidas, para compartirlo."),
 		tr("Lógica del juego: blueprints con eventos, flujo, acciones, datos y bloques GDScript (con «mesa»)."),
+		tr("Bloques: suelta un cable en vacío para elegir un bloque que encaje; se une solo."),
+		tr("Jugadores: cuántos juegan, zonas de mano de su color y turnos al probar (T pasa turno)."),
+		tr("Menú de la pieza: clic derecho sin arrastrar."),
 		"",
 		tr("PROBAR"),
 		tr("Arrastrar: agarrar y lanzar · R o doble clic en un dado: tirar · F: voltear · Esc: volver a editar."),

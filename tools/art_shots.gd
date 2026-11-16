@@ -23,6 +23,7 @@ const SHOTS := {
 	"editor_dados": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"editor_mazo": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"editor_logica": "res://scenes/game_creator/GameCreatorEditor.tscn",
+	"editor_partida": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"creditos": "res://scenes/Credits.tscn",
 }
 
@@ -73,6 +74,17 @@ func _run() -> void:
 					await physics_frame
 					if editor._rolling.is_empty():
 						break
+			for i in 40:
+				await process_frame
+		if key == "editor_partida" and current_scene.has_method("new_game"):
+			# «Nuevo juego» de cartas para 4, probándolo: manos de color, marcadores y turno.
+			var editor := current_scene
+			editor.new_game("cartas", 4, true, true)
+			editor._toggle_mode()
+			for i in 60:
+				await physics_frame
+			editor.reset_camera()
+			editor.zoom_camera(1.12)
 			for i in 40:
 				await process_frame
 		if key == "editor_logica" and current_scene.has_method("open_logic_editor"):

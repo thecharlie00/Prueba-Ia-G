@@ -22,6 +22,8 @@ var _palette: VBoxContainer
 var _search: LineEdit
 var _popup: PopupMenu
 var _popup_at := Vector2.ZERO
+## Cable soltado en vacío: {"node": id, "port": nombre, "type": tipo, "output": bool}.
+var _pending_wire := {}
 var _param_controls := {}
 var _error_labels := {}
 var _building := false
@@ -126,6 +128,8 @@ func _ready() -> void:
 	graph_edit.duplicate_nodes_request.connect(_duplicate_selected)
 	graph_edit.end_node_move.connect(_on_moved)
 	graph_edit.popup_request.connect(_on_popup_request)
+	graph_edit.connection_to_empty.connect(_on_connection_to_empty)
+	graph_edit.connection_from_empty.connect(_on_connection_from_empty)
 
 	_popup = PopupMenu.new()
 	_popup.name = "AddBlockMenu"
@@ -181,22 +185,77 @@ func _fill_palette() -> void:
 
 
 func _on_popup_request(at: Vector2) -> void:
+	_pending_wire = {}
+	_show_add_menu(at)
+
+
+## Soltar un cable en vacío abre el menú sólo con los bloques que encajan, y los une.
+func _on_connection_to_empty(from: StringName, from_port: int, at: Vector2) -> void:
+	var id := int(str(from))
+	var ports := LogicNodes.outputs(graph.nodes[id]["type"])
+	_pending_wire = {"node": id, "port": ports[from_port][0], "type": ports[from_port][1], "output": true}
+	_show_add_menu(at)
+
+
+func _on_connection_from_empty(to: StringName, to_port: int, at: Vector2) -> void:
+	var id := int(str(to))
+	var ports := LogicNodes.inputs(graph.nodes[id]["type"])
+	_pending_wire = {"node": id, "port": ports[to_port][0], "type": ports[to_port][1], "output": false}
+	_show_add_menu(at)
+
+
+## Puerto del bloque `type` que encaja con el cable pendiente ("" si ninguno).
+func _matching_port(type: String) -> String:
+	if _pending_wire.is_empty():
+		return ""
+	var wire_type: int = _pending_wire["type"]
+	if _pending_wire["output"]:
+		for port in LogicNodes.inputs(type):
+			if LogicNodes.compatible(wire_type, port[1]):
+				return port[0]
+	else:
+		for port in LogicNodes.outputs(type):
+			if LogicNodes.compatible(port[1], wire_type):
+				return port[0]
+	return ""
+
+
+func _show_add_menu(at: Vector2) -> void:
 	_popup_at = (at + graph_edit.scroll_offset) / graph_edit.zoom
 	_popup.clear()
 	var index := 0
 	for category in LogicNodes.CATEGORIES:
+		var types: Array = LogicNodes.DEFS.keys().filter(func(type: String) -> bool:
+			return LogicNodes.DEFS[type]["cat"] == category and (_pending_wire.is_empty() or _matching_port(type) != ""))
+		if types.is_empty():
+			continue
 		_popup.add_separator(tr(LogicNodes.CATEGORY_NAMES[category]))
-		for type in LogicNodes.DEFS:
-			if LogicNodes.DEFS[type]["cat"] == category:
-				_popup.add_item(tr(LogicNodes.DEFS[type]["title"]), index)
-				_popup.set_item_metadata(_popup.get_item_index(index), type)
-				index += 1
+		for type in types:
+			_popup.add_item(tr(LogicNodes.DEFS[type]["title"]), index)
+			_popup.set_item_metadata(_popup.get_item_index(index), type)
+			index += 1
 	_popup.position = Vector2i(get_screen_position() + graph_edit.position + at)
 	_popup.popup()
 
 
 func _on_popup_id(id: int) -> void:
-	add_block(str(_popup.get_item_metadata(_popup.get_item_index(id))), _popup_at)
+	add_block_for_wire(str(_popup.get_item_metadata(_popup.get_item_index(id))), _popup_at)
+
+
+## Añade un bloque y, si había un cable soltado en vacío, lo une a él.
+func add_block_for_wire(type: String, at: Vector2) -> int:
+	var port := _matching_port(type)
+	var wire := _pending_wire
+	_pending_wire = {}
+	var added := add_block(type, at)
+	if added == 0 or wire.is_empty() or port == "":
+		return added
+	if wire["output"]:
+		graph.connect_ports(wire["node"], wire["port"], added, port)
+	else:
+		graph.connect_ports(added, port, wire["node"], wire["port"])
+	_sync_links()
+	return added
 
 
 func _view_center() -> Vector2:
@@ -309,7 +368,7 @@ func _param_control(id: int, param: Array) -> Control:
 	var value: Variant = graph.nodes[id]["params"].get(name, param[3])
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
-	if kind != "code":
+	if kind != "code" and kind != "note":
 		var label := Label.new()
 		label.text = tr(param[2])
 		label.add_theme_font_size_override("font_size", 11)
@@ -348,6 +407,13 @@ func _param_control(id: int, param: Array) -> Control:
 			var provider: Callable = {"button": buttons_provider, "counter": counters_provider, "element": elements_provider}[kind]
 			var items: Array = [[0, tr("(ninguno)")]] + (provider.call() if provider.is_valid() else [])
 			control = _options(items, int(value), func(v: Variant) -> void: _set_param(id, name, int(v)))
+		"note":
+			var note := TextEdit.new()
+			note.text = str(value)
+			note.custom_minimum_size = Vector2(260, 90)
+			note.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+			note.text_changed.connect(func() -> void: _set_param(id, name, note.text))
+			control = note
 		"code":
 			var code := CodeEdit.new()
 			code.name = "Code"

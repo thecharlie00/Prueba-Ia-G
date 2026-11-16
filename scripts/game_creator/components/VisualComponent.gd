@@ -20,6 +20,8 @@ extends BehaviorComponent
 @export var shuffle_on_play: bool = false
 ## Zonas: normal, mano u oculta (PieceShapes.ZONE_KINDS).
 @export var zone_kind: String = "normal"
+## Zonas: de qué jugador es (0 = de nadie, 1..6).
+@export var owner_player: int = 0
 ## Modelos 3D: tamaño del modelo ya encajado (a escala 1). La ruta va en mesh_path.
 @export var model_size: Vector3 = Vector3.ZERO
 @export var mesh_path: String = ""
@@ -43,6 +45,7 @@ func _serialize_extra(data: Dictionary) -> void:
 	data["notes"] = notes
 	data["shuffle_on_play"] = shuffle_on_play
 	data["zone_kind"] = zone_kind
+	data["owner_player"] = owner_player
 	data["model_size"] = model_size
 	data["mesh_path"] = mesh_path
 	data["texture_path"] = texture_path
@@ -61,6 +64,7 @@ func _deserialize_extra(data: Dictionary) -> void:
 	notes = str(data.get("notes", notes)).left(TableRecord.MAX_NOTES)
 	shuffle_on_play = data.get("shuffle_on_play", shuffle_on_play) == true
 	zone_kind = str(data.get("zone_kind", zone_kind)) if str(data.get("zone_kind", zone_kind)) in PieceShapes.ZONE_KINDS else "normal"
+	owner_player = clampi(int(data.get("owner_player", owner_player)), 0, GamePlayers.MAX)
 	model_size = data.get("model_size", model_size) if data.get("model_size", model_size) is Vector3 else Vector3.ZERO
 	mesh_path = data.get("mesh_path", mesh_path)
 	texture_path = data.get("texture_path", texture_path)

@@ -95,6 +95,23 @@ static func logic(name: String) -> Variant:
 	return null
 
 
+## Cartas para varios jugadores: al empezar, mezcla y reparte 5 a la mano de cada uno
+## (pasando el turno); la tecla 1 roba para quien tenga el turno.
+static func cards_logic_for_players() -> Dictionary:
+	return {"version": 1, "nodes": [
+		{"id": 1, "type": "ev_inicio", "pos": [0, 0], "params": {}},
+		{"id": 2, "type": "ac_mezclar", "pos": [340, 0], "params": {"zona": "zona_mazo"}},
+		{"id": 3, "type": "fl_repetir", "pos": [680, 0], "params": {"veces": 2}},
+		{"id": 4, "type": "da_jugadores", "pos": [340, 260], "params": {}},
+		{"id": 5, "type": "ac_repartir", "pos": [1020, 0], "params": {"cantidad": 5, "de": "zona_mazo", "a": GamePlayers.CURRENT_HAND, "etiqueta": ""}},
+		{"id": 6, "type": "ac_pasar_turno", "pos": [1360, 0], "params": {}},
+		{"id": 7, "type": "ac_mensaje", "pos": [1020, 400], "params": {"texto": _t("Cinco cartas para cada jugador. 1: robar · T: pasar turno.")}},
+		{"id": 8, "type": "ev_tecla", "pos": [0, 600], "params": {"tecla": "1"}},
+		{"id": 9, "type": "ac_repartir", "pos": [340, 600], "params": {"cantidad": 1, "de": "zona_mazo", "a": GamePlayers.CURRENT_HAND, "etiqueta": ""}},
+		{"id": 10, "type": "nota", "pos": [0, 380], "params": {"texto": _t("Hecho con «Nuevo juego». Cambia cuántas cartas se reparten en «Repartir».")}},
+	], "links": [[1, "out", 2, "in"], [2, "out", 3, "in"], [4, "n", 3, "veces"], [3, "cuerpo", 5, "in"], [5, "out", 6, "in"], [3, "fin", 7, "in"], [8, "out", 9, "in"]]}
+
+
 static func _t(text: String) -> String:
 	return TranslationServer.translate(text)
 

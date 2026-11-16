@@ -33,6 +33,9 @@ guías y comentarios de la comunidad (noviembre de 2026).
 | Dados | Plantillas de imagen | Dados con puntos al instante; al probar, el resultado se lee solo |
 | *Snap points* | Herramienta aparte, visibles sólo con ella | **Anclajes** como piezas: se mueven, giran, se copian y se deshacen como cualquier otra |
 | Zona de mezclar | Al cargar la partida | **Mezclar lo de dentro al probar**, además de **Mezclar** a mano |
+| Jugadores y turnos | Colores de asiento; turnos con Lua o a mano | **Jugadores** (1–6), manos de su color, barra de turno al probar y bloques de turno |
+| Montar un juego | Desde cero, pieza a pieza | **✨ Nuevo juego**: tipo + jugadores → mesa, manos, marcadores y lógica listos |
+| Menú de objeto | Clic derecho con muchas opciones | Clic derecho con las opciones que tienen sentido (edición y prueba) |
 | Empezar | Mesa vacía o mods de otros | **Plantillas** (damas, carrera, cartas, dados) listas para cambiar |
 | Deshacer | *Rewind* por tiempo | **Ctrl+Z / Ctrl+Y** de cualquier cambio, con la selección |
 | Colocar | Gizmo, rejilla | Arrastrar con imán, apilado automático, flechas, rejillas de copias, en fila, apilar, centrar |

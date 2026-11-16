@@ -13,6 +13,8 @@ lo que haga falta programar. Es la alternativa de Tablerama al Lua de Tabletop S
   el tipo: blanco ▶ flujo, verde número, rojo sí/no, amarillo texto, azul pieza, morado
   lista, gris cualquiera. Sólo se unen tipos que encajan (un número sí entra en un texto).
 - Una entrada sin cable usa el valor escrito en el bloque; con cable, ese valor se apaga.
+- **Suelta un cable en vacío** y el menú ofrece sólo los bloques que encajan; el elegido
+  queda unido solo.
 - **Supr** borra, **Ctrl+D** duplica (con los cables entre lo duplicado), **Ordenar**
   coloca los bloques solos, **Comprobar** revisa el código. Todo se deshace con Ctrl+Z.
 - La lógica se guarda con la mesa y viaja dentro del archivo `.tablerama` exportado.
@@ -26,6 +28,8 @@ lo que haga falta programar. Es la alternativa de Tablerama al Lua de Tabletop S
 | **Flujo** | Si (sí/no) · Secuencia (1, 2, 3) · Repetir N veces (da la vuelta) · Para cada (recorre una lista) · Esperar segundos |
 | **Acciones** | Repartir N de una zona a otra (con etiqueta opcional) · Mover pieza a zona · Mezclar zona · Voltear pieza · Voltear zona · Tirar los dados · Sumar al contador · Poner el contador a · Mostrar mensaje · Mostrar u ocultar (interfaz) · Guardar variable |
 | **Datos** | Número · Texto · Piezas en zona · Contar · Al azar · Operar (+ − × ÷ resto mín máx) · Comparar · Y/O/No · Leer variable · Valor del contador · Última tirada · Unir texto · ¿Tiene etiqueta? · Nombre de la pieza |
+| **Jugadores y turnos** | Al empezar un turno (da el jugador y su nombre) · Pasar turno · Dar el turno a · Jugador del turno · Número de jugadores |
+| **Notas** | Nota: un comentario para explicar la lógica |
 | **GDScript** | **Bloque GDScript** (con flujo: hace cosas y devuelve un valor) · **Calcular con GDScript** (sólo calcula) |
 
 Las **etiquetas** de las piezas (inspector: «rojo, carta, jugador1…») sirven para elegir
@@ -50,6 +54,7 @@ return puntos
 `color(p)`, `zona_de(p)`, `zonas()`, `mover(p, zona)`, `repartir(n, de, a)`, `mezclar(zona)`,
 `voltear(p)`, `tirar_dados()`, `ultima_tirada()`, `contador(c)`, `sumar(c, n)`, `poner(c, v)`,
 `mostrar(elemento, visible)`, `mensaje(texto)`, `variable(nombre)`, `guardar(nombre, valor)`,
+`jugador()`, `jugadores()`, `nombre_jugador(n)`, `pasar_turno()`, `dar_turno(n)`, `mano(n)`,
 `rango(n)` y `azar(desde, hasta)`. Las zonas y los contadores se nombran por su nombre o su
 texto; las piezas son ids. El botón **Ayuda de «mesa»** lo muestra dentro del editor.
 

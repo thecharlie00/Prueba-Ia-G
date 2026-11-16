@@ -36,6 +36,7 @@ static func piece_record(entity: PropEntity) -> Dictionary:
 		"shuffle": visual.shuffle_on_play if visual != null else false,
 		"tags": Array(entity.tags),
 		"zkind": visual.zone_kind if visual != null else "normal",
+		"player": visual.owner_player if visual != null else 0,
 		"model": visual.mesh_path if visual != null else "",
 		"msize": [visual.model_size.x, visual.model_size.y, visual.model_size.z] if visual != null else [0, 0, 0],
 		"pos": [snappedf(entity.position.x, 0.001), snappedf(entity.position.y, 0.001), snappedf(entity.position.z, 0.001)],
@@ -94,6 +95,9 @@ static func valid_piece(item: Variant) -> Dictionary:
 	if model_size == null:
 		return {}
 	var zone_kind := str(d.get("zkind", "normal"))
+	var player_value: Variant = d.get("player", 0)
+	if not _number(player_value):
+		return {}
 	var scale_value: Variant = d.get("scale", 1.0)
 	var mass_value: Variant = d.get("mass", 1.0)
 	var bounce_value: Variant = d.get("bounce", 0.1)
@@ -117,6 +121,7 @@ static func valid_piece(item: Variant) -> Dictionary:
 		"shuffle": d.get("shuffle", false) == true,
 		"tags": clean_tags(d.get("tags", [])),
 		"zkind": zone_kind if zone_kind in PieceShapes.ZONE_KINDS else "normal",
+		"player": clampi(int(player_value), 0, GamePlayers.MAX),
 		"model": model,
 		"msize": (model_size as Vector3).clamp(Vector3.ZERO, Vector3.ONE),
 		"pos": p,
@@ -151,6 +156,7 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 	visual.notes = piece.get("notes", "")
 	visual.shuffle_on_play = piece.get("shuffle", false)
 	visual.zone_kind = piece.get("zkind", "normal")
+	visual.owner_player = piece.get("player", 0)
 	visual.mesh_path = piece.get("model", "")
 	visual.model_size = piece.get("msize", Vector3.ZERO)
 	var physics := entity.get_component("PhysicsComponent") as PhysicsComponent

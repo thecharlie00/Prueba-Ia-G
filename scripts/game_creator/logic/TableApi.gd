@@ -9,7 +9,7 @@ const METHODS := [
 	"ayuda", "piezas", "piezas_en_zona", "piezas_con_etiqueta", "nombre", "etiquetas", "tiene_etiqueta",
 	"zona_de", "zonas", "mover", "repartir", "mezclar", "voltear", "tirar_dados", "ultima_tirada",
 	"contador", "sumar", "poner", "mensaje", "variable", "guardar", "rango", "azar", "mostrar",
-	"color", "texto_de", "escribir",
+	"color", "texto_de", "escribir", "jugador", "jugadores", "nombre_jugador", "pasar_turno", "dar_turno", "mano",
 ]
 
 const HELP := """mesa.piezas() → todas las piezas (ids)
@@ -23,6 +23,8 @@ mesa.voltear(pieza) · mesa.tirar_dados() · mesa.ultima_tirada()
 mesa.contador("Puntos") · mesa.sumar("Puntos", 3) · mesa.poner("Puntos", 0)
 mesa.mostrar("Reglas", true) · mesa.mensaje("¡Tu turno!")
 mesa.variable("turno") · mesa.guardar("turno", 2)
+mesa.jugador() → número del jugador del turno (1, 2…) · mesa.jugadores() · mesa.nombre_jugador(n)
+mesa.pasar_turno() · mesa.dar_turno(2) · mesa.mano() → zona de la mano del turno (o mesa.mano(n))
 mesa.rango(10) → [0..9] para «for» · mesa.azar(1, 6)"""
 
 
@@ -177,6 +179,42 @@ func rango(n: int) -> Array:
 		if e != null:
 			e.logic_message("Un bloque GDScript ha repetido demasiadas veces y se ha cortado.")
 	return range(granted)
+
+
+func jugador() -> int:
+	var e := _editor()
+	return e.current_player + 1 if e != null else 1
+
+
+func jugadores() -> int:
+	var e := _editor()
+	return e.players if e != null else 1
+
+
+func nombre_jugador(n := 0) -> String:
+	var e := _editor()
+	return GamePlayers.player_name((n - 1) if n > 0 else (e.current_player if e != null else 0))
+
+
+func pasar_turno() -> void:
+	var e := _editor()
+	if e != null:
+		e.logic_pass_turn()
+
+
+func dar_turno(n: int) -> void:
+	var e := _editor()
+	if e != null:
+		e.logic_give_turn(n - 1)
+
+
+## Nombre de la zona de mano de un jugador (sin número: la del turno).
+func mano(n := 0) -> String:
+	var e := _editor()
+	if e == null:
+		return ""
+	var zone: String = e.hand_zone_of((n - 1) if n > 0 else e.current_player)
+	return e.logic_piece_name(zone)
 
 
 func azar(desde: int, hasta: int) -> int:

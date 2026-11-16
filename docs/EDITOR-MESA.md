@@ -5,6 +5,26 @@ las colocas, las pintas y las pruebas con física de verdad.
 
 ![Mesa del editor con un tablero, peones, un mazo, un dado y monedas](img/editor-mesa.png)
 
+## Empezar en un minuto: «Nuevo juego»
+
+**✨ Nuevo juego…** (panel izquierdo) pregunta tres cosas: el **tipo** (mesa vacía, cartas,
+tablero de damas, carrera con dado o dados), **cuántos juegan** (1 a 6) y si quieres **una
+zona de mano y un marcador de puntos por jugador**. Monta la mesa, las manos de colores
+alrededor, los marcadores abajo y la lógica: en un juego de cartas, al probar se mezcla el
+mazo, se reparten 5 cartas a cada uno y la tecla 1 roba para quien tiene el turno. Todo se
+puede cambiar después, y Ctrl+Z vuelve a la mesa de antes.
+
+![Juego de cartas para 4 creado con «Nuevo juego», probándose](img/editor-partida.png)
+
+## Jugadores y turnos
+
+- En la pestaña Piezas, **Jugadores** dice cuántos juegan y **Zonas de mano** pone una mano
+  de su color para cada uno.
+- Cada zona puede ser **de un jugador** (inspector). En la lógica, la zona
+  «(mano del jugador del turno)» es la de quien tiene el turno.
+- Al probar, arriba sale **de quién es el turno**; **T** o el botón lo pasan.
+- Las cartas llevan el número también en la esquina, para leerlas en abanico.
+
 ## Empezar con una plantilla
 
 En la pestaña **Piezas**, **Plantillas** pone una mesa de partida lista para cambiar:
@@ -48,6 +68,13 @@ pieza puede fijarse o soltarse con la casilla «Fija» del inspector.
 
 Lo seleccionado se marca con un aro amarillo en la base y esquinas que se ven a través de
 otras piezas; al pasar el ratón por encima de una pieza se marca en blanco.
+
+## Menú de la pieza
+
+**Clic derecho** (sin arrastrar) en una pieza abre su menú: duplicar, copiar, voltear, girar
+90°, fijar o soltar, poner la imagen elegida, enfocar la cámara o quitar. Al probar ofrece
+lo que tiene sentido allí: tirar un dado, voltear, mezclar una zona, leer la descripción o
+pasar turno. Arrastrar con el botón derecho sigue orbitando la cámara.
 
 ## Mover, girar y cambiar
 

@@ -141,7 +141,7 @@ static func _clean_params(type: String, raw: Variant) -> Dictionary:
 				value = clampf(float(value), -1000000, 1000000) if kind == "number" else int(value)
 			"bool":
 				value = value == true
-			"code":
+			"code", "note":
 				if not value is String or (value as String).length() > MAX_CODE:
 					return {}
 			"key":
