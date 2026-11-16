@@ -396,8 +396,11 @@ static func make_game_card_button(
 	margin.add_child(row)
 
 	var badge_bg := CARD_WELL if not locked else Palette.PANEL
-	var emblem := make_emblem_badge(theme_key, 28.0 if subtitle_text.is_empty() else 32.0, badge_bg)
-	row.add_child(emblem)
+	var cover_key := str(info["key"])
+	if GameCovers.has_cover(cover_key):
+		row.add_child(GameCovers.thumb(cover_key, clampf(min_height - 16.0, 40.0, 58.0), locked))
+	else:
+		row.add_child(make_emblem_badge(theme_key, 28.0 if subtitle_text.is_empty() else 32.0, badge_bg))
 
 	var text_col := VBoxContainer.new()
 	text_col.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -671,7 +671,13 @@ func _family_section(
 	head.add_theme_constant_override("separation", 12)
 	box.add_child(head)
 
-	head.add_child(MenuStyle.make_emblem_badge(theme_key, 28.0, MenuStyle.CARD_WELL))
+	var cover_key := str(info["key"])
+	if GameCovers.has_cover(cover_key):
+		var cover := GameCovers.thumb(cover_key, 74.0)
+		cover.rotation_degrees = -3.0
+		head.add_child(cover)
+	else:
+		head.add_child(MenuStyle.make_emblem_badge(theme_key, 28.0, MenuStyle.CARD_WELL))
 
 	var head_text := VBoxContainer.new()
 	head_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
