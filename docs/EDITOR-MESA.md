@@ -5,13 +5,32 @@ las colocas, las pintas y las pruebas con física de verdad.
 
 ![Mesa del editor con un tablero, peones, un mazo, un dado y monedas](img/editor-mesa.png)
 
+## Empezar con una plantilla
+
+En la pestaña **Piezas**, **Plantillas** pone una mesa de partida lista para cambiar:
+
+| Plantilla | Qué trae |
+|---|---|
+| **Damas** | Tablero de madera de 8×8 con dibujo de ajedrez y 24 fichas en su sitio |
+| **Carrera** | Tablero de recorrido con esquinas de colores, 4 peones y un dado |
+| **Cartas** | Mazo de 20 cartas numeradas (dos colores) sobre una zona «Mazo», y una zona «Descarte» |
+| **Dados** | Cinco dados y una zona «Tirada» |
+
+La plantilla sustituye a la mesa actual; **Ctrl+Z** recupera la de antes.
+
+![Plantilla de damas](img/editor-damas.png)
+
 ## Poner piezas
 
-En la pestaña **Piezas** del panel izquierdo hay ocho formas: **ficha, carta, dado, disco,
-peón, bloque, moneda y tablero**. Cada pulsación pone una pieza en un hueco libre cerca del
+En la pestaña **Piezas** del panel izquierdo hay nueve formas: **ficha, carta, dado, disco,
+peón, bloque, moneda, tablero y zona**. Cada pulsación pone una pieza en un hueco libre cerca del
 centro. Si debajo hay otra pieza (un tablero, por ejemplo) la nueva se posa encima.
 
-El **tablero** nace **fijo**: no se arrastra por accidente y al probar no se mueve. Cualquier
+Los **dados** traen sus puntos (las caras opuestas suman 7). Las **zonas** son marcas
+translúcidas con un texto (mazo, descarte, mano…): no chocan ni sostienen piezas, y las
+piezas soltadas encima se posan en la mesa.
+
+El **tablero** y las zonas nacen **fijos**: no se arrastra por accidente y al probar no se mueve. Cualquier
 pieza puede fijarse o soltarse con la casilla «Fija» del inspector.
 
 ## Seleccionar
@@ -45,11 +64,24 @@ cualquiera), la posición exacta (X, Z, altura), el giro, el tamaño y el peso. 
 piezas seleccionadas, los cambios van a todas. «Poner imagen» usa la imagen elegida en la
 pestaña **Imágenes**; «Sin imagen» la quita.
 
+Además, en el inspector:
+
+- **Texto en la pieza**: un número o una palabra en la cara de arriba (cartas, fichas,
+  zonas); el color de la letra se elige solo para que se lea.
+- **Acabado**: mate, plástico, barnizado, metal o madera (con veta).
+- **Dibujo** (piezas planas: tablero, carta, ficha, zona): liso, ajedrez, casillas, recorrido
+  o cruces de go, con **2 a 19 casillas** por lado. El dibujo toma el color de la pieza.
+- **Repetir en rejilla**: copias de la pieza en columnas y filas (por ejemplo, 8 × 2 peones).
+
+![Mazo de cartas numeradas y descarte en abanico](img/editor-cartas.png)
+
 Con varias piezas, **Ordenar la selección** ofrece:
 
 - **En fila**: las alinea con un hueco entre ellas.
 - **Apilar**: una encima de otra sobre la primera (mazos de cartas, torres de fichas).
 - **Centrar**: lleva el grupo al centro de la mesa sin deshacer su forma.
+- **Numerar**: escribe 1, 2, 3… de izquierda a derecha y de fondo a frente.
+- **Mezclar**: baraja los sitios de las piezas entre ellas (un mazo, fichas ocultas).
 
 ## Deshacer, guardar y cargar
 
@@ -72,4 +104,14 @@ Con varias piezas, **Ordenar la selección** ofrece:
 ## Probar
 
 «Probar la mesa» aparta los paneles: las piezas caen con física (las fijas se quedan) y la
-interfaz diseñada funciona. «Volver a editar» devuelve cada pieza a donde la pusiste.
+interfaz diseñada funciona. Al probar:
+
+- **Arrastrar** agarra una pieza, que flota sobre la mesa y empuja a las demás; al soltarla
+  cae, y si el ratón aún se movía, sale lanzada. La rueda la gira.
+- **R** (o doble clic en un dado) **tira los dados**: el agarrado o señalado, o todos. Cuando
+  se paran, la barra de abajo dice qué ha salido («Dados: 3 + 5 = 8»).
+- **F** voltea la pieza agarrada o señalada.
+- Un borde invisible evita que lo lanzado se caiga; si algo se sale, vuelve a su sitio.
+- **Esc** o «Volver a editar» devuelven cada pieza a donde la pusiste.
+
+![Cinco dados tirados en la zona de tirada](img/editor-dados.png)

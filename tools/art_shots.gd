@@ -17,6 +17,10 @@ const SHOTS := {
 	"domino": "res://scenes/GuidedDomino.tscn",
 	"editor": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"editor_piezas": "res://scenes/game_creator/GameCreatorEditor.tscn",
+	"editor_damas": "res://scenes/game_creator/GameCreatorEditor.tscn",
+	"editor_recorrido": "res://scenes/game_creator/GameCreatorEditor.tscn",
+	"editor_cartas": "res://scenes/game_creator/GameCreatorEditor.tscn",
+	"editor_dados": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"creditos": "res://scenes/Credits.tscn",
 }
 
@@ -47,6 +51,28 @@ func _run() -> void:
 				hud.set_drawer_open(true)
 				for i in 10:
 					await process_frame
+		if key in ["editor_damas", "editor_recorrido", "editor_cartas", "editor_dados"] and current_scene.has_method("load_template"):
+			var editor := current_scene
+			editor.load_template(key.trim_prefix("editor_"))
+			if key == "editor_cartas":
+				var cards: Array = editor._scene_hierarchy.entities.filter(func(entity: PropEntity) -> bool: return (entity.get_component("VisualComponent") as VisualComponent).shape == "carta")
+				# Las cinco de arriba, en la zona de descarte, abiertas en abanico.
+				for i in 5:
+					var card: PropEntity = cards[cards.size() - 1 - i]
+					card.position = Vector3(0.55 + i * 0.12, 0.006 + i * 0.021, 0.05 * i)
+					card.rotation_degrees.y = -12 + i * 6
+				editor.select_pieces([cards[cards.size() - 1]])
+			if key == "editor_dados":
+				editor._toggle_mode()
+				for i in 20:
+					await physics_frame
+				editor.roll_dice()
+				for i in 400:
+					await physics_frame
+					if editor._rolling.is_empty():
+						break
+			for i in 40:
+				await process_frame
 		if key == "editor_piezas" and current_scene.has_method("add_piece"):
 			# Una mesa de ejemplo con las formas nuevas y dos piezas seleccionadas.
 			var editor := current_scene

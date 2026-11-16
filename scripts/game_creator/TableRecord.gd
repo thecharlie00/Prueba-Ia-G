@@ -8,6 +8,7 @@ extends RefCounted
 const VERSION := 1
 const MAX_PIECES := 200
 const MAX_NAME := 40
+const MAX_LABEL := 24
 const MAX_PATH := 300
 ## Hasta dónde puede estar una pieza: la mesa mide 2,6 de radio y se puede apilar.
 const LIMIT_XZ := 4.0
@@ -23,6 +24,10 @@ static func piece_record(entity: PropEntity) -> Dictionary:
 		"shape": visual.shape if visual != null else PieceShapes.DEFAULT,
 		"color": (visual.color_tint if visual != null else Color.WHITE).to_html(true),
 		"texture": visual.texture_path if visual != null else "",
+		"label": visual.label if visual != null else "",
+		"pattern": visual.pattern if visual != null else "liso",
+		"cells": visual.cells if visual != null else 8,
+		"finish": visual.finish if visual != null else "mate",
 		"pos": [snappedf(entity.position.x, 0.001), snappedf(entity.position.y, 0.001), snappedf(entity.position.z, 0.001)],
 		"rot": [snappedf(entity.rotation_degrees.x, 0.01), snappedf(entity.rotation_degrees.y, 0.01), snappedf(entity.rotation_degrees.z, 0.01)],
 		"scale": visual.scale_factor if visual != null else 1.0,
@@ -76,14 +81,21 @@ static func valid_piece(item: Variant) -> Dictionary:
 	var scale_value: Variant = d.get("scale", 1.0)
 	var mass_value: Variant = d.get("mass", 1.0)
 	var bounce_value: Variant = d.get("bounce", 0.1)
-	if not (_number(scale_value) and _number(mass_value) and _number(bounce_value)):
+	var cells_value: Variant = d.get("cells", 8)
+	if not (_number(scale_value) and _number(mass_value) and _number(bounce_value) and _number(cells_value)):
 		return {}
+	var pattern := str(d.get("pattern", "liso"))
+	var finish := str(d.get("finish", "mate"))
 	return {
 		"id": str(d.get("id", "")).left(32),
 		"name": str(d.get("name", "Pieza")).left(MAX_NAME),
 		"shape": PieceShapes.valid(str(d.get("shape", PieceShapes.DEFAULT))),
 		"color": color_text,
 		"texture": texture,
+		"label": str(d.get("label", "")).left(MAX_LABEL),
+		"pattern": pattern if pattern in PieceShapes.PATTERNS else "liso",
+		"cells": clampi(int(cells_value), PieceShapes.MIN_CELLS, PieceShapes.MAX_CELLS),
+		"finish": finish if finish in PieceShapes.FINISHES else "mate",
 		"pos": p,
 		"rot": rot,
 		"scale": clampf(float(scale_value), PieceShapes.MIN_SCALE, PieceShapes.MAX_SCALE),
@@ -107,6 +119,10 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 	visual.color_tint = Color.html(piece["color"])
 	visual.texture_path = piece["texture"]
 	visual.scale_factor = piece["scale"]
+	visual.label = piece.get("label", "")
+	visual.pattern = piece.get("pattern", "liso")
+	visual.cells = piece.get("cells", 8)
+	visual.finish = piece.get("finish", "mate")
 	var physics := entity.get_component("PhysicsComponent") as PhysicsComponent
 	if physics == null:
 		physics = PhysicsComponent.new()

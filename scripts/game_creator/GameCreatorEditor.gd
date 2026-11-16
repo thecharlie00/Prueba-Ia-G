@@ -72,6 +72,13 @@ var _redo_button: Button
 var _snap_check: CheckButton
 var _syncing_piece := false
 var _color_picker: ColorPickerButton
+var _label_edit: LineEdit
+var _finish_option: OptionButton
+var _pattern_box: Control
+var _cells_box: Control
+var _pattern_option: OptionButton
+var _repeat_cols: SpinBox
+var _repeat_rows: SpinBox
 
 # --- Diseñador de interfaz -------------------------------------------------------
 const UI_SAVE_PATH := "user://creador/interfaz.json"
@@ -192,6 +199,22 @@ func _build_preview() -> void:
 	ground.add_child(ground_shape)
 	ground.position.y = -0.06
 	world.add_child(ground)
+	# Un borde invisible alrededor de la mesa: al probar, lo lanzado no se cae al vacío.
+	var rim := StaticBody3D.new()
+	rim.name = "TableRim"
+	rim.collision_layer = 1
+	rim.collision_mask = 0
+	var segments := 32
+	for i in segments:
+		var angle := TAU * float(i) / segments
+		var wall := CollisionShape3D.new()
+		var slab := BoxShape3D.new()
+		slab.size = Vector3(2.6 * TAU / segments + 0.05, 0.6, 0.1)
+		wall.shape = slab
+		wall.position = Vector3(sin(angle) * 2.65, 0.3, cos(angle) * 2.65)
+		wall.rotation.y = angle
+		rim.add_child(wall)
+	world.add_child(rim)
 	_grid = MeshInstance3D.new()
 	_grid.name = "SnapGrid"
 	_grid.mesh = _grid_mesh()
@@ -299,6 +322,8 @@ func _build_editor_ui() -> void:
 
 	# ========== Izquierda: modo, herramientas y pestañas ==========
 	var left := _make_dock("LeftDock")
+	# Panel izquierdo tan alto como la ventana: las pestañas se desplazan si no caben.
+	(left["panel"] as Control).size_flags_vertical = Control.SIZE_FILL
 	_docks.add_child(left["panel"])
 	var left_col: VBoxContainer = left["column"]
 	left_col.add_child(_caption("MODO"))
@@ -335,12 +360,13 @@ func _build_editor_ui() -> void:
 	tabs.add_theme_font_size_override("font_size", 14)
 	tabs.add_theme_constant_override("side_margin", 0)
 	tabs.tab_alignment = TabBar.ALIGNMENT_CENTER
-	tabs.custom_minimum_size = Vector2(0, 360)
+	tabs.custom_minimum_size = Vector2(0, 240)
+	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left_col.add_child(tabs)
 
 	# Pestaña «Piezas»: formas que se pueden poner y la mesa entera.
 	var pieces_tab := _tab_column("Piezas")
-	tabs.add_child(pieces_tab.get_parent())
+	tabs.add_child(pieces_tab.get_parent().get_parent())
 	pieces_tab.add_child(_caption("AÑADIR A LA MESA"))
 	var shapes := GridContainer.new()
 	shapes.name = "ShapePalette"
@@ -359,6 +385,20 @@ func _build_editor_ui() -> void:
 	new_entity.name = "NewEntityButton"
 	new_entity.visible = false
 	pieces_tab.add_child(new_entity)
+	pieces_tab.add_child(_caption("PLANTILLAS"))
+	var templates := GridContainer.new()
+	templates.name = "TemplatePalette"
+	templates.columns = 2
+	templates.add_theme_constant_override("h_separation", 8)
+	templates.add_theme_constant_override("v_separation", 8)
+	pieces_tab.add_child(templates)
+	for template in TableTemplates.NAMES:
+		var start := _button(TableTemplates.TITLES[template], load_template.bind(template))
+		start.name = "Template_" + template
+		start.tooltip_text = TableTemplates.HINTS[template]
+		start.add_theme_font_size_override("font_size", 14)
+		start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		templates.add_child(start)
 	pieces_tab.add_child(_caption("LA MESA"))
 	var table_files := HBoxContainer.new()
 	table_files.add_theme_constant_override("separation", 8)
@@ -372,7 +412,7 @@ func _build_editor_ui() -> void:
 
 	# Pestaña «Interfaz»: lo que el jugador verá encima de la mesa.
 	var ui_tab := _tab_column("Interfaz")
-	tabs.add_child(ui_tab.get_parent())
+	tabs.add_child(ui_tab.get_parent().get_parent())
 	ui_tab.add_child(_caption("INTERFAZ DEL JUEGO · AÑADIR"))
 	var ui_grid := GridContainer.new()
 	ui_grid.name = "UiPalette"
@@ -402,7 +442,7 @@ func _build_editor_ui() -> void:
 
 	# Pestaña «Imágenes»: galería para piezas y elementos de interfaz.
 	var images_tab := _tab_column("Imágenes")
-	tabs.add_child(images_tab.get_parent())
+	tabs.add_child(images_tab.get_parent().get_parent())
 	var import_button := _button("Importar imagen…", _open_image_import_dialog)
 	import_button.name = "ImportImageButton"
 	images_tab.add_child(import_button)
@@ -503,14 +543,33 @@ func _build_editor_ui() -> void:
 
 ## Columna dentro de una pestaña; el nombre del contenedor es el título de la pestaña.
 func _tab_column(title: String) -> VBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.name = title
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var margin := MarginContainer.new()
-	margin.name = title
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(margin)
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 10)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
 	margin.add_child(column)
 	return column
+
+
+## Un control con su nombre encima, que ocupa media fila de una rejilla.
+func _labelled(title: String, control: Control) -> VBoxContainer:
+	var cell := VBoxContainer.new()
+	cell.add_theme_constant_override("separation", 2)
+	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var label := _small(title)
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	label.add_theme_color_override("font_color", DIM)
+	cell.add_child(label)
+	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	control.custom_minimum_size.x = 0
+	cell.add_child(control)
+	return cell
 
 
 func _tool_button(icon: String, tip: String, action: Callable) -> Button:
@@ -548,6 +607,48 @@ func _build_piece_inspector(column: VBoxContainer) -> void:
 		_shape_option.add_item("%s  %s" % [PieceShapes.ICONS[shape], tr(PieceShapes.NAMES[shape])])
 	_shape_option.item_selected.connect(func(index: int) -> void: _edit_selection("shape", PieceShapes.SHAPES[index]))
 	fields.add_child(_shape_option)
+	_label_edit = LineEdit.new()
+	_label_edit.name = "PieceLabel"
+	_label_edit.placeholder_text = "Texto en la pieza"
+	_label_edit.max_length = TableRecord.MAX_LABEL
+	_label_edit.text_changed.connect(func(text: String) -> void: _edit_selection("label", text))
+	fields.add_child(_label_edit)
+	var looks := GridContainer.new()
+	looks.name = "PieceLooks"
+	looks.columns = 2
+	looks.add_theme_constant_override("h_separation", 8)
+	looks.add_theme_constant_override("v_separation", 4)
+	fields.add_child(looks)
+	_finish_option = OptionButton.new()
+	_finish_option.name = "PieceFinish"
+	_finish_option.clip_text = true
+	_finish_option.tooltip_text = "Acabado"
+	for finish in PieceShapes.FINISHES:
+		_finish_option.add_item(PieceShapes.FINISH_NAMES[finish])
+	_finish_option.item_selected.connect(func(index: int) -> void: _edit_selection("finish", PieceShapes.FINISHES[index]))
+	looks.add_child(_labelled("Acabado", _finish_option))
+	# Dibujo de la cara de arriba (tableros, cartas, fichas, zonas) y casillas por lado.
+	_pattern_option = OptionButton.new()
+	_pattern_option.name = "PiecePattern"
+	_pattern_option.clip_text = true
+	_pattern_option.tooltip_text = "Dibujo de la cara de arriba"
+	for pattern in PieceShapes.PATTERNS:
+		_pattern_option.add_item(PieceShapes.PATTERN_NAMES[pattern])
+	_pattern_option.item_selected.connect(func(index: int) -> void: _edit_selection("pattern", PieceShapes.PATTERNS[index]))
+	var pattern_cell := _labelled("Dibujo", _pattern_option)
+	looks.add_child(pattern_cell)
+	var cells := SpinBox.new()
+	cells.name = "Piece_cells"
+	cells.min_value = PieceShapes.MIN_CELLS
+	cells.max_value = PieceShapes.MAX_CELLS
+	cells.tooltip_text = "Casillas por lado"
+	cells.select_all_on_focus = true
+	cells.value_changed.connect(func(value: float) -> void: _edit_selection("cells", int(value)))
+	var cells_cell := _labelled("Casillas", cells)
+	looks.add_child(cells_cell)
+	_spins["cells"] = cells
+	_pattern_box = pattern_cell
+	_cells_box = cells_cell
 	fields.add_child(_small("Color"))
 	var colors := HFlowContainer.new()
 	colors.name = "PieceSwatches"
@@ -661,6 +762,43 @@ func _build_piece_inspector(column: VBoxContainer) -> void:
 		tool.add_theme_font_size_override("font_size", 13)
 		tool.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		arrange_row.add_child(tool)
+	var extra_row := HBoxContainer.new()
+	extra_row.add_theme_constant_override("separation", 6)
+	arrange.add_child(extra_row)
+	for entry in [["Numerar", "ArrangeNumber", number_selection, "Escribe 1, 2, 3… en las piezas, de izquierda a derecha"], ["Mezclar", "ArrangeShuffle", shuffle_selection, "Baraja las posiciones de las piezas (un mazo, unas fichas)"]]:
+		var tool := _button(entry[0], entry[2])
+		tool.name = entry[1]
+		tool.tooltip_text = entry[3]
+		tool.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tool.add_theme_font_size_override("font_size", 13)
+		tool.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		extra_row.add_child(tool)
+
+	# Repetir la pieza en una rejilla (filas de fichas, cartas de un palo…).
+	fields.add_child(_caption("REPETIR EN REJILLA"))
+	var repeat_row := GridContainer.new()
+	repeat_row.name = "RepeatRow"
+	repeat_row.columns = 2
+	repeat_row.add_theme_constant_override("h_separation", 8)
+	fields.add_child(repeat_row)
+	_repeat_cols = SpinBox.new()
+	_repeat_cols.name = "RepeatCols"
+	_repeat_cols.min_value = 1
+	_repeat_cols.max_value = 12
+	_repeat_cols.value = 4
+	_repeat_cols.select_all_on_focus = true
+	repeat_row.add_child(_labelled("Columnas", _repeat_cols))
+	_repeat_rows = SpinBox.new()
+	_repeat_rows.name = "RepeatRows"
+	_repeat_rows.min_value = 1
+	_repeat_rows.max_value = 12
+	_repeat_rows.value = 1
+	_repeat_rows.select_all_on_focus = true
+	repeat_row.add_child(_labelled("Filas", _repeat_rows))
+	var repeat := _button("Repetir", func() -> void: repeat_selection(int(_repeat_cols.value), int(_repeat_rows.value)))
+	repeat.name = "RepeatButton"
+	repeat.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	fields.add_child(repeat)
 
 
 # Panel lateral con su columna: {"panel": PanelContainer, "column": VBoxContainer}.
@@ -972,6 +1110,9 @@ func _on_state_changed(new_state: GameCreatorCore.EditorState) -> void:
 	_docks.visible = _build_mode
 	_resume_button.visible = not _build_mode
 	_drag = {}
+	_held = {}
+	_rolling.clear()
+	_hovered = null
 	_marquee.visible = false
 	_layout_canvas()
 	ui_view.show_layout(ui_layout, _build_mode)
@@ -1093,6 +1234,13 @@ func _refresh_piece_inspector() -> void:
 	(_spins["mass"] as SpinBox).set_value_no_signal(physics.mass if physics != null else 1.0)
 	_lock_check.set_pressed_no_signal(entity.is_locked)
 	_color_picker.color = visual.color_tint if visual != null else Color.WHITE
+	if _label_edit.text != visual.label:
+		_label_edit.text = visual.label
+	_finish_option.select(maxi(0, PieceShapes.FINISHES.find(visual.finish)))
+	_pattern_box.visible = visual.shape in PieceShapes.FLAT
+	_cells_box.visible = visual.shape in PieceShapes.FLAT and visual.pattern != "liso"
+	_pattern_option.select(maxi(0, PieceShapes.PATTERNS.find(visual.pattern)))
+	(_spins["cells"] as SpinBox).set_value_no_signal(visual.cells)
 	_texture_label.text = "Imagen: " + _get_entity_texture_info(entity)
 	_arrange_box.visible = selection.size() > 1
 	_syncing_piece = false
@@ -1116,12 +1264,25 @@ func add_piece(shape: String) -> PropEntity:
 	var piece := {
 		"id": "", "name": "%s %d" % [tr(PieceShapes.NAMES[PieceShapes.valid(shape)]), count + 1],
 		"shape": PieceShapes.valid(shape), "color": (PIECE_COLORS[count % 4] as Color).to_html(true),
-		"texture": "", "pos": _free_spot(), "rot": Vector3.ZERO, "scale": 1.0,
-		"locked": shape == "tablero", "mass": 1.0, "bounce": 0.1,
+		"texture": "", "label": "", "pattern": "liso", "cells": 8, "finish": "mate",
+		"pos": _free_spot(), "rot": Vector3.ZERO, "scale": 1.0,
+		"locked": shape in ["tablero", PieceShapes.ZONE], "mass": 1.0, "bounce": 0.1,
 	}
-	if shape == "tablero":
-		piece["color"] = Color("e8cf9f").to_html(true)
-		piece["pos"] = Vector3.ZERO
+	match shape:
+		"tablero":
+			piece["color"] = TableTemplates.BOARD_COLOR.to_html(true)
+			piece["pos"] = Vector3.ZERO
+			piece["pattern"] = "casillas"
+		PieceShapes.ZONE:
+			piece["color"] = Palette.LAVENDER.to_html(true)
+			piece["label"] = tr("ZONA")
+		"dado":
+			piece["color"] = Palette.PAPER.to_html(true)
+		"carta":
+			piece["mass"] = 0.2
+	if _scene_hierarchy.entities.size() >= TableRecord.MAX_PIECES:
+		_say(tr("No caben más piezas (máximo %d).") % TableRecord.MAX_PIECES)
+		return null
 	var entity := _make_piece(piece)
 	entity.position.y = _surface_height(entity.position, [entity])
 	_pop_in(entity)
@@ -1129,6 +1290,91 @@ func add_piece(shape: String) -> PropEntity:
 	_play("pop")
 	_say(tr("Pieza creada: %s. Arrástrala por la mesa; Q/E la giran.") % entity.entity_name)
 	return entity
+
+
+## Pone una mesa de partida (sustituye a la actual; Ctrl+Z la recupera).
+func load_template(name: String) -> void:
+	var pieces := TableTemplates.pieces(name)
+	if pieces.is_empty():
+		return
+	_remember("template")
+	_rebuild_table(pieces)
+	for entity in _scene_hierarchy.entities:
+		_pop_in(entity)
+	_play("pop")
+	focus_all()
+	_say(tr("Plantilla «%s» puesta. Cámbiala a tu gusto; Ctrl+Z recupera la mesa de antes.") % tr(TableTemplates.TITLES[name]))
+
+
+## Copias de la pieza principal en una rejilla de `cols` × `rows`, empezando en ella.
+func repeat_selection(cols: int, rows: int) -> Array:
+	if _selected_entity == null or cols * rows <= 1:
+		return []
+	var room := TableRecord.MAX_PIECES - _scene_hierarchy.entities.size()
+	if cols * rows - 1 > room:
+		_say(tr("No caben tantas piezas (quedan %d).") % room)
+		return []
+	_remember("repeat")
+	var source := _selected_entity
+	var visual := source.get_component("VisualComponent") as VisualComponent
+	var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
+	var step := Vector2(size.x + 0.06, size.z + 0.06)
+	var record: Dictionary = TableRecord.valid_piece(TableRecord.piece_record(source))
+	var made: Array = [source]
+	for row in rows:
+		for col in cols:
+			if row == 0 and col == 0:
+				continue
+			var piece := record.duplicate()
+			piece["id"] = ""
+			piece["name"] = "%s %d" % [source.entity_name, made.size() + 1]
+			var at: Vector3 = source.position + Vector3(col * step.x, 0, row * step.y)
+			piece["pos"] = _clamp_to_table(Vector3(at.x, source.position.y, at.z))
+			made.append(_make_piece(piece))
+	for entity in made:
+		if entity != source:
+			entity.position.y = _surface_height(entity.position, [entity]) + _rest_offset(entity)
+			_pop_in(entity)
+	select_pieces(made)
+	_play("pop")
+	_say(tr("Repetida en %d × %d: %d piezas.") % [cols, rows, made.size()])
+	return made
+
+
+## Escribe 1, 2, 3… en las piezas seleccionadas, de izquierda a derecha y de fondo a frente.
+func number_selection() -> void:
+	if selection.is_empty():
+		return
+	_remember("number")
+	var ordered := selection.duplicate()
+	ordered.sort_custom(func(a: PropEntity, b: PropEntity) -> bool:
+		if absf(a.position.z - b.position.z) > 0.05:
+			return a.position.z < b.position.z
+		if absf(a.position.x - b.position.x) > 0.01:
+			return a.position.x < b.position.x
+		return a.position.y < b.position.y
+	)
+	for i in ordered.size():
+		var visual := (ordered[i] as PropEntity).get_component("VisualComponent") as VisualComponent
+		visual.label = str(i + 1)
+		_refresh_entity_visual(ordered[i])
+	_bump(ordered)
+	_refresh_piece_inspector()
+	_say(tr("Numeradas del 1 al %d.") % ordered.size())
+
+
+## Baraja las posiciones de las piezas seleccionadas entre ellas (mazos, fichas ocultas).
+func shuffle_selection() -> void:
+	if selection.size() < 2:
+		return
+	_remember("shuffle")
+	var spots: Array = selection.map(func(entity: PropEntity) -> Transform3D: return entity.transform)
+	spots.shuffle()
+	for i in selection.size():
+		(selection[i] as PropEntity).transform = spots[i]
+	_bump(selection)
+	_play("card")
+	_say(tr("Mezcladas: %d.") % selection.size())
 
 
 ## Compatibilidad con el botón de antes: una ficha nueva.
@@ -1148,7 +1394,7 @@ func _free_spot() -> Vector3:
 			for entity in _scene_hierarchy.entities:
 				if Vector2(entity.position.x - spot.x, entity.position.z - spot.z).length() < 0.5 and entity.position.y < 0.2:
 					var visual := entity.get_component("VisualComponent") as VisualComponent
-					if visual == null or visual.shape != "tablero":
+					if visual == null or not visual.shape in ["tablero", PieceShapes.ZONE]:
 						free = false
 						break
 			if free:
@@ -1270,6 +1516,14 @@ func _edit_selection(property: String, value: Variant) -> void:
 				visual.scale_factor = clampf(float(value), PieceShapes.MIN_SCALE, PieceShapes.MAX_SCALE)
 			"mass":
 				physics.mass = clampf(float(value), 0.05, 50.0)
+			"label":
+				visual.label = str(value).left(TableRecord.MAX_LABEL)
+			"finish":
+				visual.finish = str(value) if str(value) in PieceShapes.FINISHES else "mate"
+			"pattern":
+				visual.pattern = str(value) if str(value) in PieceShapes.PATTERNS else "liso"
+			"cells":
+				visual.cells = clampi(int(value), PieceShapes.MIN_CELLS, PieceShapes.MAX_CELLS)
 		_refresh_entity_visual(entity)
 	if property in ["shape", "scale"]:
 		_settle(selection)
@@ -1563,17 +1817,23 @@ func set_snap(on: bool) -> void:
 # Aspecto y física de cada pieza
 # ===================================================================================
 
-# Cuerpo visible de la pieza: su forma (con su imagen o su color) y su cuerpo físico.
+# Cuerpo visible de la pieza: su forma (con su color, acabado, imagen o dibujo, texto y,
+# en los dados, sus puntos) y su cuerpo físico.
 func _refresh_entity_visual(entity: PropEntity) -> void:
 	var visual := entity.get_component("VisualComponent") as VisualComponent
-	var shape_name := visual.shape if visual != null else PieceShapes.DEFAULT
-	var scale_factor := visual.scale_factor if visual != null else 1.0
-	var size := PieceShapes.size_of(shape_name, scale_factor)
+	if visual == null:
+		visual = VisualComponent.new()
+		entity.add_component(visual)
+	var shape_name := PieceShapes.valid(visual.shape)
+	var size := PieceShapes.size_of(shape_name, visual.scale_factor)
+	var zone := shape_name == PieceShapes.ZONE
 	var body := entity.get_node_or_null("Body") as RigidBody3D
 	if body == null:
 		body = RigidBody3D.new()
 		body.name = "Body"
 		body.freeze = _build_mode
+		# Congelada se mueve como cinemática: al agarrarla en la prueba empuja a las demás.
+		body.freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 		# Capa 2: piezas. Chocan con la mesa (1) y entre sí.
 		body.collision_layer = 2
 		body.collision_mask = 3
@@ -1585,25 +1845,87 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 		body.add_child(mesh_instance)
 		entity.add_child(body)
 	var shape_node := body.get_node("Shape") as CollisionShape3D
-	shape_node.shape = PieceShapes.collision_for(shape_name, scale_factor)
+	shape_node.shape = PieceShapes.collision_for(shape_name, visual.scale_factor)
 	shape_node.position.y = size.y * 0.5
+	# Las zonas son marcas en la mesa: no chocan con nada.
+	shape_node.disabled = zone
 	var mesh_node := body.get_node("Mesh") as MeshInstance3D
-	mesh_node.mesh = PieceShapes.mesh_for(shape_name, scale_factor)
+	mesh_node.mesh = PieceShapes.mesh_for(shape_name, visual.scale_factor)
 	mesh_node.position.y = size.y * 0.5
+	for extra in ["Face", "Label", "Pips"]:
+		var old := mesh_node.get_node_or_null(extra)
+		if old != null:
+			mesh_node.remove_child(old)
+			old.queue_free()
+
+	var texture: Texture2D = null
+	if not visual.texture_path.is_empty():
+		texture = _image_importer.load_texture(visual.texture_path)
+	var pattern := PieceLooks.pattern_texture(visual.pattern, visual.cells, visual.color_tint) if shape_name in PieceShapes.FLAT else null
 	var material := StandardMaterial3D.new()
-	material.roughness = 0.9
-	material.albedo_color = visual.color_tint if visual != null else Color.WHITE
-	if visual != null and not visual.texture_path.is_empty():
-		var texture := _image_importer.load_texture(visual.texture_path)
-		if texture != null:
-			material.albedo_texture = texture
-			material.albedo_color = Color.WHITE
-			# La imagen se ve entera en la cara de arriba de fichas, cartas y tableros.
-			material.uv1_triplanar = shape_name in ["dado", "bloque", "peon"]
-			if not material.uv1_triplanar:
-				material.uv1_scale = Vector3(1, 1, 1)
+	material.albedo_color = visual.color_tint
+	if zone:
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.albedo_color = Color(visual.color_tint, 0.38)
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	elif texture != null and not shape_name in PieceShapes.FLAT:
+		# Dados, bloques y peones: la imagen envuelve la pieza.
+		material.albedo_texture = texture
+		material.albedo_color = Color.WHITE
+		material.uv1_triplanar = true
+		material.uv1_scale = Vector3.ONE / maxf(size.x, 0.01)
+	elif visual.finish == "madera":
+		material.albedo_texture = PieceLooks.wood_texture()
+		material.uv1_triplanar = true
+		material.uv1_scale = Vector3.ONE * 1.6
 	mesh_node.material_override = material
-	mesh_node.remove_meta(&"toon_style_applied")
+	_style_piece_material(mesh_node, material, visual.finish)
+
+	# La cara de arriba de las piezas planas: la imagen o el dibujo, enteros y sin deformar.
+	var face_texture: Texture2D = texture if texture != null and shape_name in PieceShapes.FLAT else pattern
+	if face_texture != null:
+		var face := MeshInstance3D.new()
+		face.name = "Face"
+		var quad := PlaneMesh.new()
+		var inset := minf(size.x, size.z) * (0.03 if shape_name == "tablero" else 0.08)
+		quad.size = Vector2(size.x - inset * 2.0, size.z - inset * 2.0)
+		face.mesh = quad
+		var face_material := StandardMaterial3D.new()
+		face_material.albedo_texture = face_texture
+		face_material.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
+		face_material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+		face_material.roughness = 1.0
+		face_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		face_material.set_meta(&"toon_style_applied", true)
+		face.material_override = face_material
+		face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		face.position.y = size.y * 0.5 + 0.0015
+		mesh_node.add_child(face)
+
+	if visual.label.strip_edges() != "":
+		var label := Label3D.new()
+		label.name = "Label"
+		label.text = visual.label
+		label.font_size = 96
+		label.outline_size = 18
+		var under := visual.color_tint if face_texture == null else Palette.PAPER
+		label.modulate = PieceLooks.ink_for(under)
+		label.outline_modulate = Color(PieceLooks.ink_for(label.modulate), 0.0 if zone else 0.35)
+		var room := minf(size.x, size.z) if not zone else size.z * 0.6
+		var letters := maxf(1.0, float(visual.label.length()))
+		label.pixel_size = clampf(room * 0.7 / (96.0 * maxf(1.0, letters * 0.55)), 0.0004, 0.01)
+		label.rotation_degrees.x = -90
+		label.position.y = size.y * 0.5 + 0.003
+		label.double_sided = false
+		label.alpha_cut = Label3D.ALPHA_CUT_DISCARD
+		mesh_node.add_child(label)
+
+	if shape_name == "dado" and texture == null:
+		PieceLooks.add_pips(mesh_node, size.x, PieceLooks.ink_for(visual.color_tint))
+
+	# Los dados ruedan con gracia y se paran pronto; el resto se asienta sin patinar.
+	body.linear_damp = 0.8 if shape_name == "dado" else 0.4
+	body.angular_damp = 1.6 if shape_name == "dado" else 0.8
 	var physics := entity.get_component("PhysicsComponent") as PhysicsComponent
 	if physics != null:
 		body.mass = physics.mass
@@ -1613,12 +1935,42 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 		body.physics_material_override = physics_material
 
 
+## Estilo de juguete (como el resto del juego) y, encima, el acabado elegido.
+func _style_piece_material(mesh_node: MeshInstance3D, material: StandardMaterial3D, finish: String) -> void:
+	var toon := get_node_or_null("/root/ToonStyle")
+	if toon != null and toon.has_method("_style_mesh"):
+		toon._style_mesh(mesh_node)
+	material.set_meta(&"toon_style_applied", true)
+	if material.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+		return
+	match finish:
+		"plastico":
+			material.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+			material.roughness = 0.38
+		"brillo":
+			material.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+			material.roughness = 0.2
+			material.clearcoat_enabled = true
+			material.clearcoat = 0.8
+		"metal":
+			material.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+			material.metallic = 0.85
+			material.roughness = 0.32
+		_:
+			material.roughness = 1.0
+
+
+func _is_zone(entity: PropEntity) -> bool:
+	var visual := entity.get_component("VisualComponent") as VisualComponent
+	return visual != null and visual.shape == PieceShapes.ZONE
+
+
 func _set_entity_physics(entity: PropEntity, active: bool) -> void:
 	var body := entity.get_node_or_null("Body") as RigidBody3D
 	if body == null:
 		return
 	# Las piezas fijas (tableros, decorados) no se mueven tampoco al probar.
-	body.freeze = not active or entity.is_locked
+	body.freeze = not active or entity.is_locked or _is_zone(entity)
 	if not active:
 		# Al volver a editar, cada pieza regresa a donde se colocó.
 		body.transform = Transform3D.IDENTITY
@@ -1695,6 +2047,9 @@ func piece_at(screen: Vector2) -> PropEntity:
 		var hit: Variant = _hit_piece(entity, ray[0], ray[1])
 		if hit != null:
 			var distance := (ray[0] as Vector3).distance_to(hit)
+			# Una zona sólo se elige si no hay ninguna pieza encima.
+			if _is_zone(entity):
+				distance += 100.0
 			if distance < best_distance:
 				best_distance = distance
 				best = entity
@@ -1704,12 +2059,19 @@ func piece_at(screen: Vector2) -> PropEntity:
 func _hit_piece(entity: PropEntity, from: Vector3, direction: Vector3) -> Variant:
 	var visual := entity.get_component("VisualComponent") as VisualComponent
 	var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
-	var inverse := entity.global_transform.affine_inverse()
+	var xform := _piece_transform(entity)
+	var inverse := xform.affine_inverse()
 	var local_from := inverse * from
 	var local_dir := (inverse.basis * direction).normalized()
 	var box := AABB(Vector3(-size.x * 0.5, 0, -size.z * 0.5), size)
 	var hit: Variant = box.intersects_ray(local_from, local_dir)
-	return entity.global_transform * (hit as Vector3) if hit != null else null
+	return xform * (hit as Vector3) if hit != null else null
+
+
+## Dónde está la pieza de verdad: al probar, su cuerpo físico se ha movido de su sitio.
+func _piece_transform(entity: PropEntity) -> Transform3D:
+	var body := entity.get_node_or_null("Body") as Node3D
+	return body.global_transform if body != null and body.is_inside_tree() else entity.global_transform
 
 
 ## Punto de la mesa (plano y = height) bajo el ratón.
@@ -1723,7 +2085,7 @@ func _surface_height(at: Vector3, ignore: Array) -> float:
 	var top := 0.0
 	var from := Vector3(at.x, TableRecord.LIMIT_Y + 1.0, at.z)
 	for entity in _scene_hierarchy.entities:
-		if ignore.has(entity):
+		if ignore.has(entity) or _is_zone(entity):
 			continue
 		var hit: Variant = _hit_piece(entity, from, Vector3.DOWN)
 		if hit != null:
@@ -1750,6 +2112,7 @@ func _clamp_to_table(point: Vector3) -> Vector3:
 
 func _gui_input(event: InputEvent) -> void:
 	if not _build_mode:
+		_playtest_input(event)
 		return
 	if event is InputEventMouseButton:
 		_on_mouse_button(event)
@@ -1924,12 +2287,28 @@ func _select_in_box(rect: Rect2) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
-		if _build_mode and not selection.is_empty():
+		if not _build_mode:
+			_toggle_mode()
+			return
+		if not selection.is_empty():
 			select_pieces([])
 			return
 		_back_to_menu()
 		return
-	if not _build_mode or not event is InputEventKey or not event.pressed:
+	if not event is InputEventKey or not event.pressed:
+		return
+	if not _build_mode:
+		var play_key := event as InputEventKey
+		match play_key.keycode:
+			KEY_R:
+				roll_dice()
+			KEY_F:
+				flip_in_play()
+			KEY_HOME:
+				reset_camera()
+			_:
+				return
+		get_viewport().set_input_as_handled()
 		return
 	if get_viewport().gui_get_focus_owner() is LineEdit:
 		return
@@ -2000,6 +2379,233 @@ func _screen_to_table_dir(screen_dir: Vector2) -> Vector3:
 
 
 # ===================================================================================
+# Modo prueba: agarrar y lanzar piezas, tirar dados, voltear
+# ===================================================================================
+
+## Pieza agarrada al probar: {"entity", "body", "height", "velocity", "last"}.
+var _held := {}
+## Dados lanzados que aún ruedan.
+var _rolling: Array = []
+var _roll_started := 0
+
+func _playtest_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var button := event as InputEventMouseButton
+		match button.button_index:
+			MOUSE_BUTTON_LEFT:
+				if button.pressed:
+					if button.double_click:
+						var die := piece_at(button.position)
+						if die != null and _shape_of(die) == "dado":
+							roll_dice([die])
+							accept_event()
+							return
+					_grab_in_play(button.position)
+				else:
+					_release_in_play()
+				accept_event()
+			MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE:
+				if button.pressed:
+					var pan := button.button_index == MOUSE_BUTTON_MIDDLE or button.shift_pressed
+					_drag = {"kind": "pan" if pan else "orbit", "last": button.position}
+				else:
+					_drag = {}
+				accept_event()
+			MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN:
+				if not button.pressed:
+					return
+				var up := button.button_index == MOUSE_BUTTON_WHEEL_UP
+				if not _held.is_empty():
+					var body: RigidBody3D = _held["body"]
+					body.rotate_y(deg_to_rad(ROTATE_STEP if up else -ROTATE_STEP))
+				else:
+					zoom_camera(0.88 if up else 1.14)
+				accept_event()
+	elif event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
+		match _drag.get("kind", ""):
+			"orbit":
+				var delta: Vector2 = motion.position - _drag["last"]
+				_drag["last"] = motion.position
+				orbit_camera(-delta.x * 0.4, delta.y * 0.3)
+				return
+			"pan":
+				var delta: Vector2 = motion.position - _drag["last"]
+				_drag["last"] = motion.position
+				pan_camera(delta)
+				return
+		if not _held.is_empty():
+			_carry_in_play(motion.position)
+		else:
+			var piece := piece_at(motion.position)
+			_hovered = piece
+			mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if piece != null and _movable_in_play(piece) else Control.CURSOR_ARROW
+
+
+func _shape_of(entity: PropEntity) -> String:
+	var visual := entity.get_component("VisualComponent") as VisualComponent
+	return visual.shape if visual != null else PieceShapes.DEFAULT
+
+
+func _movable_in_play(entity: PropEntity) -> bool:
+	return not entity.is_locked and not _is_zone(entity)
+
+
+## Agarra la pieza bajo el ratón: flota un poco y sigue al cursor.
+func _grab_in_play(screen: Vector2) -> void:
+	var piece := piece_at(screen)
+	if piece == null or not _movable_in_play(piece):
+		return
+	var body := piece.get_node_or_null("Body") as RigidBody3D
+	if body == null:
+		return
+	body.freeze = true
+	_held = {"entity": piece, "body": body, "velocity": Vector3.ZERO, "last": body.global_position, "time": Time.get_ticks_msec()}
+	_rolling.erase(piece)
+	_play("grab")
+	_carry_in_play(screen)
+
+
+func _carry_in_play(screen: Vector2) -> void:
+	var body: RigidBody3D = _held["body"]
+	var entity: PropEntity = _held["entity"]
+	var point: Variant = table_point(screen, 0.0)
+	if point == null:
+		return
+	var target := _clamp_to_table(point as Vector3)
+	target.y = _surface_height(target, [entity]) + 0.35
+	var now := Time.get_ticks_msec()
+	var seconds := maxf((now - int(_held["time"])) / 1000.0, 0.001)
+	_held["velocity"] = ((target - (_held["last"] as Vector3)) / maxf(seconds, 0.03)).limit_length(3.0)
+	_held["last"] = target
+	_held["time"] = now
+	var xform := body.global_transform
+	xform.origin = target + Vector3.UP * 0.0
+	body.global_transform = xform
+
+
+## Suelta la pieza: cae con la física y conserva algo del impulso (se puede lanzar).
+func _release_in_play() -> void:
+	if _held.is_empty():
+		return
+	var body: RigidBody3D = _held["body"]
+	body.freeze = false
+	# Sólo se lanza si el ratón aún se movía al soltar.
+	var fresh := Time.get_ticks_msec() - int(_held["time"]) < 90
+	body.linear_velocity = (_held["velocity"] as Vector3) * 0.5 if fresh else Vector3.ZERO
+	var entity: PropEntity = _held["entity"]
+	_held = {}
+	_play("drop")
+	if _shape_of(entity) == "dado":
+		_watch_dice([entity])
+
+
+## Lanza los dados: el agarrado o señalado, o todos los que no estén fijos.
+func roll_dice(dice: Array = []) -> Array:
+	if dice.is_empty():
+		if not _held.is_empty() and _shape_of(_held["entity"]) == "dado":
+			dice = [_held["entity"]]
+		elif _hovered != null and is_instance_valid(_hovered) and _shape_of(_hovered) == "dado":
+			dice = [_hovered]
+		else:
+			for entity in _scene_hierarchy.entities:
+				if _shape_of(entity) == "dado" and not entity.is_locked:
+					dice.append(entity)
+	if dice.is_empty():
+		_update_status(tr("No hay dados en la mesa."))
+		return []
+	if not _held.is_empty() and dice.has(_held["entity"]):
+		_held = {}
+	for die in dice:
+		var body := (die as Node).get_node_or_null("Body") as RigidBody3D
+		if body == null:
+			continue
+		body.freeze = false
+		body.sleeping = false
+		# Hacia arriba y un poco hacia el centro de la mesa, girando: rueda pero no se escapa.
+		var inward := -Vector3(body.global_position.x, 0, body.global_position.z).limit_length(1.0) * 0.6
+		var throw := Vector3(randf_range(-0.6, 0.6), randf_range(3.0, 3.8), randf_range(-0.6, 0.6)) + inward
+		body.linear_velocity = throw
+		body.angular_velocity = Vector3(randf_range(-9, 9), randf_range(-9, 9), randf_range(-9, 9))
+	_play("dice")
+	_watch_dice(dice)
+	return dice
+
+
+func _watch_dice(dice: Array) -> void:
+	_roll_started = Time.get_ticks_msec()
+	for die in dice:
+		if not _rolling.has(die):
+			_rolling.append(die)
+	_update_status(tr("Rodando…"))
+
+
+## Cuando los dados se paran, se dice qué ha salido.
+func _check_rolling() -> void:
+	if _rolling.is_empty() or _build_mode or Time.get_ticks_msec() - _roll_started < 500:
+		return
+	var values: Array[int] = []
+	for die in _rolling:
+		if not is_instance_valid(die):
+			continue
+		var body := (die as Node).get_node_or_null("Body") as RigidBody3D
+		if body == null:
+			continue
+		if body.linear_velocity.length() > 0.05 or body.angular_velocity.length() > 0.1:
+			return
+		values.append(PieceLooks.die_value(body.global_transform.basis))
+	_rolling.clear()
+	last_roll = values
+	if values.is_empty():
+		return
+	var total := 0
+	for value in values:
+		total += value
+	var shown := " + ".join(values.map(func(value: int) -> String: return str(value)))
+	_update_status((tr("Dados: %s = %d") % [shown, total]) if values.size() > 1 else (tr("Dado: %d") % total))
+	_play("turn")
+
+
+## Una pieza que se cae de la mesa al probar vuelve a su sitio desde un poco más arriba.
+func _rescue_fallen() -> void:
+	for entity in _scene_hierarchy.entities:
+		var body := entity.get_node_or_null("Body") as RigidBody3D
+		if body == null or body.freeze or body.global_position.y > -1.0:
+			continue
+		body.global_transform = Transform3D(entity.global_transform.basis, entity.global_position + Vector3.UP * 0.6)
+		body.linear_velocity = Vector3.ZERO
+		body.angular_velocity = Vector3.ZERO
+		if _rolling.has(entity):
+			_roll_started = Time.get_ticks_msec()
+		_play("pop")
+
+
+## Último resultado de dados que se ha leído al probar.
+var last_roll: Array[int] = []
+
+
+## Da la vuelta a la pieza agarrada o señalada (al probar).
+func flip_in_play() -> void:
+	var entity: PropEntity = _held["entity"] if not _held.is_empty() else _hovered
+	if entity == null or not is_instance_valid(entity) or not _movable_in_play(entity):
+		return
+	var body := entity.get_node_or_null("Body") as RigidBody3D
+	if body == null:
+		return
+	var xform := body.global_transform
+	var visual := entity.get_component("VisualComponent") as VisualComponent
+	var center := xform * (Vector3.UP * PieceShapes.size_of(visual.shape, visual.scale_factor).y * 0.5)
+	var flip := Transform3D(Basis(Vector3.BACK, PI), Vector3.ZERO)
+	xform = Transform3D.IDENTITY.translated(center) * flip * Transform3D.IDENTITY.translated(-center) * xform
+	xform.origin.y += 0.25
+	body.global_transform = xform
+	if _held.is_empty():
+		body.freeze = false
+		body.sleeping = false
+	_play("card")
+
+
+# ===================================================================================
 # Cámara: orbitar, acercar, desplazar y enfocar
 # ===================================================================================
 
@@ -2019,6 +2625,18 @@ func pan_camera(delta: Vector2) -> void:
 	var forward := Vector3(-sin(yaw), 0, -cos(yaw))
 	var target: Vector3 = _orbit_goal["target"] - right * delta.x * scale + forward * delta.y * scale
 	_orbit_goal["target"] = _clamp_to_table(target)
+
+
+## Encuadra toda la mesa con piezas.
+func focus_all() -> void:
+	if _scene_hierarchy.entities.is_empty():
+		reset_camera()
+		return
+	var keep := selection.duplicate()
+	selection.assign(_scene_hierarchy.entities)
+	focus_selection()
+	selection.assign(keep)
+	_orbit_goal["distance"] = clampf(float(_orbit_goal["distance"]) * 0.75, 3.0, 8.0)
 
 
 func focus_selection() -> void:
@@ -2069,6 +2687,10 @@ func _process(delta: float) -> void:
 		_apply_orbit()
 	if _build_mode and not selection.is_empty():
 		_refresh_markers()
+	if not _build_mode:
+		_rescue_fallen()
+		if not _rolling.is_empty():
+			_check_rolling()
 
 
 func _update_status(message := "") -> void:
@@ -2078,7 +2700,7 @@ func _update_status(message := "") -> void:
 		_status_bar.text = message
 		return
 	if not _build_mode:
-		_status_bar.text = tr("Editor de juegos · modo prueba · Esc vuelve al menú")
+		_status_bar.text = tr("Probando · arrastra y lanza piezas · R o doble clic: tirar dados · F: voltear · Esc: volver a editar")
 		return
 	var template := "Editor de juegos · %d piezas · %d seleccionadas · imán activado · F1 ayuda" if snap else "Editor de juegos · %d piezas · %d seleccionadas · imán apagado · F1 ayuda"
 	_status_bar.text = tr(template) % [_scene_hierarchy.entities.size() if _scene_hierarchy != null else 0, selection.size()]
@@ -2094,6 +2716,14 @@ func help_text() -> String:
 		tr("Flechas: mover un paso · RePág/AvPág: subir y bajar · G: imán."),
 		tr("Ctrl+D duplicar · Ctrl+C/V copiar y pegar · Supr quitar · Ctrl+A todo."),
 		tr("Ctrl+Z deshacer · Ctrl+Y rehacer · Ctrl+S guardar la mesa."),
+		"",
+		tr("CREAR"),
+		tr("Plantillas: damas, carrera, cartas y dados, listas para cambiar."),
+		tr("Inspector: texto en la pieza, dibujo del tablero y casillas, acabado, repetir en rejilla."),
+		tr("Con varias piezas: en fila, apilar, centrar, numerar y mezclar."),
+		"",
+		tr("PROBAR"),
+		tr("Arrastrar: agarrar y lanzar · R o doble clic en un dado: tirar · F: voltear · Esc: volver a editar."),
 		"",
 		tr("CÁMARA"),
 		tr("Botón derecho: orbitar · Central o Mayús+derecho: desplazar · Rueda: zoom."),

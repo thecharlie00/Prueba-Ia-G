@@ -5,6 +5,13 @@ extends BehaviorComponent
 
 ## Forma de la pieza (PieceShapes.SHAPES).
 @export var shape: String = "ficha"
+## Texto escrito en la cara de arriba (números de carta, nombres de zona…).
+@export var label: String = ""
+## Dibujo de la cara de arriba (PieceShapes.PATTERNS) y casillas por lado.
+@export var pattern: String = "liso"
+@export var cells: int = 8
+## Acabado del material (PieceShapes.FINISHES).
+@export var finish: String = "mate"
 @export var mesh_path: String = ""
 ## Imagen que se ve en la pieza (ruta de ImageImporter).
 @export var texture_path: String = ""
@@ -18,6 +25,10 @@ var mesh_node: MeshInstance3D = null
 
 func _serialize_extra(data: Dictionary) -> void:
 	data["shape"] = shape
+	data["label"] = label
+	data["pattern"] = pattern
+	data["cells"] = cells
+	data["finish"] = finish
 	data["mesh_path"] = mesh_path
 	data["texture_path"] = texture_path
 	data["material_path"] = material_path
@@ -27,6 +38,10 @@ func _serialize_extra(data: Dictionary) -> void:
 
 func _deserialize_extra(data: Dictionary) -> void:
 	shape = PieceShapes.valid(str(data.get("shape", shape)))
+	label = str(data.get("label", label)).left(TableRecord.MAX_LABEL)
+	pattern = str(data.get("pattern", pattern)) if str(data.get("pattern", pattern)) in PieceShapes.PATTERNS else "liso"
+	cells = clampi(int(data.get("cells", cells)), PieceShapes.MIN_CELLS, PieceShapes.MAX_CELLS)
+	finish = str(data.get("finish", finish)) if str(data.get("finish", finish)) in PieceShapes.FINISHES else "mate"
 	mesh_path = data.get("mesh_path", mesh_path)
 	texture_path = data.get("texture_path", texture_path)
 	material_path = data.get("material_path", material_path)

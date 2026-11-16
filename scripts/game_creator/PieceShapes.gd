@@ -5,7 +5,7 @@
 class_name PieceShapes
 extends RefCounted
 
-const SHAPES := ["ficha", "carta", "dado", "disco", "peon", "bloque", "moneda", "tablero"]
+const SHAPES := ["ficha", "carta", "dado", "disco", "peon", "bloque", "moneda", "tablero", "zona"]
 const NAMES := {
 	"ficha": "Ficha",
 	"carta": "Carta",
@@ -15,6 +15,7 @@ const NAMES := {
 	"bloque": "Bloque",
 	"moneda": "Moneda",
 	"tablero": "Tablero",
+	"zona": "Zona",
 }
 const ICONS := {
 	"ficha": "▭",
@@ -25,6 +26,7 @@ const ICONS := {
 	"bloque": "■",
 	"moneda": "◉",
 	"tablero": "▦",
+	"zona": "⬚",
 }
 const DEFAULT := "ficha"
 const MIN_SCALE := 0.25
@@ -40,9 +42,36 @@ const SIZES := {
 	"bloque": Vector3(0.3, 0.3, 0.3),
 	"moneda": Vector3(0.3, 0.035, 0.3),
 	"tablero": Vector3(2.0, 0.05, 2.0),
+	"zona": Vector3(1.0, 0.006, 0.7),
 }
 ## Formas redondas: su cuerpo físico es un cilindro.
 const ROUND := ["disco", "peon", "moneda"]
+## Formas planas y rectangulares: su cara de arriba lleva la imagen o el dibujo entero.
+const FLAT := ["ficha", "carta", "tablero", "zona"]
+## Zonas: marcas en la mesa (mazo, descarte, mano). No chocan ni sostienen piezas.
+const ZONE := "zona"
+
+## Dibujos que se pueden pintar en la cara de arriba (sobre todo de tableros).
+const PATTERNS := ["liso", "ajedrez", "casillas", "recorrido", "go"]
+const PATTERN_NAMES := {
+	"liso": "Liso",
+	"ajedrez": "Ajedrez",
+	"casillas": "Casillas",
+	"recorrido": "Recorrido",
+	"go": "Cruces (go)",
+}
+const MIN_CELLS := 2
+const MAX_CELLS := 19
+
+## Acabados del material.
+const FINISHES := ["mate", "plastico", "brillo", "metal", "madera"]
+const FINISH_NAMES := {
+	"mate": "Mate",
+	"plastico": "Plástico",
+	"brillo": "Barnizado",
+	"metal": "Metal",
+	"madera": "Madera",
+}
 
 
 static func valid(shape: String) -> String:
@@ -68,6 +97,8 @@ static func mesh_for(shape: String, scale_factor := 1.0) -> Mesh:
 			return PieceKit.rounded_box(s, s.x * 0.08)
 		"tablero":
 			return PieceKit.rounded_slab(s, s.x * 0.03, s.y * 0.4)
+		"zona":
+			return PieceKit.rounded_slab(s, minf(s.x, s.z) * 0.08, s.y * 0.4, 4)
 		"disco", "moneda":
 			return PieceKit.rounded_disc(s.x * 0.5, s.y, s.y * 0.4)
 		"peon":
