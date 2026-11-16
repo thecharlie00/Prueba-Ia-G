@@ -109,8 +109,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		var focus := get_viewport().gui_get_focus_owner()
 		if focus is LineEdit or focus is TextEdit:
 			return
-		_leave()
 		get_viewport().set_input_as_handled()
+		_leave()
 
 
 func _build() -> void:
