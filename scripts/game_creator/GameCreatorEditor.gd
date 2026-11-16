@@ -76,6 +76,11 @@ var _label_edit: LineEdit
 var _finish_option: OptionButton
 var _pattern_box: Control
 var _cells_box: Control
+var _back_row: Control
+var _sheet_spins := {}
+var _package_dialog: FileDialog
+var _notes_edit: LineEdit
+var _shuffle_check: CheckBox
 var _pattern_option: OptionButton
 var _repeat_cols: SpinBox
 var _repeat_rows: SpinBox
@@ -410,6 +415,18 @@ func _build_editor_ui() -> void:
 		file_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		table_files.add_child(file_button)
 
+	var share_row := VBoxContainer.new()
+	share_row.add_theme_constant_override("separation", 8)
+	pieces_tab.add_child(share_row)
+	for entry in [["Exportar juego…", "ExportGame", _open_export_dialog, "Un solo archivo con la mesa, la interfaz y todas las imágenes, para compartirlo"], ["Importar juego…", "ImportGame", _open_import_dialog, "Abre un juego exportado (.tablerama)"]]:
+		var share := _button(entry[0], entry[2])
+		share.name = entry[1]
+		share.tooltip_text = entry[3]
+		share.alignment = HORIZONTAL_ALIGNMENT_CENTER
+		share.add_theme_font_size_override("font_size", 14)
+		share.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		share_row.add_child(share)
+
 	# Pestaña «Interfaz»: lo que el jugador verá encima de la mesa.
 	var ui_tab := _tab_column("Interfaz")
 	tabs.add_child(ui_tab.get_parent().get_parent())
@@ -453,6 +470,31 @@ func _build_editor_ui() -> void:
 	_asset_browser.build_ui()
 	_asset_browser.set_image_importer(_image_importer)
 	_asset_browser.image_selected.connect(_on_asset_selected)
+	images_tab.add_child(_caption("CARTAS DESDE IMÁGENES"))
+	images_tab.add_child(_small("Una hoja con las cartas en rejilla (como las de Tabletop Simulator) se corta sola en cartas."))
+	var sheet_grid := GridContainer.new()
+	sheet_grid.name = "SheetGrid"
+	sheet_grid.columns = 1
+	sheet_grid.add_theme_constant_override("h_separation", 6)
+	images_tab.add_child(sheet_grid)
+	for entry in [["Columnas", "SheetCols", 10, 1, 20], ["Filas", "SheetRows", 7, 1, 20], ["Cartas", "SheetCount", 69, 1, 200]]:
+		var spin := SpinBox.new()
+		spin.name = entry[1]
+		spin.min_value = entry[3]
+		spin.max_value = entry[4]
+		spin.value = entry[2]
+		spin.select_all_on_focus = true
+		sheet_grid.add_child(_labelled(entry[0], spin))
+		_sheet_spins[entry[1]] = spin
+	var from_sheet := _button("Mazo desde la hoja elegida", func() -> void:
+		deck_from_sheet(str(_asset_browser.selected_image.get("path", "")), int(_sheet_spins["SheetCols"].value), int(_sheet_spins["SheetRows"].value), int(_sheet_spins["SheetCount"].value))
+	)
+	from_sheet.name = "DeckFromSheet"
+	images_tab.add_child(from_sheet)
+	var from_gallery := _button("Una carta por imagen", cards_from_gallery)
+	from_gallery.name = "CardsFromGallery"
+	from_gallery.tooltip_text = "Un mazo con una carta por cada imagen de la galería"
+	images_tab.add_child(from_gallery)
 
 	var back := _button("←  Volver al menú", _back_to_menu)
 	back.name = "BackButton"
@@ -712,6 +754,11 @@ func _build_piece_inspector(column: VBoxContainer) -> void:
 		cell.add_child(spin)
 		grid.add_child(cell)
 		_spins[entry[0]] = spin
+	_shuffle_check = CheckBox.new()
+	_shuffle_check.name = "ZoneShuffle"
+	_shuffle_check.text = "Mezclar lo de dentro al probar"
+	_shuffle_check.toggled.connect(func(on: bool) -> void: _edit_selection("shuffle", on))
+	fields.add_child(_shuffle_check)
 	_lock_check = CheckBox.new()
 	_lock_check.name = "PieceLocked"
 	_lock_check.text = "Fija: no se mueve al probar"
@@ -731,6 +778,25 @@ func _build_piece_inspector(column: VBoxContainer) -> void:
 	clear_image.name = "ClearTextureButton"
 	clear_image.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	image_row.add_child(clear_image)
+	_back_row = HBoxContainer.new()
+	_back_row.add_theme_constant_override("separation", 8)
+	fields.add_child(_back_row)
+	var set_back := _button("Poner reverso", _apply_selected_back)
+	set_back.name = "ApplyBackButton"
+	set_back.tooltip_text = "La imagen elegida en la galería, en la cara de abajo (se ve al voltear)"
+	set_back.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_back_row.add_child(set_back)
+	var clear_back := _button("Sin reverso", _edit_selection.bind("back", ""))
+	clear_back.name = "ClearBackButton"
+	clear_back.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_back_row.add_child(clear_back)
+	_notes_edit = LineEdit.new()
+	_notes_edit.name = "PieceNotes"
+	_notes_edit.placeholder_text = "Descripción para los jugadores"
+	_notes_edit.tooltip_text = "Se ve al pasar el ratón por la pieza"
+	_notes_edit.max_length = TableRecord.MAX_NOTES
+	_notes_edit.text_changed.connect(func(text: String) -> void: _edit_selection("notes", text))
+	fields.add_child(_notes_edit)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
 	fields.add_child(actions)
@@ -1121,6 +1187,11 @@ func _on_state_changed(new_state: GameCreatorCore.EditorState) -> void:
 	# En construcción las piezas están quietas; al probar, caen y se pueden empujar.
 	for entity in _scene_hierarchy.entities:
 		_set_entity_physics(entity, not _build_mode)
+		# Los anclajes sólo se ven al editar; al probar siguen atrayendo piezas.
+		if _is_anchor(entity):
+			(entity.get_node("Body/Mesh") as Node3D).visible = _build_mode
+	if not _build_mode:
+		shuffle_zones()
 	_grid.visible = snap and _build_mode
 	_markers_root.visible = _build_mode
 	_say("Modo: " + ("construcción" if _build_mode else "prueba"))
@@ -1239,6 +1310,11 @@ func _refresh_piece_inspector() -> void:
 	_finish_option.select(maxi(0, PieceShapes.FINISHES.find(visual.finish)))
 	_pattern_box.visible = visual.shape in PieceShapes.FLAT
 	_cells_box.visible = visual.shape in PieceShapes.FLAT and visual.pattern != "liso"
+	_back_row.visible = visual.shape in PieceShapes.FLAT and visual.shape != PieceShapes.ZONE
+	_shuffle_check.visible = visual.shape == PieceShapes.ZONE
+	_shuffle_check.set_pressed_no_signal(visual.shuffle_on_play)
+	if _notes_edit.text != visual.notes:
+		_notes_edit.text = visual.notes
 	_pattern_option.select(maxi(0, PieceShapes.PATTERNS.find(visual.pattern)))
 	(_spins["cells"] as SpinBox).set_value_no_signal(visual.cells)
 	_texture_label.text = "Imagen: " + _get_entity_texture_info(entity)
@@ -1269,6 +1345,9 @@ func add_piece(shape: String) -> PropEntity:
 		"locked": shape in ["tablero", PieceShapes.ZONE], "mass": 1.0, "bounce": 0.1,
 	}
 	match shape:
+		PieceShapes.ANCHOR:
+			piece["color"] = Palette.SUN.to_html(true)
+			piece["locked"] = true
 		"tablero":
 			piece["color"] = TableTemplates.BOARD_COLOR.to_html(true)
 			piece["pos"] = Vector3.ZERO
@@ -1394,7 +1473,7 @@ func _free_spot() -> Vector3:
 			for entity in _scene_hierarchy.entities:
 				if Vector2(entity.position.x - spot.x, entity.position.z - spot.z).length() < 0.5 and entity.position.y < 0.2:
 					var visual := entity.get_component("VisualComponent") as VisualComponent
-					if visual == null or not visual.shape in ["tablero", PieceShapes.ZONE]:
+					if visual == null or not (visual.shape == "tablero" or visual.shape in PieceShapes.MARKERS):
 						free = false
 						break
 			if free:
@@ -1524,6 +1603,12 @@ func _edit_selection(property: String, value: Variant) -> void:
 				visual.pattern = str(value) if str(value) in PieceShapes.PATTERNS else "liso"
 			"cells":
 				visual.cells = clampi(int(value), PieceShapes.MIN_CELLS, PieceShapes.MAX_CELLS)
+			"back":
+				visual.back_path = str(value)
+			"notes":
+				visual.notes = str(value).left(TableRecord.MAX_NOTES)
+			"shuffle":
+				visual.shuffle_on_play = bool(value)
 		_refresh_entity_visual(entity)
 	if property in ["shape", "scale"]:
 		_settle(selection)
@@ -1582,6 +1667,238 @@ func _apply_selected_texture() -> void:
 		_scene_hierarchy.refresh()
 		_refresh_piece_inspector()
 	_say(tr("Imagen puesta en «%s».") % _selected_entity.entity_name)
+
+
+func _apply_selected_back() -> void:
+	if selection.is_empty():
+		_say("Selecciona primero una pieza.")
+		return
+	var path := str(_asset_browser.selected_image.get("path", "")) if _asset_browser != null else ""
+	if path.is_empty():
+		_say("Elige primero una imagen de la galería (pestaña Imágenes).")
+		return
+	_edit_selection("back", path)
+	_say(tr("Reverso puesto en %d piezas.") % selection.size())
+
+
+# ===================================================================================
+# Mazos desde imágenes (sin plantillas ni programas aparte)
+# ===================================================================================
+
+## Corta una hoja de cartas en rejilla (`cols` × `rows`, las `count` primeras) y pone el mazo.
+func deck_from_sheet(path: String, cols: int, rows: int, count: int) -> Array:
+	if path.is_empty():
+		_say("Elige primero una imagen de la galería (pestaña Imágenes).")
+		return []
+	var sheet := Image.load_from_file(path)
+	if sheet == null:
+		_say("No se pudo abrir la imagen.")
+		return []
+	cols = clampi(cols, 1, 20)
+	rows = clampi(rows, 1, 20)
+	count = clampi(count, 1, cols * rows)
+	var cell := Vector2i(sheet.get_width() / cols, sheet.get_height() / rows)
+	if cell.x < 8 or cell.y < 8:
+		_say("Las cartas saldrían demasiado pequeñas: revisa columnas y filas.")
+		return []
+	var room := TableRecord.MAX_PIECES - _scene_hierarchy.entities.size()
+	if count > room:
+		_say(tr("No caben tantas piezas (quedan %d).") % room)
+		return []
+	var paths: Array = []
+	var base := path.get_file().get_basename()
+	for i in count:
+		var region := Rect2i(Vector2i(i % cols, i / cols) * cell, cell)
+		var card := sheet.get_region(region)
+		var saved := _image_importer.save_image(card, "%s_%02d" % [base, i + 1])
+		if saved.get("success") == true:
+			paths.append(saved["path"])
+	_asset_browser.refresh()
+	return _spawn_deck(paths, base)
+
+
+## Un mazo con una carta por imagen de la galería.
+func cards_from_gallery() -> Array:
+	var paths: Array = []
+	for info in _image_importer.get_imported_images():
+		paths.append(info["path"])
+	if paths.is_empty():
+		_say("La galería está vacía: importa antes alguna imagen.")
+		return []
+	var room := TableRecord.MAX_PIECES - _scene_hierarchy.entities.size()
+	return _spawn_deck(paths.slice(0, room), tr("Carta"))
+
+
+## Pone una carta por imagen, apiladas en un hueco libre y seleccionadas.
+func _spawn_deck(paths: Array, base: String) -> Array:
+	if paths.is_empty():
+		return []
+	_remember("deck")
+	var spot := _free_spot()
+	var height := _surface_height(spot, [])
+	var thickness := PieceShapes.size_of("carta").y
+	var made: Array = []
+	for i in paths.size():
+		var path: String = paths[i]
+		var piece := {
+			"id": "", "name": "%s %d" % [base.left(30), i + 1], "shape": "carta", "color": Palette.PAPER.to_html(true),
+			"texture": path, "label": "", "pattern": "liso", "cells": 8, "finish": "brillo", "back": "", "notes": "",
+			"pos": Vector3(spot.x, height + thickness * i, spot.z), "rot": Vector3.ZERO, "scale": 1.0,
+			"locked": false, "mass": 0.2, "bounce": 0.05,
+		}
+		made.append(_make_piece(piece))
+	select_pieces(made)
+	_bump(made)
+	_play("card")
+	_say(tr("Mazo de %d cartas. Elige una imagen y pulsa «Poner reverso» para darles dorso.") % made.size())
+	return made
+
+
+# ===================================================================================
+# Exportar e importar el juego entero (mesa, interfaz e imágenes en un solo archivo)
+# ===================================================================================
+
+const PACKAGE_FORMAT := "tablerama-juego"
+const PACKAGE_VERSION := 1
+const PACKAGE_MAX_BYTES := 64 * 1024 * 1024
+const EXPORT_FOLDER := "user://creador/exportados/"
+
+
+func _open_export_dialog() -> void:
+	_open_package_dialog(true)
+
+
+func _open_import_dialog() -> void:
+	_open_package_dialog(false)
+
+
+func _open_package_dialog(saving: bool) -> void:
+	DirAccess.make_dir_recursive_absolute(EXPORT_FOLDER)
+	if _package_dialog != null:
+		_package_dialog.queue_free()
+	_package_dialog = FileDialog.new()
+	_package_dialog.name = "PackageDialog"
+	_package_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_package_dialog.use_native_dialog = true
+	_package_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE if saving else FileDialog.FILE_MODE_OPEN_FILE
+	_package_dialog.title = tr("Exportar juego") if saving else tr("Importar juego")
+	_package_dialog.filters = PackedStringArray(["*.tablerama ; Juego de Tablerama"])
+	_package_dialog.current_dir = ProjectSettings.globalize_path(EXPORT_FOLDER)
+	if saving:
+		_package_dialog.current_file = "mi_juego.tablerama"
+	_package_dialog.file_selected.connect(func(path: String) -> void:
+		if saving:
+			export_game(path)
+		else:
+			import_game(path)
+	)
+	add_child(_package_dialog)
+	_package_dialog.popup_centered_ratio(0.7)
+
+
+## Escribe el juego entero en un archivo: mesa, interfaz e imágenes dentro (no depende de
+## enlaces a webs que luego se rompen).
+func export_game(path: String) -> bool:
+	if not path.ends_with(".tablerama"):
+		path += ".tablerama"
+	var table := table_state()
+	var ui := ui_layout.to_record()
+	var images := {}
+	var used: Array = []
+	for piece in table["pieces"]:
+		for key in ["texture", "back"]:
+			if str(piece[key]) != "":
+				used.append(str(piece[key]))
+	for element in ui.get("elements", []):
+		if element is Dictionary and str(element.get("image", "")) != "":
+			used.append(str(element["image"]))
+	for image_path in used:
+		if images.has(image_path) or not FileAccess.file_exists(image_path):
+			continue
+		images[image_path] = Marshalls.raw_to_base64(FileAccess.get_file_as_bytes(image_path))
+	var package := {
+		"format": PACKAGE_FORMAT,
+		"version": PACKAGE_VERSION,
+		"table": table,
+		"ui": ui,
+		"images": images,
+	}
+	var text := JSON.stringify(package)
+	if text.length() > PACKAGE_MAX_BYTES:
+		_say("El juego es demasiado grande para exportarlo (más de 64 MB de imágenes).")
+		return false
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		_say("No se pudo escribir el archivo.")
+		return false
+	file.store_string(text)
+	file.close()
+	_say(tr("Juego exportado: %s (%d piezas, %d imágenes).") % [path.get_file(), (table["pieces"] as Array).size(), images.size()])
+	return true
+
+
+## Abre un juego exportado: guarda sus imágenes en la galería y pone su mesa e interfaz.
+## Si algo no cuadra, no se toca nada de lo actual.
+func import_game(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		_say("No se encuentra el archivo.")
+		return false
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null or file.get_length() > PACKAGE_MAX_BYTES:
+		_say("El archivo no se puede abrir o es demasiado grande.")
+		return false
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if not parsed is Dictionary or parsed.get("format") != PACKAGE_FORMAT or not parsed.get("images") is Dictionary:
+		_say("Ese archivo no es un juego de Tablerama.")
+		return false
+	if TableRecord.pieces_of(parsed.get("table")) == null:
+		_say("El juego tiene piezas que no son válidas; no se ha cargado.")
+		return false
+	# Las imágenes vuelven a la galería con nombres nuevos; las rutas se corrigen.
+	var remap := {}
+	for old_path in parsed["images"]:
+		var bytes := Marshalls.base64_to_raw(str(parsed["images"][old_path]))
+		var image := Image.new()
+		var ok := image.load_png_from_buffer(bytes) == OK
+		if not ok:
+			ok = image.load_jpg_from_buffer(bytes) == OK
+		if not ok:
+			ok = image.load_webp_from_buffer(bytes) == OK
+		if not ok:
+			continue
+		var saved := _image_importer.save_image(image, str(old_path).get_file())
+		if saved.get("success") == true:
+			remap[str(old_path)] = saved["path"]
+	var table: Dictionary = (parsed["table"] as Dictionary).duplicate(true)
+	for piece in table["pieces"]:
+		if piece is Dictionary:
+			for key in ["texture", "back"]:
+				var image_path := str(piece.get(key, ""))
+				if image_path != "":
+					piece[key] = remap.get(image_path, "")
+	var pieces: Variant = TableRecord.pieces_of(table)
+	if pieces == null:
+		_say("El juego tiene piezas que no son válidas; no se ha cargado.")
+		return false
+	var ui_record: Variant = parsed.get("ui")
+	if ui_record is Dictionary:
+		ui_record = (ui_record as Dictionary).duplicate(true)
+		for element in ui_record.get("elements", []):
+			if element is Dictionary and str(element.get("image", "")) != "":
+				element["image"] = remap.get(str(element["image"]), "")
+	var layout := UiLayout.from_record(ui_record) if ui_record is Dictionary else null
+	_remember("import")
+	_rebuild_table(pieces)
+	if layout != null:
+		ui_layout = layout
+		ui_view.show_layout(ui_layout, _build_mode)
+		ui_view.select(0)
+	_asset_browser.refresh()
+	focus_all()
+	_say(tr("Juego importado: %d piezas y %d imágenes.") % [(pieces as Array).size(), remap.size()])
+	return true
 
 
 ## Gira la selección sobre su eje vertical.
@@ -1826,7 +2143,7 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 		entity.add_component(visual)
 	var shape_name := PieceShapes.valid(visual.shape)
 	var size := PieceShapes.size_of(shape_name, visual.scale_factor)
-	var zone := shape_name == PieceShapes.ZONE
+	var zone := shape_name in PieceShapes.MARKERS
 	var body := entity.get_node_or_null("Body") as RigidBody3D
 	if body == null:
 		body = RigidBody3D.new()
@@ -1852,7 +2169,7 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 	var mesh_node := body.get_node("Mesh") as MeshInstance3D
 	mesh_node.mesh = PieceShapes.mesh_for(shape_name, visual.scale_factor)
 	mesh_node.position.y = size.y * 0.5
-	for extra in ["Face", "Label", "Pips"]:
+	for extra in ["Face", "Back", "Label", "Pips"]:
 		var old := mesh_node.get_node_or_null(extra)
 		if old != null:
 			mesh_node.remove_child(old)
@@ -1901,6 +2218,29 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 		face.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		face.position.y = size.y * 0.5 + 0.0015
 		mesh_node.add_child(face)
+
+	# El reverso (cartas, losetas): se ve al voltear la pieza.
+	if shape_name in PieceShapes.FLAT and visual.back_path != "":
+		var back_texture := _image_importer.load_texture(visual.back_path)
+		if back_texture != null:
+			var back := MeshInstance3D.new()
+			back.name = "Back"
+			var back_quad := PlaneMesh.new()
+			var back_inset := minf(size.x, size.z) * 0.08
+			back_quad.size = Vector2(size.x - back_inset * 2.0, size.z - back_inset * 2.0)
+			back.mesh = back_quad
+			var back_material := StandardMaterial3D.new()
+			back_material.albedo_texture = back_texture
+			back_material.diffuse_mode = BaseMaterial3D.DIFFUSE_LAMBERT_WRAP
+			back_material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+			back_material.roughness = 1.0
+			back_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+			back_material.set_meta(&"toon_style_applied", true)
+			back.material_override = back_material
+			back.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			back.position.y = -size.y * 0.5 - 0.0015
+			back.rotation_degrees.z = 180
+			mesh_node.add_child(back)
 
 	if visual.label.strip_edges() != "":
 		var label := Label3D.new()
@@ -1960,9 +2300,29 @@ func _style_piece_material(mesh_node: MeshInstance3D, material: StandardMaterial
 			material.roughness = 1.0
 
 
+## Zonas y anclajes: marcas en la mesa que no chocan ni sostienen piezas.
 func _is_zone(entity: PropEntity) -> bool:
 	var visual := entity.get_component("VisualComponent") as VisualComponent
-	return visual != null and visual.shape == PieceShapes.ZONE
+	return visual != null and visual.shape in PieceShapes.MARKERS
+
+
+func _is_anchor(entity: PropEntity) -> bool:
+	var visual := entity.get_component("VisualComponent") as VisualComponent
+	return visual != null and visual.shape == PieceShapes.ANCHOR
+
+
+## Anclaje más cercano a `at` (en planta) dentro de su radio, o null.
+func _anchor_near(at: Vector3, ignore: Array = []) -> PropEntity:
+	var best: PropEntity = null
+	var best_distance := PieceShapes.ANCHOR_RADIUS
+	for entity in _scene_hierarchy.entities:
+		if not _is_anchor(entity) or ignore.has(entity):
+			continue
+		var distance := Vector2(entity.position.x - at.x, entity.position.z - at.z).length()
+		if distance <= best_distance:
+			best_distance = distance
+			best = entity
+	return best
 
 
 func _set_entity_physics(entity: PropEntity, active: bool) -> void:
@@ -2213,6 +2573,7 @@ func _on_mouse_motion(event: InputEventMouseMotion) -> void:
 				_hovered = piece
 				mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if piece != null else Control.CURSOR_ARROW
 				_refresh_markers()
+				_show_hover_info(piece)
 
 
 func _drag_move(screen: Vector2) -> void:
@@ -2239,6 +2600,13 @@ func _drag_move(screen: Vector2) -> void:
 	if snap and not Input.is_key_pressed(KEY_SHIFT):
 		target = Vector3(snappedf(target.x, GRID_STEP), target.y, snappedf(target.z, GRID_STEP))
 	target = _clamp_to_table(target)
+	# Cerca de un anclaje, la pieza se pega a él y toma su giro.
+	var lead_piece: PropEntity = _drag["piece"]
+	var anchor := _anchor_near(target, selection) if not _is_zone(lead_piece) else null
+	if anchor != null:
+		target = Vector3(anchor.position.x, target.y, anchor.position.z)
+		if selection.size() == 1:
+			lead_piece.rotation_degrees.y = anchor.rotation_degrees.y
 	var move := target - lead_origin
 	# El grupo viaja entero y se posa donde se posa la pieza que se agarró.
 	var lead_entity: PropEntity = _drag["piece"]
@@ -2438,8 +2806,23 @@ func _playtest_input(event: InputEvent) -> void:
 			_carry_in_play(motion.position)
 		else:
 			var piece := piece_at(motion.position)
+			if piece != _hovered:
+				_show_hover_info(piece)
 			_hovered = piece
 			mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if piece != null and _movable_in_play(piece) else Control.CURSOR_ARROW
+
+
+## Al pasar el ratón: el nombre de la pieza y su descripción en la barra de abajo.
+func _show_hover_info(piece: PropEntity) -> void:
+	if piece == null:
+		if _build_mode or (_rolling.is_empty() and last_roll.is_empty()):
+			_update_status()
+		return
+	var visual := piece.get_component("VisualComponent") as VisualComponent
+	var text := piece.entity_name
+	if visual != null and visual.notes.strip_edges() != "":
+		text += " — " + visual.notes
+	_update_status(text)
 
 
 func _shape_of(entity: PropEntity) -> String:
@@ -2495,9 +2878,52 @@ func _release_in_play() -> void:
 	body.linear_velocity = (_held["velocity"] as Vector3) * 0.5 if fresh else Vector3.ZERO
 	var entity: PropEntity = _held["entity"]
 	_held = {}
+	_snap_body_to_anchor(entity, body)
 	_play("drop")
 	if _shape_of(entity) == "dado":
 		_watch_dice([entity])
+
+
+## Al soltar cerca de un anclaje, la pieza cae justo encima y con su giro (sin volcarla).
+func _snap_body_to_anchor(entity: PropEntity, body: RigidBody3D) -> void:
+	var anchor := _anchor_near(body.global_position, [entity])
+	if anchor == null:
+		return
+	var flipped := body.global_transform.basis.y.dot(Vector3.UP) < 0.0
+	var basis := Basis(Vector3.UP, anchor.rotation.y)
+	if flipped:
+		basis = basis * Basis(Vector3.BACK, PI)
+	body.global_transform = Transform3D(basis, Vector3(anchor.position.x, body.global_position.y, anchor.position.z))
+	body.linear_velocity = Vector3.ZERO
+	body.angular_velocity = Vector3.ZERO
+
+
+## Zonas «mezclar al probar»: las piezas de dentro se barajan de sitio al empezar.
+func shuffle_zones() -> int:
+	var shuffled := 0
+	for zone in _scene_hierarchy.entities:
+		var visual := zone.get_component("VisualComponent") as VisualComponent
+		if visual == null or visual.shape != PieceShapes.ZONE or not visual.shuffle_on_play:
+			continue
+		var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
+		var inverse := zone.global_transform.affine_inverse()
+		var inside: Array = []
+		for entity in _scene_hierarchy.entities:
+			if _is_zone(entity):
+				continue
+			var local: Vector3 = inverse * entity.global_position
+			if absf(local.x) <= size.x * 0.5 and absf(local.z) <= size.z * 0.5:
+				inside.append(entity)
+		if inside.size() < 2:
+			continue
+		var spots: Array = inside.map(func(entity: PropEntity) -> Transform3D: return (entity.get_node("Body") as Node3D).global_transform)
+		spots.shuffle()
+		for i in inside.size():
+			((inside[i] as Node).get_node("Body") as Node3D).global_transform = spots[i]
+		shuffled += inside.size()
+	if shuffled > 0:
+		_play("card")
+	return shuffled
 
 
 ## Lanza los dados: el agarrado o señalado, o todos los que no estén fijos.
@@ -2721,6 +3147,9 @@ func help_text() -> String:
 		tr("Plantillas: damas, carrera, cartas y dados, listas para cambiar."),
 		tr("Inspector: texto en la pieza, dibujo del tablero y casillas, acabado, repetir en rejilla."),
 		tr("Con varias piezas: en fila, apilar, centrar, numerar y mezclar."),
+		tr("Anclajes: las piezas soltadas cerca se pegan con su giro. Zonas: pueden mezclar lo de dentro al probar."),
+		tr("Imágenes: corta una hoja de cartas en un mazo, o una carta por imagen; «Poner reverso» les da dorso."),
+		tr("Exportar juego: un solo archivo con todo, imágenes incluidas, para compartirlo."),
 		"",
 		tr("PROBAR"),
 		tr("Arrastrar: agarrar y lanzar · R o doble clic en un dado: tirar · F: voltear · Esc: volver a editar."),

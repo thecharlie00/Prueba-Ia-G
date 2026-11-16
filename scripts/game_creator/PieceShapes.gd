@@ -5,7 +5,7 @@
 class_name PieceShapes
 extends RefCounted
 
-const SHAPES := ["ficha", "carta", "dado", "disco", "peon", "bloque", "moneda", "tablero", "zona"]
+const SHAPES := ["ficha", "carta", "dado", "disco", "peon", "bloque", "moneda", "tablero", "zona", "anclaje"]
 const NAMES := {
 	"ficha": "Ficha",
 	"carta": "Carta",
@@ -16,6 +16,7 @@ const NAMES := {
 	"moneda": "Moneda",
 	"tablero": "Tablero",
 	"zona": "Zona",
+	"anclaje": "Anclaje",
 }
 const ICONS := {
 	"ficha": "▭",
@@ -27,6 +28,7 @@ const ICONS := {
 	"moneda": "◉",
 	"tablero": "▦",
 	"zona": "⬚",
+	"anclaje": "⊕",
 }
 const DEFAULT := "ficha"
 const MIN_SCALE := 0.25
@@ -43,6 +45,7 @@ const SIZES := {
 	"moneda": Vector3(0.3, 0.035, 0.3),
 	"tablero": Vector3(2.0, 0.05, 2.0),
 	"zona": Vector3(1.0, 0.006, 0.7),
+	"anclaje": Vector3(0.34, 0.006, 0.34),
 }
 ## Formas redondas: su cuerpo físico es un cilindro.
 const ROUND := ["disco", "peon", "moneda"]
@@ -50,6 +53,11 @@ const ROUND := ["disco", "peon", "moneda"]
 const FLAT := ["ficha", "carta", "tablero", "zona"]
 ## Zonas: marcas en la mesa (mazo, descarte, mano). No chocan ni sostienen piezas.
 const ZONE := "zona"
+## Anclaje: punto al que se pegan las piezas soltadas cerca (con su giro). Sólo se ve al editar.
+const ANCHOR := "anclaje"
+## Marcas en la mesa: no chocan, no sostienen piezas y no caen al probar.
+const MARKERS := ["zona", "anclaje"]
+const ANCHOR_RADIUS := 0.3
 
 ## Dibujos que se pueden pintar en la cara de arriba (sobre todo de tableros).
 const PATTERNS := ["liso", "ajedrez", "casillas", "recorrido", "go"]
@@ -99,6 +107,8 @@ static func mesh_for(shape: String, scale_factor := 1.0) -> Mesh:
 			return PieceKit.rounded_slab(s, s.x * 0.03, s.y * 0.4)
 		"zona":
 			return PieceKit.rounded_slab(s, minf(s.x, s.z) * 0.08, s.y * 0.4, 4)
+		"anclaje":
+			return PieceKit.rounded_disc(s.x * 0.5, s.y, s.y * 0.4, 32)
 		"disco", "moneda":
 			return PieceKit.rounded_disc(s.x * 0.5, s.y, s.y * 0.4)
 		"peon":

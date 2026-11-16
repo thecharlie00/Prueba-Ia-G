@@ -9,7 +9,7 @@ extends VBoxContainer
 var image_importer: ImageImporter = null
 
 # Tamaño de las miniaturas en el grid.
-var thumbnail_size: Vector2 = Vector2(80, 80)
+var thumbnail_size: Vector2 = Vector2(70, 70)
 
 # Imagen actualmente seleccionada.
 var selected_image: Dictionary = {}
@@ -68,35 +68,38 @@ func _refresh() -> void:
 		var tex := image_importer.load_texture(path)
 		if tex != null:
 			thumb.texture = tex
-		thumb.custom_minimum_size = Vector2(64, 64)
+		# Sin esto, la miniatura mediría lo que la imagen (una hoja de cartas ensancharía el panel).
+		thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		thumb.custom_minimum_size = Vector2(thumbnail_size.x, thumbnail_size.y * 0.8)
 		thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		thumb.mouse_filter = Control.MOUSE_FILTER_STOP
+		thumb.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		thumb.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				_on_image_selected(path)
+		)
 		col.add_child(thumb)
 
 		# Nombre del archivo.
 		var name_lbl := Label.new()
-		name_lbl.text = file_name
+		var chosen := str(selected_image.get("path", "")) == path
+		name_lbl.text = ("✓ " if chosen else "") + file_name
 		name_lbl.add_theme_font_size_override("font_size", 10)
-		name_lbl.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85))
+		name_lbl.add_theme_color_override("font_color", Palette.SUN if chosen else Color(0.85, 0.85, 0.85))
 		name_lbl.clip_text = true
 		name_lbl.custom_minimum_size = Vector2(thumbnail_size.x, 0)
 		col.add_child(name_lbl)
 
-		# Botón de selección.
-		var btn := Button.new()
-		btn.text = "Seleccionar"
-		btn.custom_minimum_size = Vector2(0, 24)
-		btn.add_theme_font_size_override("font_size", 10)
-		btn.pressed.connect(_on_image_selected.bind(path))
-		col.add_child(btn)
-
 		# Tooltip con dimensiones.
 		card.tooltip_text = file_name + "\n" + str(info.get("width", 0)) + " x " + str(info.get("height", 0))
+		thumb.tooltip_text = card.tooltip_text
 
 		_grid.add_child(card)
 
 func _on_image_selected(path: String) -> void:
 	if image_importer != null:
 		selected_image = image_importer.find_image(path.get_file())
+		_refresh()
 	image_selected.emit(path)
 
 # Crea la estructura de UI del navegador (llamado desde GameCreatorEditor).
@@ -132,7 +135,7 @@ func build_ui() -> void:
 	header.add_child(spacer)
 
 	var images_label := Label.new()
-	images_label.text = "Imágenes del proyecto"
+	images_label.text = "Clic en una imagen para elegirla"
 	images_label.add_theme_font_size_override("font_size", 11)
 	images_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 	col.add_child(images_label)

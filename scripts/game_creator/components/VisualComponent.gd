@@ -12,6 +12,12 @@ extends BehaviorComponent
 @export var cells: int = 8
 ## Acabado del material (PieceShapes.FINISHES).
 @export var finish: String = "mate"
+## Imagen del reverso (cartas, losetas): se ve al voltear la pieza.
+@export var back_path: String = ""
+## Descripción para los jugadores: se ve al pasar el ratón por la pieza.
+@export var notes: String = ""
+## Zonas: al empezar a probar, se mezclan las piezas que hay dentro.
+@export var shuffle_on_play: bool = false
 @export var mesh_path: String = ""
 ## Imagen que se ve en la pieza (ruta de ImageImporter).
 @export var texture_path: String = ""
@@ -29,6 +35,9 @@ func _serialize_extra(data: Dictionary) -> void:
 	data["pattern"] = pattern
 	data["cells"] = cells
 	data["finish"] = finish
+	data["back_path"] = back_path
+	data["notes"] = notes
+	data["shuffle_on_play"] = shuffle_on_play
 	data["mesh_path"] = mesh_path
 	data["texture_path"] = texture_path
 	data["material_path"] = material_path
@@ -42,6 +51,9 @@ func _deserialize_extra(data: Dictionary) -> void:
 	pattern = str(data.get("pattern", pattern)) if str(data.get("pattern", pattern)) in PieceShapes.PATTERNS else "liso"
 	cells = clampi(int(data.get("cells", cells)), PieceShapes.MIN_CELLS, PieceShapes.MAX_CELLS)
 	finish = str(data.get("finish", finish)) if str(data.get("finish", finish)) in PieceShapes.FINISHES else "mate"
+	back_path = str(data.get("back_path", back_path))
+	notes = str(data.get("notes", notes)).left(TableRecord.MAX_NOTES)
+	shuffle_on_play = data.get("shuffle_on_play", shuffle_on_play) == true
 	mesh_path = data.get("mesh_path", mesh_path)
 	texture_path = data.get("texture_path", texture_path)
 	material_path = data.get("material_path", material_path)

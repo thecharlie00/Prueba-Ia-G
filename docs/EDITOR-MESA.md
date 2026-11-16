@@ -22,15 +22,20 @@ La plantilla sustituye a la mesa actual; **Ctrl+Z** recupera la de antes.
 
 ## Poner piezas
 
-En la pestaña **Piezas** del panel izquierdo hay nueve formas: **ficha, carta, dado, disco,
-peón, bloque, moneda, tablero y zona**. Cada pulsación pone una pieza en un hueco libre cerca del
+En la pestaña **Piezas** del panel izquierdo hay diez formas: **ficha, carta, dado, disco,
+peón, bloque, moneda, tablero, zona y anclaje**. Cada pulsación pone una pieza en un hueco libre cerca del
 centro. Si debajo hay otra pieza (un tablero, por ejemplo) la nueva se posa encima.
 
 Los **dados** traen sus puntos (las caras opuestas suman 7). Las **zonas** son marcas
 translúcidas con un texto (mazo, descarte, mano…): no chocan ni sostienen piezas, y las
 piezas soltadas encima se posan en la mesa.
 
-El **tablero** y las zonas nacen **fijos**: no se arrastra por accidente y al probar no se mueve. Cualquier
+Los **anclajes** son puntos a los que se pegan las piezas que se sueltan cerca, tomando
+además su giro (como los *snap points* de Tabletop Simulator). Sólo se ven al editar; al
+probar siguen funcionando. Una zona puede marcarse como **«Mezclar lo de dentro al probar»**:
+al empezar la prueba, las piezas que tiene encima se barajan de sitio.
+
+El **tablero**, las zonas y los anclajes nacen **fijos**: no se arrastra por accidente y al probar no se mueve. Cualquier
 pieza puede fijarse o soltarse con la casilla «Fija» del inspector.
 
 ## Seleccionar
@@ -83,6 +88,23 @@ Con varias piezas, **Ordenar la selección** ofrece:
 - **Numerar**: escribe 1, 2, 3… de izquierda a derecha y de fondo a frente.
 - **Mezclar**: baraja los sitios de las piezas entre ellas (un mazo, fichas ocultas).
 
+## Mazos desde imágenes
+
+En la pestaña **Imágenes**:
+
+- **Importar imagen…** la añade a la galería; un clic en una miniatura la elige.
+- **Mazo desde la hoja elegida**: una hoja con las cartas en rejilla (columnas × filas,
+  y cuántas cartas tiene, como las hojas de Tabletop Simulator) se corta sola en un mazo,
+  sin programas aparte. Cada carta queda como imagen propia en la galería.
+- **Una carta por imagen**: un mazo con una carta por cada imagen de la galería.
+- Con el mazo seleccionado, elige otra imagen y pulsa **Poner reverso** en el inspector:
+  todas las cartas tienen dorso, que se ve al voltearlas (F).
+
+Cada pieza tiene además una **descripción** (inspector) que se lee en la barra de abajo al
+pasar el ratón, al editar y al probar.
+
+![Mazo cortado de una hoja, con reverso, y cartas pegadas a anclajes](img/editor-mazo.png)
+
 ## Deshacer, guardar y cargar
 
 - **Ctrl+Z** deshace y **Ctrl+Y** (o Ctrl+Mayús+Z) rehace cualquier cambio de la mesa,
@@ -91,6 +113,10 @@ Con varias piezas, **Ordenar la selección** ofrece:
 - **Guardar / Cargar** (pestaña Piezas, o **Ctrl+S**) conservan la mesa en este equipo.
   Un archivo dañado o con piezas imposibles se rechaza y la mesa actual no se toca.
 - **Vaciar** quita todas las piezas; Ctrl+Z las recupera.
+- **Exportar juego…** escribe un solo archivo `.tablerama` con la mesa, la interfaz y
+  **todas las imágenes dentro**. **Importar juego…** lo abre en cualquier equipo: las
+  imágenes vuelven a la galería y nada depende de enlaces a webs que se rompan. Un archivo
+  dañado, con piezas imposibles o con rutas fuera del juego se rechaza sin tocar la mesa.
 
 ## Cámara
 

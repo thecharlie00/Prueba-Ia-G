@@ -9,6 +9,7 @@ const VERSION := 1
 const MAX_PIECES := 200
 const MAX_NAME := 40
 const MAX_LABEL := 24
+const MAX_NOTES := 200
 const MAX_PATH := 300
 ## Hasta dónde puede estar una pieza: la mesa mide 2,6 de radio y se puede apilar.
 const LIMIT_XZ := 4.0
@@ -28,6 +29,9 @@ static func piece_record(entity: PropEntity) -> Dictionary:
 		"pattern": visual.pattern if visual != null else "liso",
 		"cells": visual.cells if visual != null else 8,
 		"finish": visual.finish if visual != null else "mate",
+		"back": visual.back_path if visual != null else "",
+		"notes": visual.notes if visual != null else "",
+		"shuffle": visual.shuffle_on_play if visual != null else false,
 		"pos": [snappedf(entity.position.x, 0.001), snappedf(entity.position.y, 0.001), snappedf(entity.position.z, 0.001)],
 		"rot": [snappedf(entity.rotation_degrees.x, 0.01), snappedf(entity.rotation_degrees.y, 0.01), snappedf(entity.rotation_degrees.z, 0.01)],
 		"scale": visual.scale_factor if visual != null else 1.0,
@@ -76,7 +80,8 @@ static func valid_piece(item: Variant) -> Dictionary:
 	if not Color.html_is_valid(color_text):
 		return {}
 	var texture := str(d.get("texture", ""))
-	if texture.length() > MAX_PATH or (texture != "" and not (texture.begins_with("user://") or texture.begins_with("res://"))):
+	var back := str(d.get("back", ""))
+	if not (_valid_path(texture) and _valid_path(back)):
 		return {}
 	var scale_value: Variant = d.get("scale", 1.0)
 	var mass_value: Variant = d.get("mass", 1.0)
@@ -96,6 +101,9 @@ static func valid_piece(item: Variant) -> Dictionary:
 		"pattern": pattern if pattern in PieceShapes.PATTERNS else "liso",
 		"cells": clampi(int(cells_value), PieceShapes.MIN_CELLS, PieceShapes.MAX_CELLS),
 		"finish": finish if finish in PieceShapes.FINISHES else "mate",
+		"back": back,
+		"notes": str(d.get("notes", "")).left(MAX_NOTES),
+		"shuffle": d.get("shuffle", false) == true,
 		"pos": p,
 		"rot": rot,
 		"scale": clampf(float(scale_value), PieceShapes.MIN_SCALE, PieceShapes.MAX_SCALE),
@@ -123,6 +131,9 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 	visual.pattern = piece.get("pattern", "liso")
 	visual.cells = piece.get("cells", 8)
 	visual.finish = piece.get("finish", "mate")
+	visual.back_path = piece.get("back", "")
+	visual.notes = piece.get("notes", "")
+	visual.shuffle_on_play = piece.get("shuffle", false)
 	var physics := entity.get_component("PhysicsComponent") as PhysicsComponent
 	if physics == null:
 		physics = PhysicsComponent.new()
@@ -133,6 +144,13 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 		entity.add_component(InteractiveComponent.new())
 	entity.position = piece["pos"]
 	entity.rotation_degrees = piece["rot"]
+
+
+## Rutas de imagen: vacías o dentro de los datos del juego (nunca del disco del jugador).
+static func _valid_path(path: String) -> bool:
+	if path == "":
+		return true
+	return path.length() <= MAX_PATH and (path.begins_with("user://") or path.begins_with("res://")) and not ".." in path
 
 
 static func _vec3(value: Variant) -> Variant:

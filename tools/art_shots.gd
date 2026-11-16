@@ -21,6 +21,7 @@ const SHOTS := {
 	"editor_recorrido": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"editor_cartas": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"editor_dados": "res://scenes/game_creator/GameCreatorEditor.tscn",
+	"editor_mazo": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"creditos": "res://scenes/Credits.tscn",
 }
 
@@ -71,6 +72,50 @@ func _run() -> void:
 					await physics_frame
 					if editor._rolling.is_empty():
 						break
+			for i in 40:
+				await process_frame
+		if key == "editor_mazo" and current_scene.has_method("deck_from_sheet"):
+			# Una hoja de 5 × 2 cartas hecha aquí, cortada en un mazo con reverso, y una fila
+			# de anclajes con cartas pegadas.
+			var editor := current_scene
+			var importer: ImageImporter = editor._image_importer
+			importer.import_folder = "user://creador/imagenes/capturas/"
+			var sheet := Image.create(1000, 700, false, Image.FORMAT_RGBA8)
+			var tints := [Palette.PLAYER_RED, Palette.PLAYER_BLUE, Palette.PLAYER_GREEN, Palette.PLAYER_YELLOW, Palette.PLAYER_ORANGE]
+			for i in 10:
+				var cell := Rect2i((i % 5) * 200, (i / 5) * 350, 200, 350)
+				sheet.fill_rect(cell, Palette.PAPER)
+				sheet.fill_rect(cell.grow(-14), tints[i % 5])
+				sheet.fill_rect(Rect2i(cell.position + Vector2i(40, 90), Vector2i(120, 170)), (tints[i % 5] as Color).lightened(0.5))
+				for d in (i % 5) + 1:
+					sheet.fill_rect(Rect2i(cell.position + Vector2i(52 + d * 20, 160), Vector2i(12, 30)), Palette.INK)
+			var sheet_info: Dictionary = importer.save_image(sheet, "hoja_de_cartas")
+			var back := Image.create(200, 350, false, Image.FORMAT_RGBA8)
+			back.fill(Palette.PIECE_DARK)
+			back.fill_rect(Rect2i(30, 30, 140, 290), Palette.PANEL)
+			back.fill_rect(Rect2i(80, 140, 40, 70), Palette.SUN)
+			var back_info: Dictionary = importer.save_image(back, "reverso")
+			editor._asset_browser.refresh()
+			var deck: Array = editor.deck_from_sheet(sheet_info["path"], 5, 2, 10)
+			editor._asset_browser.selected_image = back_info["info"]
+			editor.select_pieces(deck)
+			editor._apply_selected_back()
+			for card in deck:
+				card.position = Vector3(-1.4, card.position.y - deck[0].position.y, -0.2)
+			editor.select_pieces(deck)
+			editor.flip_selection()
+			for i in 5:
+				var anchor: PropEntity = editor.add_piece("anclaje")
+				anchor.position = Vector3(-0.5 + i * 0.55, 0, 0.75)
+				var card: PropEntity = deck[deck.size() - 1 - i]
+				card.rotation_degrees = Vector3.ZERO
+				card.position = Vector3(-0.5 + i * 0.55, 0, 0.75)
+			var free_anchor: PropEntity = editor.add_piece("anclaje")
+			free_anchor.position = Vector3(1.0, 0, -0.5)
+			free_anchor.rotation_degrees.y = 30
+			editor.select_pieces([deck[deck.size() - 1]])
+			var tabs := editor.find_child("EditorTabs", true, false) as TabContainer
+			tabs.current_tab = 2
 			for i in 40:
 				await process_frame
 		if key == "editor_piezas" and current_scene.has_method("add_piece"):

@@ -159,12 +159,52 @@ func find_image(file_name: String) -> Dictionary:
 			return info
 	return {}
 
-# Carga una textura desde una ruta de imagen importada.
+# Carga una textura desde una ruta de imagen importada. Cada archivo importado tiene un
+# nombre único y no cambia, así que se guarda en memoria: un mazo de 50 cartas no relee
+# 50 archivos cada vez que se toca una pieza.
+var _textures := {}
+
 func load_texture(path: String) -> Texture2D:
+	if _textures.has(path):
+		return _textures[path]
 	var image: Image = Image.load_from_file(path)
 	if image == null:
 		return null
-	return ImageTexture.create_from_image(image)
+	image.generate_mipmaps()
+	var texture := ImageTexture.create_from_image(image)
+	_textures[path] = texture
+	return texture
+
+
+## Guarda una imagen hecha en el editor (una carta recortada de una hoja, una imagen de un
+## juego importado) en la carpeta de imágenes, con nombre único. Con `announce`, avisa como
+## una importación normal; para muchas a la vez, mejor refrescar la galería una vez al final.
+func save_image(image: Image, file_name: String, announce := false) -> Dictionary:
+	if image == null or image.is_empty():
+		return {"success": false, "error": "Imagen vacía."}
+	DirAccess.make_dir_recursive_absolute(import_folder)
+	var base := file_name.get_basename().validate_filename().left(60)
+	if base == "":
+		base = "imagen"
+	var dest_path := import_folder + base + ".png"
+	var i := 1
+	while FileAccess.file_exists(dest_path):
+		dest_path = import_folder + base + str(i) + ".png"
+		i += 1
+	if image.save_png(dest_path) != OK:
+		return {"success": false, "error": "No se pudo escribir en: " + dest_path}
+	var info: Dictionary = {
+		"path": dest_path,
+		"import_path": dest_path,
+		"file_name": dest_path.get_file(),
+		"width": image.get_width(),
+		"height": image.get_height(),
+		"size_bytes": _file_size(dest_path),
+	}
+	imported_images.append(info)
+	if announce:
+		image_imported.emit(info)
+	return {"success": true, "info": info, "path": dest_path}
 
 # Verifica si un archivo existe usando DirAccess.
 func _file_exists(path: String) -> bool:
