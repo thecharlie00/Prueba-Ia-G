@@ -1286,7 +1286,7 @@ func _leave() -> void:
 	Net.room_game = ""
 	Net.room_started = false
 	Net.start_scene = ""
-	get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
+	get_tree().change_scene_to_file(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
 
 #endregion
 

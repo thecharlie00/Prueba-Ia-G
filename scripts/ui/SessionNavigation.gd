@@ -3,10 +3,12 @@ extends CanvasLayer
 signal controls_changed(click_to_grab: bool)
 
 const MENU_PATH := "res://scenes/BotMenu.tscn"
+const HOME_PATH := "res://scenes/Home.tscn"
 
 ## Pantallas de menú (no son mesas): en ellas no aparecen los botones de
 ## sesión ni la pausa. La salida desde una mesa siempre vuelve al menú principal.
 const MENU_SCENES := [
+	"res://scenes/Home.tscn",
 	"res://scenes/BotMenu.tscn",
 	"res://scenes/ModeSelect.tscn",
 	"res://scenes/Menu.tscn",
@@ -41,12 +43,36 @@ const HUD_RESERVE := 172.0
 var _top_reserve := -1.0
 
 
+## Escena anterior (para que «Volver» regrese a la habitación si se vino de ella).
+var previous_scene := ""
+var _current_scene_path := ""
+
+
+## El inicio: la habitación, o la portada clásica si el jugador la prefiere.
+static func home_scene() -> String:
+	return MENU_PATH if HomePrefs.classic_menu() else HOME_PATH
+
+
+## Destino de «Volver» en los menús: la habitación si se llegó desde ella; si no, fallback.
+func back_target(fallback: String) -> String:
+	return HOME_PATH if previous_scene == HOME_PATH else fallback
+
+
+func _track_scene() -> void:
+	var scene := get_tree().current_scene
+	var path := scene.scene_file_path if scene != null else ""
+	if path != _current_scene_path:
+		previous_scene = _current_scene_path
+		_current_scene_path = path
+
+
 func _in_game(scene: Node) -> bool:
 	return scene != null and not MENU_SCENES.has(scene.scene_file_path)
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	get_tree().scene_changed.connect(_track_scene)
 	_load_controls()
 	layer = 100
 
@@ -524,7 +550,7 @@ func _return_to_menu() -> void:
 		var net := get_node_or_null("/root/Net")
 		if net != null and net.has_method("leave_room"):
 			net.leave_room()
-	get_tree().change_scene_to_file(MENU_PATH)
+	get_tree().change_scene_to_file(home_scene())
 
 
 func _request_return_to_menu() -> void:

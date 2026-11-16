@@ -4,6 +4,7 @@ extends SceneTree
 
 const SHOTS := {
 	"menu": "res://scenes/BotMenu.tscn",
+	"habitacion": "res://scenes/Home.tscn",
 	"modos": "res://scenes/ModeSelect.tscn",
 	"bots": "res://scenes/BotSelect.tscn",
 	"lobby": "res://scenes/Lobby.tscn",

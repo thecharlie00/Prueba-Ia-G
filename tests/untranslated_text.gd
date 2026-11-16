@@ -5,6 +5,7 @@ extends SceneTree
 ## de todas las escenas en vez de fallar (útil para completar UiStrings.gd).
 
 const SCENES := [
+	"res://scenes/Home.tscn",
 	"res://scenes/BotMenu.tscn",
 	"res://scenes/ModeSelect.tscn",
 	"res://scenes/Menu.tscn",

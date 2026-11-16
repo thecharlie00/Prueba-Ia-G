@@ -9,7 +9,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_check(
-		ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/BotMenu.tscn",
+		ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/Home.tscn",
 		"el proyecto arranca en el menú principal"
 	)
 	var nav := root.get_node_or_null("SessionNavigation")
@@ -89,7 +89,7 @@ func _run() -> void:
 		nav.call("_request_return_to_menu")
 		await _frames()
 		_check(
-			not paused and current_scene.scene_file_path == "res://scenes/BotMenu.tscn",
+			not paused and current_scene.scene_file_path == root.get_node("SessionNavigation").home_scene(),
 			"confirmar salida vuelve al menú y reanuda el árbol"
 		)
 	_check(change_scene_to_file("res://scenes/Lobby.tscn") == OK, "abrir lobby online")
@@ -126,7 +126,7 @@ func _run() -> void:
 			leave_btn.pressed.emit()
 			await _frames()
 			_check(
-				current_scene != null and current_scene.scene_file_path == "res://scenes/ModeSelect.tscn",
+				current_scene != null and current_scene.scene_file_path in ["res://scenes/ModeSelect.tscn", "res://scenes/Home.tscn"],
 				"salir del lobby sin sala vuelve al selector de modos"
 			)
 

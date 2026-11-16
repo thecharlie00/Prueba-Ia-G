@@ -58,6 +58,18 @@ func _ready() -> void:
 	top_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_bar.add_child(top_spacer)
 
+	var home_btn := Button.new()
+	home_btn.name = "GoHome"
+	home_btn.text = "Ir a la habitación"
+	home_btn.tooltip_text = "La habitación jugable vuelve a ser el inicio."
+	home_btn.custom_minimum_size = Vector2(0, 38)
+	MenuStyle.style_secondary(home_btn, 12, 5)
+	home_btn.pressed.connect(func() -> void:
+		HomePrefs.set_classic_menu(false)
+		get_tree().change_scene_to_file(SessionNavigation.HOME_PATH)
+	)
+	top_bar.add_child(home_btn)
+
 	_sound_btn = Button.new()
 	_sound_btn.name = "QuickSound"
 	_sound_btn.custom_minimum_size = Vector2(132, 38)
