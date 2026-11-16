@@ -103,6 +103,7 @@ func _ready() -> void:
 	_intro_done = true
 	_build_ui()
 	_build_marker()
+	FxMaterials.prewarm(self)
 	for id in HomePrefs.placed_decor():
 		_place_decor(id, false)
 	for id in HomePrefs.deliveries():
@@ -887,8 +888,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		open_settings()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_TAB:
-		_go(CLASSIC_PATH)
 		get_viewport().set_input_as_handled()
+		_go(CLASSIC_PATH)
 	elif _is_use(event):
 		if nearest != null:
 			nearest.use()
@@ -1132,10 +1133,7 @@ func _sky_drop(parcel: Node3D, id: String, spot: Vector3, delay: float) -> void:
 	# Sombra que avisa de dónde va a caer.
 	var shadow := MeshInstance3D.new()
 	shadow.mesh = PieceKit.rounded_disc(0.7, 0.01, 0.005, 32)
-	var shadow_mat := StandardMaterial3D.new()
-	shadow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	shadow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	shadow_mat.albedo_color = Color(Palette.INK, 0.0)
+	var shadow_mat := FxMaterials.make(FxMaterials.GLOW_ALPHA, Color(Palette.INK, 0.0))
 	shadow.material_override = shadow_mat
 	shadow.position = Vector3(0, 0.03, 0)
 	shadow.scale = Vector3(0.15, 1.0, 0.15)
@@ -1197,9 +1195,7 @@ func _make_parachute() -> Node3D:
 	half.height = 1.0
 	half.is_hemisphere = true
 	dome.mesh = half
-	var cloth := StandardMaterial3D.new()
-	cloth.albedo_color = Palette.CORAL
-	cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var cloth := FxMaterials.make(FxMaterials.CLOTH, Palette.CORAL)
 	dome.material_override = cloth
 	dome.position.y = 2.2
 	dome.scale = Vector3(1.0, 0.7, 1.0)
@@ -1257,10 +1253,7 @@ func _land(parcel: Node3D, box: Node3D, spot: Vector3) -> void:
 	# Anillo de polvo que se abre.
 	var ring := MeshInstance3D.new()
 	ring.mesh = PieceKit.torus(0.6, 0.12, 40)
-	var ring_mat := StandardMaterial3D.new()
-	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	ring_mat.albedo_color = Color(1, 0.96, 0.88, 0.85)
+	var ring_mat := FxMaterials.make(FxMaterials.GLOW_ALPHA, Color(1, 0.96, 0.88, 0.85))
 	ring.material_override = ring_mat
 	ring.position = spot + Vector3(0, 0.08, 0)
 	add_child(ring)
@@ -1356,11 +1349,7 @@ func _confetti(at: Vector3) -> void:
 		var quad := QuadMesh.new()
 		quad.size = Vector2(0.09, 0.14)
 		bit.mesh = quad
-		var material := StandardMaterial3D.new()
-		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		material.cull_mode = BaseMaterial3D.CULL_DISABLED
-		material.albedo_color = colors[i % colors.size()]
-		bit.material_override = material
+		bit.material_override = FxMaterials.make(FxMaterials.GLOW_TWO_SIDED, colors[i % colors.size()])
 		bit.position = at
 		add_child(bit)
 		var flight := Vector3(randf_range(-1.6, 1.6), randf_range(1.2, 2.6), randf_range(-1.6, 1.6))

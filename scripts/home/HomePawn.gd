@@ -19,6 +19,8 @@ var _was_moving := false
 var _squash := Vector3.ONE
 var _blink := 2.0
 var _step_side := 1.0
+## Malla compartida de las nubecillas de polvo.
+static var _dust_mesh: SphereMesh
 ## Escala base del muñeco (la que da el tamaño en la sala).
 const BASE_SCALE := 0.82
 
@@ -148,15 +150,18 @@ func _puff(at: Vector3) -> void:
 	if parent == null:
 		return
 	var dust := MeshInstance3D.new()
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.12
-	mesh.height = 0.24
-	dust.mesh = mesh
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.albedo_color = Color(1, 0.97, 0.9, 0.7)
+	if _dust_mesh == null:
+		_dust_mesh = SphereMesh.new()
+		_dust_mesh.radius = 0.12
+		_dust_mesh.height = 0.24
+		_dust_mesh.radial_segments = 16
+		_dust_mesh.rings = 8
+	dust.mesh = _dust_mesh
+	# Copia de un material base que vive toda la sesión: así su shader no se libera al
+	# pararse el peón ni se recompila (con tirón) al volver a andar.
+	var material := FxMaterials.make(FxMaterials.GLOW_ALPHA, Color(1, 0.97, 0.9, 0.7))
 	dust.material_override = material
+	dust.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	dust.position = Vector3(at.x, 0.08, at.z)
 	parent.add_child(dust)
 	var tween := dust.create_tween().set_parallel(true)
