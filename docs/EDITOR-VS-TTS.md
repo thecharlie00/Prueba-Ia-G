@@ -37,13 +37,13 @@ guías y comentarios de la comunidad (noviembre de 2026).
 | Deshacer | *Rewind* por tiempo | **Ctrl+Z / Ctrl+Y** de cualquier cambio, con la selección |
 | Colocar | Gizmo, rejilla | Arrastrar con imán, apilado automático, flechas, rejillas de copias, en fila, apilar, centrar |
 | Probar | Es el mismo modo | **Probar la mesa** y volver a editar: todo vuelve a su sitio |
+| Lógica | Lua escrito a mano, script global y por objeto | **Blueprints** (eventos, flujo, acciones, datos) y **bloques GDScript** aislados con la API `mesa` ([EDITOR-LOGICA.md](EDITOR-LOGICA.md)) |
+| Etiquetas | Tags para zonas y snap points | Etiquetas en cada pieza, usables desde la lógica |
 | Idiomas | Inglés en las herramientas | Editor en español, inglés y catalán |
 
 ## Lo que TTS tiene y aún falta (siguientes pasos propuestos)
 
-1. **Reglas sin programar** (en lugar de Lua): bloques «cuando… entonces…» (al pulsar un
-   botón, al soltar en una zona, al empezar) con acciones (repartir N cartas, mover a una
-   zona, sumar a un contador, tirar dados). Ya existe la base en las acciones de botones.
+1. ~~Reglas sin programar~~ Hecho: blueprints con bloques GDScript.
 2. **Zonas de mano y ocultas** para el online: piezas que sólo ve su dueño.
 3. **Estados de un objeto** (una pieza con varias caras, como una carta de doble cara).
 4. **Bolsas** (incluida la infinita) y **contadores** en la mesa.

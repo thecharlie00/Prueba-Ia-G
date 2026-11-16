@@ -78,6 +78,13 @@ var _pattern_box: Control
 var _cells_box: Control
 var _back_row: Control
 var _sheet_spins := {}
+## Lógica del juego (blueprints) y quien la ejecuta al probar.
+var logic := LogicGraph.new()
+var logic_editor: LogicEditor
+var _logic_runner: LogicRunner
+var _logic_vars := {}
+var _toast: Label
+var _tags_edit: LineEdit
 var _package_dialog: FileDialog
 var _notes_edit: LineEdit
 var _shuffle_check: CheckBox
@@ -137,6 +144,7 @@ func _ready() -> void:
 	move_child(ui_view, $ViewportContainer.get_index() + 1)
 	ui_view.element_selected.connect(_on_ui_selected)
 	ui_view.element_changed.connect(_on_ui_changed)
+	ui_view.button_pressed.connect(_on_ui_button)
 	ui_view.show_layout(ui_layout, true)
 	_marquee = Panel.new()
 	_marquee.name = "SelectionBox"
@@ -359,6 +367,11 @@ func _build_editor_ui() -> void:
 	_snap_check.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_snap_check.toggled.connect(set_snap)
 	tools.add_child(_snap_check)
+
+	var logic_button := _button("🧩  Lógica del juego…", open_logic_editor)
+	logic_button.name = "OpenLogic"
+	logic_button.tooltip_text = "Blueprints: eventos, acciones y bloques GDScript que dan reglas al juego"
+	left_col.add_child(logic_button)
 
 	var tabs := TabContainer.new()
 	tabs.name = "EditorTabs"
@@ -797,6 +810,13 @@ func _build_piece_inspector(column: VBoxContainer) -> void:
 	_notes_edit.max_length = TableRecord.MAX_NOTES
 	_notes_edit.text_changed.connect(func(text: String) -> void: _edit_selection("notes", text))
 	fields.add_child(_notes_edit)
+	_tags_edit = LineEdit.new()
+	_tags_edit.name = "PieceTags"
+	_tags_edit.placeholder_text = "Etiquetas: rojo, carta, jugador1…"
+	_tags_edit.tooltip_text = "Separadas por comas. La lógica puede elegir piezas por etiqueta."
+	_tags_edit.text_submitted.connect(func(_t: String) -> void: _edit_selection("tags", _tags_edit.text))
+	_tags_edit.focus_exited.connect(func() -> void: _edit_selection("tags", _tags_edit.text))
+	fields.add_child(_tags_edit)
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
 	fields.add_child(actions)
@@ -1192,6 +1212,11 @@ func _on_state_changed(new_state: GameCreatorCore.EditorState) -> void:
 			(entity.get_node("Body/Mesh") as Node3D).visible = _build_mode
 	if not _build_mode:
 		shuffle_zones()
+		_start_logic()
+	else:
+		_stop_logic()
+		if _toast != null:
+			_toast.modulate.a = 0.0
 	_grid.visible = snap and _build_mode
 	_markers_root.visible = _build_mode
 	_say("Modo: " + ("construcción" if _build_mode else "prueba"))
@@ -1315,6 +1340,8 @@ func _refresh_piece_inspector() -> void:
 	_shuffle_check.set_pressed_no_signal(visual.shuffle_on_play)
 	if _notes_edit.text != visual.notes:
 		_notes_edit.text = visual.notes
+	if not _tags_edit.has_focus():
+		_tags_edit.text = ", ".join(entity.tags)
 	_pattern_option.select(maxi(0, PieceShapes.PATTERNS.find(visual.pattern)))
 	(_spins["cells"] as SpinBox).set_value_no_signal(visual.cells)
 	_texture_label.text = "Imagen: " + _get_entity_texture_info(entity)
@@ -1378,6 +1405,7 @@ func load_template(name: String) -> void:
 		return
 	_remember("template")
 	_rebuild_table(pieces)
+	_apply_logic(TableTemplates.logic(name))
 	for entity in _scene_hierarchy.entities:
 		_pop_in(entity)
 	_play("pop")
@@ -1609,6 +1637,8 @@ func _edit_selection(property: String, value: Variant) -> void:
 				visual.notes = str(value).left(TableRecord.MAX_NOTES)
 			"shuffle":
 				visual.shuffle_on_play = bool(value)
+			"tags":
+				entity.tags.assign(TableRecord.clean_tags(value))
 		_refresh_entity_visual(entity)
 	if property in ["shape", "scale"]:
 		_settle(selection)
@@ -1679,6 +1709,299 @@ func _apply_selected_back() -> void:
 		return
 	_edit_selection("back", path)
 	_say(tr("Reverso puesto en %d piezas.") % selection.size())
+
+
+# ===================================================================================
+# Lógica del juego (blueprints)
+# ===================================================================================
+
+func open_logic_editor() -> void:
+	if logic_editor == null:
+		logic_editor = LogicEditor.new()
+		logic_editor.name = "LogicEditor"
+		logic_editor.before_change = _remember
+		logic_editor.zones_provider = _zone_options
+		logic_editor.buttons_provider = _ui_options.bind("button")
+		logic_editor.counters_provider = _ui_options.bind("counter")
+		logic_editor.elements_provider = _ui_options.bind("")
+		logic_editor.closed.connect(func() -> void:
+			_say(tr("Lógica: %d bloques. Pulsa «Probar la mesa» para verla funcionar.") % logic.nodes.size())
+		)
+		add_child(logic_editor)
+	logic_editor.open_with(logic)
+
+
+func _zone_options() -> Array:
+	var result: Array = []
+	for entity in _scene_hierarchy.entities:
+		var visual := entity.get_component("VisualComponent") as VisualComponent
+		if visual != null and visual.shape == PieceShapes.ZONE:
+			var shown := entity.entity_name if visual.label == "" else "%s (%s)" % [entity.entity_name, visual.label]
+			result.append([entity.entity_id, shown])
+	return result
+
+
+func _ui_options(type: String) -> Array:
+	var result: Array = []
+	for element in ui_layout.elements:
+		if type == "" or str(element["type"]) == type:
+			result.append([int(element["id"]), str(element["name"]) + (" · " + str(element["text"]) if str(element["text"]) != "" else "")])
+	return result
+
+
+func _start_logic() -> void:
+	_logic_vars.clear()
+	if logic.is_empty():
+		return
+	_logic_runner = LogicRunner.new(logic, self)
+	_logic_runner.start()
+	for id in _logic_runner.errors:
+		logic_message(tr("Un bloque GDScript tiene un error: ") + str(_logic_runner.errors[id]))
+		break
+
+
+func _stop_logic() -> void:
+	if _logic_runner != null:
+		_logic_runner.stop()
+		_logic_runner = null
+
+
+func _fire_logic(type: String, matches := Callable(), data := {}) -> void:
+	if _logic_runner != null and not _build_mode:
+		_logic_runner.fire(type, matches, data)
+
+
+func _on_ui_button(id: int) -> void:
+	_fire_logic("ev_boton", func(p: Dictionary) -> bool: return int(p["boton"]) == id)
+
+
+# --- Lo que la lógica (y «mesa» en los bloques GDScript) puede hacer en la mesa -------
+
+## Id de una zona a partir de su id, su nombre o su texto (sin distinguir mayúsculas).
+func logic_zone_id(name_or_id: String) -> String:
+	var wanted := name_or_id.strip_edges().to_lower()
+	if wanted == "":
+		return ""
+	for entity in _scene_hierarchy.entities:
+		var visual := entity.get_component("VisualComponent") as VisualComponent
+		if visual == null or visual.shape != PieceShapes.ZONE:
+			continue
+		if entity.entity_id.to_lower() == wanted or entity.entity_name.to_lower() == wanted or visual.label.to_lower() == wanted:
+			return entity.entity_id
+	return ""
+
+
+func logic_zone_names() -> Array:
+	return _zone_options().map(func(item: Array) -> String: return _find_piece(item[0]).entity_name)
+
+
+## Ids de las piezas de una zona (o de toda la mesa sin zona), de arriba abajo; con
+## etiqueta, sólo las que la tienen.
+func logic_pieces(zone_id: String, tag: String) -> Array:
+	zone_id = logic_zone_id(zone_id) if zone_id != "" else ""
+	var zone := _find_piece(zone_id) if zone_id != "" else null
+	if zone_id != "" and zone == null:
+		return []
+	var wanted := tag.strip_edges().to_lower()
+	var found: Array = []
+	for entity in _scene_hierarchy.entities:
+		if _is_zone(entity):
+			continue
+		if wanted != "" and not wanted in entity.tags:
+			continue
+		if zone != null and not _inside_zone(zone, _piece_transform(entity).origin):
+			continue
+		found.append(entity)
+	found.sort_custom(func(x: PropEntity, y: PropEntity) -> bool: return _piece_transform(x).origin.y > _piece_transform(y).origin.y)
+	return found.map(func(entity: PropEntity) -> String: return entity.entity_id)
+
+
+func _inside_zone(zone: PropEntity, point: Vector3) -> bool:
+	var visual := zone.get_component("VisualComponent") as VisualComponent
+	var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
+	var local: Vector3 = zone.global_transform.affine_inverse() * point
+	return absf(local.x) <= size.x * 0.5 and absf(local.z) <= size.z * 0.5
+
+
+## Zona en la que está una pieza ("" si ninguna).
+func logic_zone_of(piece_id: String) -> String:
+	var entity := _find_piece(piece_id)
+	if entity == null:
+		return ""
+	for zone in _scene_hierarchy.entities:
+		var visual := zone.get_component("VisualComponent") as VisualComponent
+		if visual != null and visual.shape == PieceShapes.ZONE and _inside_zone(zone, _piece_transform(entity).origin):
+			return zone.entity_name
+	return ""
+
+
+func logic_piece_name(piece_id: String) -> String:
+	var entity := _find_piece(piece_id)
+	return entity.entity_name if entity != null else ""
+
+
+func logic_piece_tags(piece_id: String) -> Array:
+	var entity := _find_piece(piece_id)
+	return Array(entity.tags) if entity != null else []
+
+
+func logic_piece_label(piece_id: String) -> String:
+	var entity := _find_piece(piece_id)
+	return (entity.get_component("VisualComponent") as VisualComponent).label if entity != null else ""
+
+
+func logic_piece_color(piece_id: String) -> Color:
+	var entity := _find_piece(piece_id)
+	return (entity.get_component("VisualComponent") as VisualComponent).color_tint if entity != null else Color.WHITE
+
+
+func logic_set_label(piece_id: String, text: String) -> void:
+	var entity := _find_piece(piece_id)
+	if entity == null:
+		return
+	(entity.get_component("VisualComponent") as VisualComponent).label = text.left(TableRecord.MAX_LABEL)
+	_refresh_entity_visual(entity)
+
+
+## Lleva una pieza a una zona, al siguiente hueco libre (en fila, boca arriba si era carta).
+func logic_move(piece_id: String, zone_id: String) -> void:
+	var entity := _find_piece(piece_id)
+	var zone := _find_piece(logic_zone_id(zone_id))
+	if entity == null or zone == null or _is_zone(entity):
+		return
+	var already := logic_pieces(zone.entity_id, "").filter(func(id: String) -> bool: return id != piece_id).size()
+	_place_in_zone(entity, zone, already)
+
+
+func _place_in_zone(entity: PropEntity, zone: PropEntity, slot: int) -> void:
+	var zone_visual := zone.get_component("VisualComponent") as VisualComponent
+	var zone_size := PieceShapes.size_of(zone_visual.shape, zone_visual.scale_factor)
+	var visual := entity.get_component("VisualComponent") as VisualComponent
+	var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
+	var step := size.x + 0.04
+	var per_row := maxi(1, int(zone_size.x / step))
+	var row := slot / per_row
+	var col := slot % per_row
+	var used := minf(per_row, 1e9) * step
+	var local := Vector3(-used * 0.5 + step * (col + 0.5), 0, -zone_size.z * 0.5 + (size.z + 0.04) * (row + 0.5))
+	local.z = clampf(local.z, -zone_size.z * 0.5, zone_size.z * 0.5)
+	var target: Vector3 = zone.global_transform * local
+	var body := entity.get_node_or_null("Body") as RigidBody3D
+	var basis := Basis(Vector3.UP, zone.rotation.y)
+	if body != null and not _build_mode:
+		body.global_transform = Transform3D(basis, target + Vector3.UP * (0.12 + row * 0.02))
+		body.linear_velocity = Vector3.ZERO
+		body.angular_velocity = Vector3.ZERO
+		body.freeze = entity.is_locked
+		body.sleeping = false
+	else:
+		entity.position = target
+		entity.rotation = Vector3(0, zone.rotation.y, 0)
+
+
+## Pasa las `count` piezas de arriba de una zona a otra. Devuelve cuántas se movieron.
+func logic_deal(count: int, from_zone: String, to_zone: String, tag := "") -> int:
+	var to := _find_piece(logic_zone_id(to_zone))
+	if to == null:
+		return 0
+	var source := logic_pieces(from_zone, tag)
+	var moving := source.slice(0, clampi(count, 0, source.size()))
+	var already := logic_pieces(to.entity_id, "").filter(func(id: String) -> bool: return not id in moving).size()
+	for i in moving.size():
+		_place_in_zone(_find_piece(moving[i]), to, already + i)
+	if not moving.is_empty():
+		_play("card")
+	return moving.size()
+
+
+func logic_shuffle(zone_id: String) -> void:
+	var zone := _find_piece(logic_zone_id(zone_id))
+	if zone != null:
+		_shuffle_zone(zone)
+
+
+func logic_flip(piece_id: String) -> void:
+	var entity := _find_piece(piece_id)
+	if entity == null or _is_zone(entity):
+		return
+	var body := entity.get_node_or_null("Body") as RigidBody3D
+	if body == null or _build_mode:
+		return
+	var visual := entity.get_component("VisualComponent") as VisualComponent
+	var xform := body.global_transform
+	var center := xform * (Vector3.UP * PieceShapes.size_of(visual.shape, visual.scale_factor).y * 0.5)
+	xform = Transform3D.IDENTITY.translated(center) * Transform3D(Basis(Vector3.BACK, PI), Vector3.ZERO) * Transform3D.IDENTITY.translated(-center) * xform
+	xform.origin.y += 0.1
+	body.global_transform = xform
+	body.freeze = entity.is_locked
+	body.sleeping = false
+
+
+func _ui_id(name_or_id: Variant) -> int:
+	if name_or_id is int or name_or_id is float:
+		return int(name_or_id)
+	var wanted := str(name_or_id).strip_edges().to_lower()
+	for element in ui_layout.elements:
+		if str(element["name"]).to_lower() == wanted or str(element["text"]).to_lower() == wanted:
+			return int(element["id"])
+	return 0
+
+
+func logic_counter(name_or_id: Variant) -> int:
+	return ui_view.counter_value(_ui_id(name_or_id)) if ui_view != null else 0
+
+
+func logic_set_counter(name_or_id: Variant, value: int) -> void:
+	if ui_view != null:
+		ui_view.set_counter(_ui_id(name_or_id), value)
+
+
+func logic_show_element(name_or_id: Variant, visible_now: bool) -> void:
+	if ui_view != null:
+		ui_view.set_element_visible(_ui_id(name_or_id), visible_now)
+
+
+func logic_variable(name: String) -> Variant:
+	return _logic_vars.get(name.strip_edges().to_lower())
+
+
+func logic_store(name: String, value: Variant) -> void:
+	if _logic_vars.size() < 500 or _logic_vars.has(name.strip_edges().to_lower()):
+		_logic_vars[name.strip_edges().to_lower()] = value
+
+
+## Un aviso grande y breve en el centro de arriba (y en la barra de abajo).
+var last_message := ""
+
+func logic_message(text: String) -> void:
+	last_message = text.left(300)
+	_update_status(last_message)
+	if _toast == null:
+		_toast = Label.new()
+		_toast.name = "LogicToast"
+		_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_toast.add_theme_font_size_override("font_size", 30)
+		_toast.add_theme_color_override("font_color", Palette.PAPER)
+		_toast.add_theme_color_override("font_outline_color", Palette.INK)
+		_toast.add_theme_constant_override("outline_size", 12)
+		_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		_toast.offset_left = -420
+		_toast.offset_right = 420
+		_toast.offset_top = 70
+		_toast.offset_bottom = 170
+		add_child(_toast)
+	_toast.text = last_message
+	_toast.modulate.a = 1.0
+	_toast.scale = Vector2.ONE
+	_toast.pivot_offset = Vector2(420, 50)
+	if is_inside_tree():
+		var tween := create_tween()
+		tween.tween_property(_toast, "scale", Vector2(1.08, 1.08), 0.08)
+		tween.tween_property(_toast, "scale", Vector2.ONE, 0.18)
+		tween.tween_interval(2.2)
+		tween.tween_property(_toast, "modulate:a", 0.0, 0.5)
 
 
 # ===================================================================================
@@ -1889,15 +2212,23 @@ func import_game(path: String) -> bool:
 			if element is Dictionary and str(element.get("image", "")) != "":
 				element["image"] = remap.get(str(element["image"]), "")
 	var layout := UiLayout.from_record(ui_record) if ui_record is Dictionary else null
+	var imported_logic := LogicGraph.from_record((parsed["table"] as Dictionary).get("logic"))
+	if imported_logic == null:
+		_say("La lógica del juego no es válida; no se ha cargado.")
+		return false
 	_remember("import")
 	_rebuild_table(pieces)
+	logic = imported_logic
+	if logic.has_code():
+		_say("Este juego trae bloques GDScript: se ejecutan aislados, sin acceso a tus archivos.")
 	if layout != null:
 		ui_layout = layout
 		ui_view.show_layout(ui_layout, _build_mode)
 		ui_view.select(0)
 	_asset_browser.refresh()
 	focus_all()
-	_say(tr("Juego importado: %d piezas y %d imágenes.") % [(pieces as Array).size(), remap.size()])
+	var note := tr(" Trae bloques GDScript, que se ejecutan aislados.") if logic.has_code() else ""
+	_say(tr("Juego importado: %d piezas y %d imágenes.") % [(pieces as Array).size(), remap.size()] + note)
 	return true
 
 
@@ -2022,7 +2353,17 @@ func center_selection() -> void:
 # ===================================================================================
 
 func table_state() -> Dictionary:
-	return TableRecord.table_record(_scene_hierarchy.entities)
+	var state := TableRecord.table_record(_scene_hierarchy.entities)
+	state["logic"] = logic.to_record()
+	return state
+
+
+## Pone la lógica guardada en `state` (o una vacía); la vista de bloques, si está abierta, se rehace.
+func _apply_logic(record: Variant) -> void:
+	var loaded := LogicGraph.from_record(record)
+	logic = loaded if loaded != null else LogicGraph.new()
+	if logic_editor != null and logic_editor.visible:
+		logic_editor.open_with(logic)
 
 
 ## Foto para el historial: la mesa y qué estaba seleccionado.
@@ -2065,6 +2406,7 @@ func _restore(state: Dictionary) -> void:
 		return
 	var keep: Array = state.get("selection", []) if state.get("selection") is Array else []
 	_rebuild_table(pieces)
+	_apply_logic(state.get("logic"))
 	var reselect: Array = []
 	for id in keep:
 		var entity := _find_piece(str(id))
@@ -2099,6 +2441,7 @@ func load_table() -> bool:
 		return false
 	_remember("load")
 	_rebuild_table(TableRecord.pieces_of(loaded["record"]))
+	_apply_logic(loaded["record"].get("logic"))
 	_say(tr("Mesa cargada: %d piezas.") % _scene_hierarchy.entities.size())
 	return true
 
@@ -2112,7 +2455,9 @@ func clear_table() -> void:
 
 
 static func _decode_table(record: Variant) -> Variant:
-	return record if TableRecord.pieces_of(record) != null else null
+	if TableRecord.pieces_of(record) == null or LogicGraph.from_record(record.get("logic")) == null:
+		return null
+	return record
 
 
 func _update_history_buttons() -> void:
@@ -2471,6 +2816,8 @@ func _clamp_to_table(point: Vector3) -> Vector3:
 # ===================================================================================
 
 func _gui_input(event: InputEvent) -> void:
+	if logic_editor != null and logic_editor.visible:
+		return
 	if not _build_mode:
 		_playtest_input(event)
 		return
@@ -2653,6 +3000,9 @@ func _select_in_box(rect: Rect2) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Con los bloques abiertos, sus atajos son suyos (Supr borra bloques, no piezas).
+	if logic_editor != null and logic_editor.visible:
+		return
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		if not _build_mode:
@@ -2674,6 +3024,9 @@ func _unhandled_input(event: InputEvent) -> void:
 				flip_in_play()
 			KEY_HOME:
 				reset_camera()
+			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9:
+				var digit := str(play_key.keycode - KEY_0)
+				_fire_logic("ev_tecla", func(p: Dictionary) -> bool: return str(p["tecla"]) == digit)
 			_:
 				return
 		get_viewport().set_input_as_handled()
@@ -2880,6 +3233,11 @@ func _release_in_play() -> void:
 	_held = {}
 	_snap_body_to_anchor(entity, body)
 	_play("drop")
+	for zone in _scene_hierarchy.entities:
+		var zone_visual := zone.get_component("VisualComponent") as VisualComponent
+		if zone_visual != null and zone_visual.shape == PieceShapes.ZONE and _inside_zone(zone, body.global_position):
+			var zone_id := zone.entity_id
+			_fire_logic("ev_soltar", func(p: Dictionary) -> bool: return logic_zone_id(str(p["zona"])) == zone_id, {"pieza": entity.entity_id})
 	if _shape_of(entity) == "dado":
 		_watch_dice([entity])
 
@@ -2903,27 +3261,22 @@ func shuffle_zones() -> int:
 	var shuffled := 0
 	for zone in _scene_hierarchy.entities:
 		var visual := zone.get_component("VisualComponent") as VisualComponent
-		if visual == null or visual.shape != PieceShapes.ZONE or not visual.shuffle_on_play:
-			continue
-		var size := PieceShapes.size_of(visual.shape, visual.scale_factor)
-		var inverse := zone.global_transform.affine_inverse()
-		var inside: Array = []
-		for entity in _scene_hierarchy.entities:
-			if _is_zone(entity):
-				continue
-			var local: Vector3 = inverse * entity.global_position
-			if absf(local.x) <= size.x * 0.5 and absf(local.z) <= size.z * 0.5:
-				inside.append(entity)
-		if inside.size() < 2:
-			continue
-		var spots: Array = inside.map(func(entity: PropEntity) -> Transform3D: return (entity.get_node("Body") as Node3D).global_transform)
-		spots.shuffle()
-		for i in inside.size():
-			((inside[i] as Node).get_node("Body") as Node3D).global_transform = spots[i]
-		shuffled += inside.size()
-	if shuffled > 0:
-		_play("card")
+		if visual != null and visual.shape == PieceShapes.ZONE and visual.shuffle_on_play:
+			shuffled += _shuffle_zone(zone)
 	return shuffled
+
+
+## Baraja de sitio las piezas que hay dentro de una zona. Devuelve cuántas.
+func _shuffle_zone(zone: PropEntity) -> int:
+	var inside: Array = logic_pieces(zone.entity_id, "").map(func(id: String) -> PropEntity: return _find_piece(id))
+	if inside.size() < 2:
+		return 0
+	var spots: Array = inside.map(func(entity: PropEntity) -> Transform3D: return (entity.get_node("Body") as Node3D).global_transform)
+	spots.shuffle()
+	for i in inside.size():
+		((inside[i] as Node).get_node("Body") as Node3D).global_transform = spots[i]
+	_play("card")
+	return inside.size()
 
 
 ## Lanza los dados: el agarrado o señalado, o todos los que no estén fijos.
@@ -2990,6 +3343,7 @@ func _check_rolling() -> void:
 	var shown := " + ".join(values.map(func(value: int) -> String: return str(value)))
 	_update_status((tr("Dados: %s = %d") % [shown, total]) if values.size() > 1 else (tr("Dado: %d") % total))
 	_play("turn")
+	_fire_logic("ev_dados", Callable(), {"total": float(total), "valores": Array(values)})
 
 
 ## Una pieza que se cae de la mesa al probar vuelve a su sitio desde un poco más arriba.
@@ -3150,6 +3504,7 @@ func help_text() -> String:
 		tr("Anclajes: las piezas soltadas cerca se pegan con su giro. Zonas: pueden mezclar lo de dentro al probar."),
 		tr("Imágenes: corta una hoja de cartas en un mazo, o una carta por imagen; «Poner reverso» les da dorso."),
 		tr("Exportar juego: un solo archivo con todo, imágenes incluidas, para compartirlo."),
+		tr("Lógica del juego: blueprints con eventos, flujo, acciones, datos y bloques GDScript (con «mesa»)."),
 		"",
 		tr("PROBAR"),
 		tr("Arrastrar: agarrar y lanzar · R o doble clic en un dado: tirar · F: voltear · Esc: volver a editar."),

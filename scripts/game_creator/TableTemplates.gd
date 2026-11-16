@@ -50,14 +50,15 @@ static func pieces(name: String) -> Array:
 				list.append(_piece("peon", _t(names[i]), spots[i], PieceLooks.CORNER_COLORS[i], {"scale": 0.55, "finish": "plastico"}))
 			list.append(_piece("dado", _t("Dado"), Vector3(0, top, 0), Palette.PAPER, {"scale": 0.8}))
 		"cartas":
-			list.append(_piece("zona", _t("Zona mazo"), Vector3(-0.75, 0, 0), Palette.LAVENDER, {"label": _t("MAZO"), "scale": 0.9, "locked": true}))
-			list.append(_piece("zona", _t("Zona descarte"), Vector3(0.75, 0, 0), Palette.LAVENDER, {"label": _t("DESCARTE"), "scale": 0.9, "locked": true}))
+			list.append(_piece("zona", _t("Zona mazo"), Vector3(-0.75, 0, -0.45), Palette.LAVENDER, {"id": "zona_mazo", "label": _t("MAZO"), "scale": 0.9, "locked": true}))
+			list.append(_piece("zona", _t("Zona descarte"), Vector3(0.75, 0, -0.45), Palette.LAVENDER, {"id": "zona_descarte", "label": _t("DESCARTE"), "scale": 0.9, "locked": true}))
+			list.append(_piece("zona", _t("Zona mano"), Vector3(0, 0, 0.9), Palette.MINT, {"id": "zona_mano", "label": _t("MANO"), "scale": 1.8, "locked": true}))
 			var height := PieceShapes.size_of("zona").y * 0.9
 			var card := PieceShapes.size_of("carta").y
 			for suit in 2:
 				for value in range(1, 11):
 					var color: Color = Palette.PLAYER_RED if suit == 0 else Palette.PLAYER_BLUE
-					list.append(_piece("carta", _t("Carta %d roja" if suit == 0 else "Carta %d azul") % value, Vector3(-0.75, height, 0), color.lightened(0.55), {"label": str(value), "finish": "brillo", "mass": 0.2}))
+					list.append(_piece("carta", _t("Carta %d roja" if suit == 0 else "Carta %d azul") % value, Vector3(-0.75, height, -0.45), color.lightened(0.55), {"label": str(value), "finish": "brillo", "mass": 0.2}))
 					height += card
 		"dados":
 			list.append(_piece("zona", _t("Zona de tirada"), Vector3(0, 0, 0.3), Palette.MINT, {"label": _t("TIRADA"), "scale": 1.6, "locked": true}))
@@ -67,6 +68,31 @@ static func pieces(name: String) -> Array:
 	for item in list:
 		clean.append(TableRecord.valid_piece(item))
 	return clean
+
+
+## Lógica de partida de cada plantilla (o null): ejemplos de bloques ya montados.
+static func logic(name: String) -> Variant:
+	match name:
+		"cartas":
+			# Al empezar: mezclar el mazo y repartir 5 a la mano. Tecla 1: robar una.
+			return {"version": 1, "nodes": [
+				{"id": 1, "type": "ev_inicio", "pos": [0, 0], "params": {}},
+				{"id": 2, "type": "ac_mezclar", "pos": [340, 0], "params": {"zona": "zona_mazo"}},
+				{"id": 3, "type": "ac_repartir", "pos": [680, 0], "params": {"cantidad": 5, "de": "zona_mazo", "a": "zona_mano", "etiqueta": ""}},
+				{"id": 4, "type": "ev_tecla", "pos": [0, 400], "params": {"tecla": "1"}},
+				{"id": 5, "type": "ac_repartir", "pos": [340, 400], "params": {"cantidad": 1, "de": "zona_mazo", "a": "zona_mano", "etiqueta": ""}},
+				{"id": 6, "type": "ac_mensaje", "pos": [1020, 0], "params": {"texto": _t("Cinco cartas a la mano. Pulsa 1 para robar.")}},
+			], "links": [[1, "out", 2, "in"], [2, "out", 3, "in"], [3, "out", 6, "in"], [4, "out", 5, "in"]]}
+		"dados":
+			# Al pararse los dados: un bloque GDScript decide el mensaje según el total.
+			return {"version": 1, "nodes": [
+				{"id": 1, "type": "ev_dados", "pos": [0, 0], "params": {}},
+				{"id": 2, "type": "gd_expresion", "pos": [340, 160], "params": {"codigo": "if a >= 25:\n\treturn \"¡Tirada enorme: %d!\" % a\nreturn \"Total: %d\" % a"}},
+				{"id": 3, "type": "ac_mensaje", "pos": [820, 0], "params": {"texto": ""}},
+				{"id": 4, "type": "ev_inicio", "pos": [0, 480], "params": {}},
+				{"id": 5, "type": "ac_mensaje", "pos": [340, 480], "params": {"texto": _t("Pulsa R para tirar los dados.")}},
+			], "links": [[1, "out", 3, "in"], [1, "total", 2, "a"], [2, "resultado", 3, "texto"], [4, "out", 5, "in"]]}
+	return null
 
 
 static func _t(text: String) -> String:

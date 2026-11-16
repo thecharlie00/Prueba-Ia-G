@@ -22,6 +22,7 @@ const SHOTS := {
 	"editor_cartas": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"editor_dados": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"editor_mazo": "res://scenes/game_creator/GameCreatorEditor.tscn",
+	"editor_logica": "res://scenes/game_creator/GameCreatorEditor.tscn",
 	"creditos": "res://scenes/Credits.tscn",
 }
 
@@ -73,6 +74,29 @@ func _run() -> void:
 					if editor._rolling.is_empty():
 						break
 			for i in 40:
+				await process_frame
+		if key == "editor_logica" and current_scene.has_method("open_logic_editor"):
+			# La lógica de la plantilla de cartas y, debajo, un bloque GDScript que cuenta la mano.
+			var editor := current_scene
+			editor.load_template("cartas")
+			var g: LogicGraph = editor.logic
+			var key2 := g.add_node("ev_tecla", Vector2(0, 760))
+			g.nodes[key2]["params"]["tecla"] = "2"
+			var code := g.add_node("gd_bloque", Vector2(340, 760))
+			g.nodes[code]["params"]["codigo"] = "var mano = mesa.piezas_en_zona(\"Mano\")\nvar puntos = 0\nfor carta in mano:\n\tpuntos += int(mesa.texto_de(carta))\nmesa.poner(\"Puntos\", puntos)\nreturn puntos"
+			var say := g.add_node("ac_mensaje", Vector2(1160, 760))
+			var join := g.add_node("da_unir", Vector2(860, 980))
+			g.nodes[join]["params"]["a"] = "Puntos en la mano: "
+			g.connect_ports(key2, "out", code, "in")
+			g.connect_ports(code, "out", say, "in")
+			g.connect_ports(code, "resultado", join, "b")
+			g.connect_ports(join, "valor", say, "texto")
+			editor.open_logic_editor()
+			for i in 10:
+				await process_frame
+			editor.logic_editor.graph_edit.zoom = 0.62
+			editor.logic_editor.graph_edit.scroll_offset = Vector2(-30, -60)
+			for i in 30:
 				await process_frame
 		if key == "editor_mazo" and current_scene.has_method("deck_from_sheet"):
 			# Una hoja de 5 × 2 cartas hecha aquí, cortada en un mazo con reverso, y una fila

@@ -19,7 +19,7 @@ func _run() -> void:
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
 
 	# 1. Plantillas: cada una pone su mesa y se puede deshacer.
-	var expected := {"damas": 25, "recorrido": 6, "cartas": 22, "dados": 6}
+	var expected := {"damas": 25, "recorrido": 6, "cartas": 23, "dados": 6}
 	for name in TableTemplates.NAMES:
 		editor.load_template(name)
 		_check(hierarchy.entities.size() == expected[name], "la plantilla «%s» pone %d piezas (%d)" % [name, expected[name], hierarchy.entities.size()])

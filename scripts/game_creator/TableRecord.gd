@@ -10,6 +10,8 @@ const MAX_PIECES := 200
 const MAX_NAME := 40
 const MAX_LABEL := 24
 const MAX_NOTES := 200
+const MAX_TAGS := 8
+const MAX_TAG := 20
 const MAX_PATH := 300
 ## Hasta dónde puede estar una pieza: la mesa mide 2,6 de radio y se puede apilar.
 const LIMIT_XZ := 4.0
@@ -32,6 +34,7 @@ static func piece_record(entity: PropEntity) -> Dictionary:
 		"back": visual.back_path if visual != null else "",
 		"notes": visual.notes if visual != null else "",
 		"shuffle": visual.shuffle_on_play if visual != null else false,
+		"tags": Array(entity.tags),
 		"pos": [snappedf(entity.position.x, 0.001), snappedf(entity.position.y, 0.001), snappedf(entity.position.z, 0.001)],
 		"rot": [snappedf(entity.rotation_degrees.x, 0.01), snappedf(entity.rotation_degrees.y, 0.01), snappedf(entity.rotation_degrees.z, 0.01)],
 		"scale": visual.scale_factor if visual != null else 1.0,
@@ -104,6 +107,7 @@ static func valid_piece(item: Variant) -> Dictionary:
 		"back": back,
 		"notes": str(d.get("notes", "")).left(MAX_NOTES),
 		"shuffle": d.get("shuffle", false) == true,
+		"tags": clean_tags(d.get("tags", [])),
 		"pos": p,
 		"rot": rot,
 		"scale": clampf(float(scale_value), PieceShapes.MIN_SCALE, PieceShapes.MAX_SCALE),
@@ -119,6 +123,7 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 		entity.entity_id = piece["id"]
 	entity.entity_name = piece["name"]
 	entity.is_locked = piece["locked"]
+	entity.tags.assign(piece.get("tags", []))
 	var visual := entity.get_component("VisualComponent") as VisualComponent
 	if visual == null:
 		visual = VisualComponent.new()
@@ -144,6 +149,17 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 		entity.add_component(InteractiveComponent.new())
 	entity.position = piece["pos"]
 	entity.rotation_degrees = piece["rot"]
+
+
+## Etiquetas: en minúsculas, sin repetir, como mucho MAX_TAGS de MAX_TAG letras.
+static func clean_tags(raw: Variant) -> Array:
+	var result: Array = []
+	var items: Array = raw if raw is Array else (str(raw).split(",") as Array if raw is String else [])
+	for item in items:
+		var tag := str(item).strip_edges().to_lower().left(MAX_TAG)
+		if tag != "" and not tag in result and result.size() < MAX_TAGS:
+			result.append(tag)
+	return result
 
 
 ## Rutas de imagen: vacías o dentro de los datos del juego (nunca del disco del jugador).
