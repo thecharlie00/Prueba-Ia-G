@@ -27,7 +27,7 @@ const SPANISH_WORDS := [
 const SAME_IN_ALL := ["Tablerama", "Español", "English", "Català", "Lilita One", "Nunito", "Godot Engine"]
 
 ## Nombres de juegos que no se traducen.
-const PROPER_NOUNS := ["Parchís", "PARCHÍS", "Parchis"]
+const PROPER_NOUNS := ["Parchís", "PARCHÍS", "Parchis", "parchís"]
 
 var _failed := false
 var _listing := false
@@ -50,6 +50,19 @@ func _run() -> void:
 			await process_frame
 		var found := {}
 		_collect(current_scene, found)
+		# La habitación: también la tienda (las dos pestañas) y el armario.
+		if current_scene is Home:
+			var home := current_scene as Home
+			home.open_shop()
+			for tab in ["decor", "wear"]:
+				home.shop.call("_show_tab", tab)
+				await process_frame
+				_collect(home.shop, found)
+			home.shop.close_shop()
+			home.open_wardrobe()
+			await process_frame
+			_collect(home.wardrobe, found)
+			home.wardrobe.close_wardrobe()
 		for text in found:
 			total += 1
 			if _listing:

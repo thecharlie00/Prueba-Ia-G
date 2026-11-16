@@ -14,7 +14,9 @@ el transporte de Steam.
 | Pizarra «Cómo se juega» | Tutorial jugable | `Main.tscn` con `Tutorial.requested` |
 | Puerta «Salas» | Salas online (bloqueada en la demo) | `Lobby.tscn` |
 | Taller | Estudio de creación (bloqueado en la demo) | `GameCreatorEditor.tscn` |
-| Espejo | Cambia el color del peón | — |
+| Armario con espejo | Color, sombrero y complemento del peón (primer plano del peón) | panel |
+| Ordenador | Dadazon, la tienda: decoración y ropa con fichas | panel |
+| Paquetes de Dadazon | Llegan a la puerta tras comprar; al abrirlos, confeti y el objeto aparece | — |
 | Tocadiscos | Sonido sí/no | — |
 | Corcho «Ajustes» | Idioma, sonido, pantalla completa, menú clásico, créditos, informar de un fallo, salir | panel |
 
@@ -63,3 +65,23 @@ Juguetes sueltos (dados y fichas con física) que el peón empuja al pasar y que
 - `scripts/home/HomeDecor.gd`: piezas de la sala compartidas con el diorama de los menús.
 - `scripts/home/HomePrefs.gd`: color del peón y menú clásico (`user://tablerama_home.cfg`).
 - Pruebas: `tests/home_room.gd`. Capturas: `tools/home_shots.gd -- carpeta [--demo] [--en]`.
+
+## Dadazon, fichas y armario
+
+**Dadazon** («lo tiras hoy, lo tienes en un turno») es la tienda del ordenador. Vende
+decoración (Botito, sofá, bola de discoteca, pecera con Pipo, lámpara de pie, neón «¡A jugar!»,
+trofeo de peón dorado, cactus) y ropa (gorra, gorro de fiesta, flor, auriculares, chistera,
+corona; pajarita, bufanda, bigote). Catálogo en `ShopCatalog`, miniaturas en `assets/shop`
+(las genera `tools/shop_thumbs.gd`).
+
+- **Fichas**: se empieza con 150; se ganan 5 por minuto jugado en cualquier mesa (mínimo un
+  minuto, tope 40 por partida, `SessionNavigation.award_play_time`). Al volver a la habitación
+  sale «+N fichas por jugar».
+- **Pedido**: al cerrar la tienda suena el timbre y cae una caja de Dadazon junto a la puerta.
+  Las cajas sin abrir se guardan. Al abrirla: confeti; la decoración aparece en su sitio con
+  rebote (`DecorItems.SLOTS`) y la ropa se estrena puesta.
+- **Armario**: colores (todos gratis), gorro y gafas de serie; lo demás sale con candado hasta
+  comprarlo. La cámara hace primer plano del peón mientras eliges.
+- La decoración tiene vida: Botito te sigue, Pipo nada, la bola gira y el neón parpadea.
+- Todo se guarda en `user://tablerama_home.cfg` (`HomePrefs`).
+- Pruebas: `tests/home_shop.gd`. Capturas: `tools/home_shop_shots.gd -- carpeta [--es]`.

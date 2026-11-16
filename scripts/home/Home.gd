@@ -3,7 +3,8 @@ extends Node3D
 ## La habitación de juegos: el menú principal de Tablerama, jugable. El peón de arcilla se
 ## mueve por la sala y cada mueble es una opción: la mesa con los bots, la estantería de
 ## juegos, la pizarra del tutorial, la puerta de las salas online, el taller del editor, el
-## espejo (color del peón), el tocadiscos (sonido) y el corcho (ajustes). Tab abre el menú
+## armario (aspecto del peón), el ordenador (tienda Dadazon), el tocadiscos (sonido) y el
+## corcho (ajustes). Lo comprado llega en cajas a la puerta. Tab abre el menú
 ## clásico y Esc los ajustes, para quien prefiera no caminar.
 
 const SCENE_PATH := "res://scenes/Home.tscn"
@@ -34,6 +35,7 @@ var nearest: Interactable
 var settings_panel: Control
 var _prompt: Button
 var _toast: Label
+var _toast_box: PanelContainer
 var _toast_timer := 0.0
 var _pending: Interactable
 var _bots: Array[Node3D] = []
@@ -56,6 +58,14 @@ var _bot_bubble: Label3D
 var _marker: MeshInstance3D
 var _note_timer := 0.0
 var _fade: ColorRect
+# Tienda, armario y paquetes
+var shop: ShopUI
+var wardrobe: WardrobeUI
+var _coin_label: Label
+var _decor := {}
+var _parcels: Array[Node3D] = []
+var _wardrobe_focus := false
+const DOOR_DROP := Vector3(-6.9, 0, -0.3)
 
 
 func _ready() -> void:
@@ -89,6 +99,11 @@ func _ready() -> void:
 	_intro_done = true
 	_build_ui()
 	_build_marker()
+	for id in HomePrefs.placed_decor():
+		_place_decor(id, false)
+	for id in HomePrefs.deliveries():
+		_spawn_parcel(id, false)
+	_show_reward.call_deferred()
 	var locale := get_node_or_null("/root/Locale")
 	if locale != null and locale.has_signal("language_changed"):
 		locale.language_changed.connect(func(_code: String) -> void: _refresh_texts())
@@ -247,15 +262,45 @@ func _build_furniture() -> void:
 	if door_item.locked:
 		_padlock(door + Vector3(0.32, 2.2, 0))
 
-	# Espejo (pared derecha): color del peón.
-	var mirror := Vector3(8.92, 0, -4.2)
-	var frame := HomeDecor.add_mesh(self, PieceKit.rounded_disc(0.95, 0.1, 0.04, 48), mirror + Vector3(-0.05, 2.0, 0), Palette.SUN.darkened(0.1))
-	frame.rotation.z = PI / 2.0
-	frame.scale = Vector3(1.0, 1.0, 0.7)
-	var glass := HomeDecor.add_mesh(self, PieceKit.rounded_disc(0.82, 0.06, 0.02, 48), mirror + Vector3(-0.12, 2.0, 0), Color("c9d8f2"))
+	# Armario con espejo (pared derecha): aspecto del peón.
+	var closet := Vector3(8.45, 0, -4.3)
+	HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(1.0, 3.3, 2.3), 0.08), closet + Vector3(0, 1.65, 0), Palette.LAVENDER.darkened(0.15))
+	HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(1.1, 0.16, 2.45), 0.05), closet + Vector3(0, 3.35, 0), Palette.LAVENDER.darkened(0.3))
+	for side in [-1.0, 1.0]:
+		HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(0.08, 3.0, 1.06), 0.04), closet + Vector3(-0.52, 1.65, side * 0.56), Palette.LAVENDER)
+		HomeDecor.add_mesh(self, _knob_mesh(), closet + Vector3(-0.6, 1.65, side * 0.12), Palette.SUN)
+	var glass := HomeDecor.add_mesh(self, PieceKit.rounded_disc(0.36, 0.04, 0.015, 40), closet + Vector3(-0.58, 2.0, -0.56), Color("c9d8f2"))
 	glass.rotation.z = PI / 2.0
-	glass.scale = Vector3(1.0, 1.0, 0.7)
-	_item("espejo", "Cambiar de color", mirror, Vector3(7.7, 0, -4.2), 0.7, Vector3(0.6, 3.2, 1.6), 3.4)
+	glass.scale = Vector3(1.6, 1.0, 1.0)
+	_static_box(Vector3(1.1, 3.4, 2.4), closet + Vector3(0, 1.7, 0))
+	_sign("ARMARIO", closet + Vector3(-0.6, 3.75, 0), 48, Palette.LAVENDER.lightened(0.3))
+	_item("armario", "Personalizar tu peón", closet, Vector3(7.0, 0, -4.3), 1.0, Vector3(1.0, 3.3, 2.3), 4.0)
+
+	# Ordenador (pared izquierda): la tienda Dadazon.
+	var pc := Vector3(-8.25, 0, -5.0)
+	HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(1.2, 0.12, 2.2), 0.04), pc + Vector3(0, 1.0, 0), wood)
+	for corner in [Vector3(-0.45, 0, -0.95), Vector3(0.45, 0, -0.95), Vector3(-0.45, 0, 0.95), Vector3(0.45, 0, 0.95)]:
+		HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(0.1, 0.95, 0.1), 0.03), pc + corner + Vector3(0, 0.48, 0), dark_wood)
+	HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(0.16, 0.9, 1.3), 0.06), pc + Vector3(-0.15, 1.65, 0), Palette.INK.lightened(0.15))
+	var screen := QuadMesh.new()
+	screen.size = Vector2(1.15, 0.75)
+	var screen_mesh := MeshInstance3D.new()
+	screen_mesh.name = "Screen"
+	screen_mesh.mesh = screen
+	var screen_mat := StandardMaterial3D.new()
+	screen_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	screen_mat.albedo_color = Palette.SUN.lerp(Palette.PAPER, 0.4)
+	screen_mesh.material_override = screen_mat
+	screen_mesh.position = pc + Vector3(-0.06, 1.65, 0)
+	screen_mesh.rotation.y = PI / 2.0
+	add_child(screen_mesh)
+	var screen_logo := _sign("dadazon", pc + Vector3(-0.04, 1.7, 0), 40, Palette.INK, PI / 2.0)
+	screen_logo.outline_size = 0
+	screen_logo.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(0.12, 0.3, 0.12), 0.03), pc + Vector3(-0.15, 1.2, 0), Palette.INK.lightened(0.15))
+	HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(0.4, 0.04, 0.9), 0.02), pc + Vector3(0.25, 1.08, 0), Palette.PAPER)
+	_static_box(Vector3(1.3, 2.2, 2.3), pc + Vector3(0, 1.1, 0))
+	_item("ordenador", "Comprar en Dadazon", pc, Vector3(-6.75, 0, -5.0), 0.9, Vector3(1.2, 2.2, 2.2), 3.0)
 
 	# Taller (pared derecha, delante): estudio de creación.
 	var desk := Vector3(7.75, 0, 2.3)
@@ -287,6 +332,13 @@ func _build_furniture() -> void:
 	_refresh_jukebox()
 
 
+func _knob_mesh() -> SphereMesh:
+	var knob := SphereMesh.new()
+	knob.radius = 0.07
+	knob.height = 0.14
+	return knob
+
+
 func _padlock(position: Vector3) -> void:
 	HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(0.12, 0.34, 0.4), 0.05), position, Palette.SUN)
 	var ring := HomeDecor.add_mesh(self, PieceKit.torus(0.13, 0.035, 24), position + Vector3(0, 0.22, 0), Palette.SUN.darkened(0.2))
@@ -298,7 +350,6 @@ func _build_props() -> void:
 	# Cuadros con portadas.
 	HomeProps.poster(self, "parchis", Vector3(-2.25, 2.05, -7.93), 0.0, -2.0, 1.3)
 	HomeProps.poster(self, "chess", Vector3(2.85, 2.3, -7.93), 0.0, 3.0, 1.3)
-	HomeProps.poster(self, "island", Vector3(-8.93, 2.4, -5.0), PI / 2.0, 2.0, 1.5)
 	HomeProps.poster(self, "domino", Vector3(-8.93, 2.7, 5.2), PI / 2.0, -3.0, 1.3)
 	HomeProps.poster(self, "ludo", Vector3(8.93, 2.6, 5.3), -PI / 2.0, 2.5, 1.3)
 	# Ventana con cortinas en la pared derecha.
@@ -420,7 +471,7 @@ func _animate_props(delta: float) -> void:
 			_note_timer = 0.9
 			_float_text("♪" if randf() < 0.5 else "♫", Vector3(-7.9, 1.5, 2.5), Palette.SUN)
 	# Aro de uso bajo el objeto más cercano.
-	_marker.visible = nearest != null and not settings_panel.visible
+	_marker.visible = nearest != null and not panel_open()
 	if _marker.visible:
 		var flat := Vector3(pawn.position.x, 0, pawn.position.z)
 		var spot := nearest.approach if nearest.id != "mesa" else flat.normalized() * (HomeDecor.TABLE_RADIUS + 0.75)
@@ -523,6 +574,13 @@ func _build_ui() -> void:
 	)
 	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(badge)
+	var coins := MenuStyle.make_pill("", Palette.SUN, Palette.INK, 14, 12, 4)
+	coins.name = "Coins"
+	coins.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	coins.tooltip_text = "Fichas: se ganan jugando en las mesas y se gastan en Dadazon."
+	top.add_child(coins)
+	_coin_label = coins.get_child(0) as Label
+	_refresh_coins()
 
 	var hint := MenuStyle.make_pill(
 		"WASD o clic: moverse  ·  E: usar  ·  Tab: menú clásico  ·  Esc: ajustes",
@@ -550,19 +608,27 @@ func _build_ui() -> void:
 	)
 	root.add_child(_prompt)
 
-	_toast = MenuStyle.make_muted("", 16)
+	_toast_box = MenuStyle.make_pill("", Palette.INK, Palette.PAPER, 17, 20, 8)
+	_toast_box.name = "ToastBox"
+	_toast_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_toast_box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_toast_box.offset_top = 92
+	_toast_box.modulate.a = 0.0
+	root.add_child(_toast_box)
+	_toast = _toast_box.get_child(0) as Label
 	_toast.name = "Toast"
-	_toast.add_theme_color_override("font_color", Palette.PAPER)
-	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toast.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_toast.offset_top = 86
-	_toast.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_toast.modulate.a = 0.0
-	root.add_child(_toast)
 
 	settings_panel = _build_settings()
 	root.add_child(settings_panel)
+
+	shop = ShopUI.new()
+	root.add_child(shop)
+	shop.purchased.connect(_on_purchased)
+	shop.closed.connect(_on_shop_closed)
+	wardrobe = WardrobeUI.new()
+	root.add_child(wardrobe)
+	wardrobe.changed.connect(func() -> void: pawn.refresh_look())
+	wardrobe.closed.connect(_on_wardrobe_closed)
 
 	_fade = ColorRect.new()
 	_fade.name = "Fade"
@@ -700,7 +766,10 @@ func _refresh_jukebox() -> void:
 
 func _show_toast(text: String) -> void:
 	_toast.text = text
-	_toast_timer = 2.6
+	_toast_box.reset_size()
+	_toast_box.offset_left = -_toast_box.size.x * 0.5
+	_toast_box.offset_right = _toast_box.size.x * 0.5
+	_toast_timer = 2.8
 
 
 # --- Bucle ---------------------------------------------------------------------
@@ -717,9 +786,10 @@ func _process(delta: float) -> void:
 			if node is MeshInstance3D and node.has_meta("spin"):
 				node.rotation.y += delta * 2.2
 	_toast_timer -= delta
-	_toast.modulate.a = clampf(_toast_timer * 2.0, 0.0, 1.0)
+	_toast_box.modulate.a = clampf(_toast_timer * 2.0, 0.0, 1.0)
 	_update_prompt()
 	_animate_props(delta)
+	_animate_decor(delta)
 
 
 func _reduce_motion() -> bool:
@@ -729,6 +799,13 @@ func _reduce_motion() -> bool:
 
 func _place_camera(weight: float) -> void:
 	if pawn == null:
+		return
+	# En el armario, primer plano del peón (a la izquierda, para dejar sitio al panel).
+	if _wardrobe_focus:
+		var target := pawn.position + Vector3(0, 1.55, 0)
+		var close := target + Vector3(-2.2, 1.0, 3.9)
+		camera.position = camera.position.lerp(close, weight)
+		camera.look_at(target + Vector3(1.1, -0.1, 0), Vector3.UP)
 		return
 	# Sigue al peón a medias: la habitación se mantiene encuadrada como un diorama.
 	var focus := Vector3(pawn.position.x * 0.6, 1.0, clampf(pawn.position.z, -6.0, 5.0) * 0.55 - 0.6)
@@ -752,7 +829,7 @@ func find_nearest() -> Interactable:
 
 
 func _update_prompt(force := false) -> void:
-	var found := find_nearest() if not settings_panel.visible else null
+	var found := find_nearest() if not panel_open() else null
 	if found != nearest or force:
 		nearest = found
 		if nearest != null:
@@ -779,7 +856,20 @@ func _update_prompt(force := false) -> void:
 		)
 
 
+## Hay un panel abierto (ajustes, tienda o armario): el peón no se mueve.
+func panel_open() -> bool:
+	return settings_panel.visible or shop.visible or wardrobe.visible
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if shop.visible or wardrobe.visible:
+		if event.is_action_pressed("ui_cancel"):
+			if shop.visible:
+				shop.close_shop()
+			else:
+				wardrobe.close_wardrobe()
+			get_viewport().set_input_as_handled()
+		return
 	if settings_panel.visible:
 		if event.is_action_pressed("ui_cancel"):
 			close_settings()
@@ -859,11 +949,12 @@ func _on_item_used(item: Interactable) -> void:
 					_float_text("♥", _cat.global_position + Vector3(0, 0.8, 0), Palette.CORAL, 60)
 				)
 			_show_toast(tr("Prrrr…"))
-		"espejo":
-			var index := HomePrefs.color_index() + 1
-			HomePrefs.set_color_index(index)
-			pawn.set_color(HomePrefs.pawn_color())
-			_show_toast(tr("Tu color: %s") % tr(HomePrefs.COLOR_NAMES[HomePrefs.color_index()]))
+		"armario":
+			open_wardrobe()
+		"ordenador":
+			open_shop()
+		"paquete":
+			_open_parcel(item)
 		"tocadiscos":
 			var sfx := get_node_or_null("/root/Sfx")
 			if sfx != null:
@@ -895,3 +986,218 @@ func _go(path: String) -> void:
 	tween.tween_property(camera, "fov", 30.0, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	tween.tween_property(_fade, "color:a", 1.0, 0.4)
 	tween.chain().tween_callback(func() -> void: get_tree().change_scene_to_file(path))
+
+
+# --- Tienda, armario y paquetes ------------------------------------------------
+
+func open_shop() -> void:
+	pawn.input_enabled = false
+	pawn.stop()
+	shop.open_shop()
+
+
+func _on_shop_closed() -> void:
+	pawn.input_enabled = true
+	_refresh_coins()
+	# Lo pedido llega enseguida: suena el timbre y cae la caja junto a la puerta.
+	var pending := HomePrefs.deliveries().filter(func(id: Variant) -> bool: return not _has_parcel(str(id)))
+	if pending.is_empty():
+		return
+	var delay := 0.0 if DisplayServer.get_name() == "headless" else 0.9
+	get_tree().create_timer(delay).timeout.connect(func() -> void:
+		if not is_inside_tree():
+			return
+		_sfx("turn", -2.0)
+		_show_toast(tr("¡Ding dong! Ha llegado tu pedido de Dadazon."))
+		for id in pending:
+			_spawn_parcel(str(id), true)
+	)
+
+
+func _on_purchased(_id: String) -> void:
+	_sfx("pop")
+	_refresh_coins()
+
+
+func open_wardrobe() -> void:
+	pawn.input_enabled = false
+	pawn.stop()
+	_wardrobe_focus = true
+	pawn.set("_blink", 3.0)
+	var tween := create_tween()
+	tween.tween_property(pawn, "rotation:y", 0.0, 0.3)
+	wardrobe.open_wardrobe()
+
+
+func _on_wardrobe_closed() -> void:
+	_wardrobe_focus = false
+	pawn.input_enabled = true
+
+
+func _refresh_coins() -> void:
+	if _coin_label != null:
+		_coin_label.text = tr("%d fichas") % HomePrefs.coins()
+
+
+## Recompensa por la última partida (la calcula SessionNavigation al volver de una mesa).
+func _show_reward() -> void:
+	var nav := get_node_or_null("/root/SessionNavigation")
+	if nav == null or int(nav.get("last_reward")) <= 0:
+		return
+	_show_toast(tr("+%d fichas por jugar") % int(nav.get("last_reward")))
+	nav.set("last_reward", 0)
+	_sfx("pop")
+
+
+func _has_parcel(id: String) -> bool:
+	for parcel in _parcels:
+		if is_instance_valid(parcel) and parcel.get_meta(&"order", "") == id:
+			return true
+	return false
+
+
+## Caja de Dadazon junto a la puerta. Con «animated», cae desde arriba y rebota.
+func _spawn_parcel(id: String, animated: bool) -> void:
+	var count := _parcels.filter(func(p: Node3D) -> bool: return is_instance_valid(p)).size()
+	var spot := DOOR_DROP + Vector3(0.25 * (count % 3), 0, 0.95 * (count % 3) + 0.0) + Vector3(0, 0.0, 0)
+	spot.y = 0.0
+	var parcel := Node3D.new()
+	parcel.name = "Parcel_" + id
+	parcel.set_meta(&"order", id)
+	parcel.position = spot + Vector3(0, 0.0 if not animated else 5.0, 0)
+	parcel.rotation.y = randf_range(-0.4, 0.4)
+	add_child(parcel)
+	var cardboard := Color("c99a63")
+	HomeDecor.add_mesh(parcel, PieceKit.rounded_box(Vector3(0.9, 0.7, 0.9), 0.05), Vector3(0, 0.35, 0), cardboard)
+	var lid := HomeDecor.add_mesh(parcel, PieceKit.rounded_box(Vector3(0.94, 0.08, 0.94), 0.03), Vector3(0, 0.72, 0), cardboard.darkened(0.08))
+	lid.name = "Lid"
+	HomeDecor.add_mesh(lid, PieceKit.rounded_box(Vector3(0.96, 0.03, 0.2), 0.01), Vector3(0, 0.04, 0), Palette.SUN)
+	var brand := Label3D.new()
+	brand.text = "dadazon"
+	brand.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	brand.font = MenuStyle.DISPLAY_FONT
+	brand.font_size = 40
+	brand.pixel_size = 0.005
+	brand.modulate = Palette.INK
+	brand.position = Vector3(0, 0.4, 0.46)
+	parcel.add_child(brand)
+	var item := Interactable.new()
+	item.name = "Item_paquete_" + id
+	item.id = "paquete"
+	item.label = "Abrir paquete de Dadazon"
+	item.approach = spot + Vector3(1.0, 0, 0.2)
+	item.reach = 1.2
+	item.set_meta("extent", 0.5)
+	item.set_meta(&"order", id)
+	item.label_height = 1.5
+	item.position = spot
+	item.set_pick_box(Vector3(1.0, 0.9, 1.0), Vector3(0, 0.45, 0))
+	item.used.connect(_on_item_used)
+	add_child(item)
+	items.append(item)
+	parcel.set_meta(&"item", item)
+	_parcels.append(parcel)
+	if animated:
+		var tween := create_tween()
+		tween.tween_property(parcel, "position:y", 0.0, 0.45).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+		tween.tween_callback(func() -> void: _sfx("drop"))
+
+
+func _open_parcel(item: Interactable) -> void:
+	var id := str(item.get_meta(&"order", ""))
+	items.erase(item)
+	item.queue_free()
+	var parcel: Node3D = null
+	for p in _parcels:
+		if is_instance_valid(p) and p.get_meta(&"order", "") == id:
+			parcel = p
+	_parcels.erase(parcel)
+	HomePrefs.open_delivery(id)
+	var kind := ShopCatalog.kind(id)
+	if kind == ShopCatalog.HAT:
+		HomePrefs.set_hat(id)
+		pawn.refresh_look()
+	elif kind == ShopCatalog.ACCESSORY:
+		HomePrefs.set_accessory(id)
+		pawn.refresh_look()
+	else:
+		_place_decor(id, true)
+	_confetti(parcel.global_position + Vector3(0, 0.9, 0) if parcel != null else pawn.position)
+	_sfx("pop")
+	_show_toast(tr("¡Nuevo: %s!") % tr(ShopCatalog.item_name(id)) if kind == ShopCatalog.DECOR else tr("¡Estrenas %s! Cámbialo cuando quieras en el armario.") % tr(ShopCatalog.item_name(id)))
+	if parcel != null:
+		var lid := parcel.get_node_or_null("Lid") as Node3D
+		var tween := create_tween()
+		if lid != null:
+			tween.tween_property(lid, "position", lid.position + Vector3(0.3, 0.9, 0), 0.25)
+		tween.tween_property(parcel, "scale", Vector3(1.2, 0.2, 1.2), 0.2).set_delay(0.15)
+		tween.tween_callback(parcel.queue_free)
+
+
+func _place_decor(id: String, animated: bool) -> void:
+	if _decor.has(id) or not DecorItems.SLOTS.has(id):
+		return
+	var node := DecorItems.build(self, id)
+	_decor[id] = node
+	if DecorItems.FOOTPRINT.has(id):
+		var size: Vector3 = DecorItems.FOOTPRINT[id]
+		var body := _static_box(size, node.position + Vector3(0, size.y * 0.5, 0), node.rotation.y)
+		body.name = "DecorBody_" + id
+	if animated:
+		var rest := node.scale
+		node.scale = Vector3.ONE * 0.05
+		create_tween().tween_property(node, "scale", rest, 0.55).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
+## Lluvia de papelitos de colores.
+func _confetti(at: Vector3) -> void:
+	var colors := [Palette.SUN, Palette.CORAL, Palette.MINT, Color("7cc6fe"), Palette.LAVENDER]
+	for i in 24:
+		var bit := MeshInstance3D.new()
+		var quad := QuadMesh.new()
+		quad.size = Vector2(0.09, 0.14)
+		bit.mesh = quad
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		material.albedo_color = colors[i % colors.size()]
+		bit.material_override = material
+		bit.position = at
+		add_child(bit)
+		var flight := Vector3(randf_range(-1.6, 1.6), randf_range(1.2, 2.6), randf_range(-1.6, 1.6))
+		var tween := bit.create_tween().set_parallel(true)
+		tween.tween_property(bit, "position", at + flight, 0.45).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+		tween.tween_property(bit, "rotation", Vector3(randf() * 9.0, randf() * 9.0, randf() * 9.0), 1.3)
+		tween.chain().tween_property(bit, "position:y", 0.02, 0.85).set_ease(Tween.EASE_IN)
+		tween.chain().tween_interval(1.2)
+		tween.chain().tween_callback(bit.queue_free)
+
+
+## Animaciones de la decoración comprada: bola que gira, pez que nada, Botito que te sigue.
+func _animate_decor(delta: float) -> void:
+	var calm := _reduce_motion()
+	if _decor.has("bola_disco"):
+		var ball := (_decor["bola_disco"] as Node3D).find_child("Ball", true, false) as Node3D
+		if ball != null and not calm:
+			ball.rotation.y += delta * 1.2
+	if _decor.has("pecera"):
+		var fish := (_decor["pecera"] as Node3D).find_child("Fish", true, false) as Node3D
+		if fish != null and not calm:
+			fish.rotation.y = -_time * 1.4
+			fish.position.y = 1.22 + sin(_time * 2.0) * 0.05
+	if _decor.has("neon"):
+		var sign := (_decor["neon"] as Node3D).get_child(0) as Label3D
+		if sign != null:
+			var flicker := 1.0 if calm or fmod(_time, 5.3) > 0.18 else 0.4
+			sign.modulate.a = flicker
+	if _decor.has("botito"):
+		var bot := _decor["botito"] as Node3D
+		var behind := pawn.position - pawn.global_basis.z * 1.4 + pawn.global_basis.x * 0.9
+		behind.y = 0.0
+		var to := behind - bot.position
+		if to.length() > 0.3:
+			bot.position += to.normalized() * minf(to.length(), delta * 4.2 * clampf(to.length(), 0.4, 2.0))
+			bot.rotation.y = lerp_angle(bot.rotation.y, atan2(to.x, to.z), minf(1.0, delta * 8.0))
+		var body := bot.get_node_or_null("BotitoBody") as Node3D
+		if body != null and not calm:
+			body.position.y = absf(sin(_time * 6.0)) * 0.06 + 0.15 + sin(_time * 2.0) * 0.05

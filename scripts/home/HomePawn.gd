@@ -36,10 +36,18 @@ func _ready() -> void:
 	meeple = HomeDecor.make_meeple(HomePrefs.pawn_color())
 	meeple.scale = Vector3.ONE * BASE_SCALE
 	add_child(meeple)
+	PawnWear.apply(meeple, HomePrefs.hat(), HomePrefs.accessory())
 
 
 func set_color(color: Color) -> void:
 	HomeDecor.tint_meeple(meeple, color)
+
+
+## Vuelve a leer color, sombrero y complemento guardados.
+func refresh_look() -> void:
+	set_color(HomePrefs.pawn_color())
+	PawnWear.apply(meeple, HomePrefs.hat(), HomePrefs.accessory())
+	_squash = Vector3(1.15, 0.85, 1.15)
 
 
 func walk_to(point: Vector3) -> void:
@@ -128,7 +136,7 @@ func _animate_eyes(delta: float) -> void:
 		return
 	var closed := _blink < 0.12
 	for eye in head.get_children():
-		if eye is Node3D:
+		if eye is Node3D and not str(eye.name).begins_with("Wear"):
 			(eye as Node3D).scale.y = 0.15 if closed else 1.0
 	if _blink < 0.0:
 		_blink = randf_range(2.2, 4.5)

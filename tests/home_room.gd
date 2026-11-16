@@ -11,11 +11,11 @@ func _initialize() -> void:
 
 func _run() -> void:
 	_check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/Home.tscn", "la habitación es la escena de inicio")
-	var color_before := HomePrefs.color_index()
-	var classic_before := HomePrefs.classic_menu()
+	HomePrefs.path = "user://prueba_home_room.cfg"
+	DirAccess.remove_absolute(HomePrefs.path)
 	HomePrefs.set_classic_menu(false)
 	var home := await _open_home()
-	_check(home.items.size() == 9, "la habitación tiene 9 objetos (tiene %d)" % home.items.size())
+	_check(home.items.size() == 10, "la habitación tiene 10 objetos (tiene %d)" % home.items.size())
 	_check(home.find_nearest() != null and home.find_nearest().id == "mesa", "al empezar, la mesa con los bots está al alcance")
 	var prompt := home.find_child("Prompt", true, false) as Button
 	_check(prompt != null and prompt.visible, "se ve la etiqueta para usar la mesa")
@@ -36,11 +36,15 @@ func _run() -> void:
 		var near := home.find_nearest()
 		_check(near == item, "desde su sitio se alcanza «%s» (se alcanza «%s»)" % [item.id, near.id if near else "nada"])
 
-	# Espejo y tocadiscos no cambian de escena.
-	var mirror := _item(home, "espejo")
-	mirror.use()
+	# Armario, ordenador y tocadiscos no cambian de escena.
+	_item(home, "armario").use()
 	await _frames(2)
-	_check(HomePrefs.color_index() == (color_before + 1) % HomePrefs.COLORS.size(), "el espejo cambia el color del peón")
+	_check(home.wardrobe.visible and not home.pawn.input_enabled, "el armario abre el panel del peón")
+	home.wardrobe.close_wardrobe()
+	_item(home, "ordenador").use()
+	await _frames(2)
+	_check(home.shop.visible, "el ordenador abre Dadazon")
+	home.shop.close_shop()
 	var sfx := root.get_node("Sfx")
 	var sound_before: bool = sfx.get("enabled") == true
 	_item(home, "tocadiscos").use()
@@ -91,8 +95,8 @@ func _run() -> void:
 	HomePrefs.set_classic_menu(false)
 	_check(root.get_node("SessionNavigation").home_scene() == "res://scenes/Home.tscn", "sin menú clásico, el inicio es la habitación")
 
-	HomePrefs.set_color_index(color_before)
-	HomePrefs.set_classic_menu(classic_before)
+	DirAccess.remove_absolute(HomePrefs.path)
+	HomePrefs.path = HomePrefs.DEFAULT_PATH
 	if _failed:
 		quit(1)
 	else:
