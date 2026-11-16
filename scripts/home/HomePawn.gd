@@ -15,6 +15,12 @@ var meeple: Node3D
 ## Lo controla Home: false mientras hay un panel abierto.
 var input_enabled := true
 var _bob := 0.0
+var _was_moving := false
+var _squash := Vector3.ONE
+var _blink := 2.0
+var _step_side := 1.0
+## Escala base del muñeco (la que da el tamaño en la sala).
+const BASE_SCALE := 0.82
 
 
 func _ready() -> void:
@@ -28,7 +34,7 @@ func _ready() -> void:
 	shape.position.y = 1.0
 	add_child(shape)
 	meeple = HomeDecor.make_meeple(HomePrefs.pawn_color())
-	meeple.scale = Vector3.ONE * 0.82
+	meeple.scale = Vector3.ONE * BASE_SCALE
 	add_child(meeple)
 
 
@@ -80,12 +86,73 @@ func _physics_process(delta: float) -> void:
 		var body := hit.get_collider() as RigidBody3D
 		if body != null:
 			body.apply_central_impulse(-hit.get_normal() * PUSH * delta * 60.0 * 0.05 + Vector3.UP * 0.02)
-	if flat.length() > 0.2:
+	var moving := flat.length() > 0.2
+	if moving:
 		var facing := atan2(flat.x, flat.z)
 		rotation.y = lerp_angle(rotation.y, facing, minf(1.0, TURN * delta))
+		var before := sin(_bob)
 		_bob += delta * 11.0
 		meeple.position.y = absf(sin(_bob)) * 0.09
 		meeple.rotation.z = sin(_bob) * 0.06
+		# Un paso cada vez que el balanceo cruza el centro: polvo bajo el pie.
+		if signf(before) != signf(sin(_bob)):
+			_step_side = -_step_side
+			_puff(global_position + global_basis.x * 0.25 * _step_side)
 	else:
 		meeple.position.y = lerpf(meeple.position.y, 0.0, minf(1.0, 10.0 * delta))
 		meeple.rotation.z = lerpf(meeple.rotation.z, 0.0, minf(1.0, 10.0 * delta))
+	# Estirar al arrancar, aplastar al parar.
+	if moving and not _was_moving:
+		_squash = Vector3(0.9, 1.12, 0.9)
+	elif _was_moving and not moving:
+		_squash = Vector3(1.14, 0.84, 1.14)
+	_was_moving = moving
+	_squash = _squash.lerp(Vector3.ONE, minf(1.0, delta * 9.0))
+	meeple.scale = _squash * BASE_SCALE
+	_animate_eyes(delta)
+
+
+## Saltito al usar un objeto.
+func hop() -> void:
+	var tween := create_tween()
+	tween.tween_property(meeple, "position:y", 0.45, 0.12).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(meeple, "position:y", 0.0, 0.14).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tween.tween_callback(func() -> void: _squash = Vector3(1.18, 0.8, 1.18))
+
+
+## Parpadeo cada pocos segundos.
+func _animate_eyes(delta: float) -> void:
+	_blink -= delta
+	var head := meeple.get_node_or_null("Head") as Node3D
+	if head == null:
+		return
+	var closed := _blink < 0.12
+	for eye in head.get_children():
+		if eye is Node3D:
+			(eye as Node3D).scale.y = 0.15 if closed else 1.0
+	if _blink < 0.0:
+		_blink = randf_range(2.2, 4.5)
+
+
+## Nubecilla de polvo que crece y se desvanece.
+func _puff(at: Vector3) -> void:
+	var parent := get_parent()
+	if parent == null:
+		return
+	var dust := MeshInstance3D.new()
+	var mesh := SphereMesh.new()
+	mesh.radius = 0.12
+	mesh.height = 0.24
+	dust.mesh = mesh
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = Color(1, 0.97, 0.9, 0.7)
+	dust.material_override = material
+	dust.position = Vector3(at.x, 0.08, at.z)
+	parent.add_child(dust)
+	var tween := dust.create_tween().set_parallel(true)
+	tween.tween_property(dust, "scale", Vector3.ONE * 2.2, 0.45).set_ease(Tween.EASE_OUT)
+	tween.tween_property(dust, "position:y", 0.3, 0.45)
+	tween.tween_property(material, "albedo_color:a", 0.0, 0.45)
+	tween.chain().tween_callback(dust.queue_free)

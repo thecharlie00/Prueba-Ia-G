@@ -15,7 +15,7 @@ func _run() -> void:
 	var classic_before := HomePrefs.classic_menu()
 	HomePrefs.set_classic_menu(false)
 	var home := await _open_home()
-	_check(home.items.size() == 8, "la habitación tiene 8 objetos (tiene %d)" % home.items.size())
+	_check(home.items.size() == 9, "la habitación tiene 9 objetos (tiene %d)" % home.items.size())
 	_check(home.find_nearest() != null and home.find_nearest().id == "mesa", "al empezar, la mesa con los bots está al alcance")
 	var prompt := home.find_child("Prompt", true, false) as Button
 	_check(prompt != null and prompt.visible, "se ve la etiqueta para usar la mesa")

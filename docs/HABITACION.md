@@ -18,7 +18,24 @@ el transporte de Steam.
 | Tocadiscos | Sonido sí/no | — |
 | Corcho «Ajustes» | Idioma, sonido, pantalla completa, menú clásico, créditos, informar de un fallo, salir | panel |
 
-Juguetes sueltos (dados y fichas con física) que el peón empuja al pasar.
+| Gato en el puf | Se despierta al acercarte; acariciarlo suelta corazones | — |
+
+Juguetes sueltos (dados y fichas con física) que el peón empuja al pasar y que suenan al chocar.
+
+## Vida de la sala
+
+- **Portadas**: cajas en la estantería y cuadros en las paredes con las portadas de los juegos
+  (`assets/covers`, ver `GameCovers`); las mismas portadas salen en el catálogo y en los bots.
+- **Atrezo** (`HomeProps`): ventana con cielo, cortinas que se mecen y haz de luz; plantas;
+  guirnalda de bombillas que titilan; reloj con la hora real; suelo de tablas; motas de polvo
+  bajo la lámpara.
+- **Personajes**: los bots siguen al peón con la mirada y le invitan («¿Echamos una partida?»)
+  cuando se acerca a la mesa; el gato duerme («z z») y se despierta al pasar.
+- **El peón**: se estira al arrancar y se aplasta al parar, levanta polvo a cada paso, parpadea
+  y da un saltito al usar algo.
+- **Respuesta**: aro amarillo en el suelo donde hay que ponerse, etiqueta que aparece con rebote
+  y sonido, notas musicales del tocadiscos y transición de salida (la cámara se acerca y funde).
+- «Reducir movimiento» desactiva balanceos, titileos, notas y la transición.
 
 ## Controles
 

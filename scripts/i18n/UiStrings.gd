@@ -638,5 +638,14 @@ const ROWS := [
 	["Nata", "Cream", "Nata"],
 	["Ir a la habitación", "Go to the room", "Ves a l'habitació"],
 	["La habitación jugable vuelve a ser el inicio.", "The playable room becomes the start screen again.", "L'habitació jugable torna a ser l'inici."],
+	["Acariciar al gato", "Pet the cat", "Acaricia el gat"],
+	["Prrrr…", "Purrrr…", "Rrrrr…"],
+	["¿Echamos una partida?", "Fancy a game?", "Fem una partida?"],
+	["z z", "z z", "z z"],
+	["Mesa libre", "Free table", "Taula lliure"],
+	["Dominó", "Dominoes", "Dòmino"],
+	["Ludo", "Ludo", "Ludo"],
+	["La isla", "The island", "L'illa"],
+	["Parchís", "Parchís", "Parxís"],
 ]
 

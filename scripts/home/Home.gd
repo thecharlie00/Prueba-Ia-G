@@ -44,6 +44,18 @@ var _classic_check: CheckButton
 var _report_btn: Button
 var _jukebox_label: Label3D
 var _leaving := false
+# Atrezo animado
+var _curtains: Array[Node3D] = []
+var _leaves: Array[Node3D] = []
+var _bulbs: Array[MeshInstance3D] = []
+var _clock_hands: Array[Node3D] = []
+var _cat: Node3D
+var _cat_awake := false
+var _cat_zzz: Label3D
+var _bot_bubble: Label3D
+var _marker: MeshInstance3D
+var _note_timer := 0.0
+var _fade: ColorRect
 
 
 func _ready() -> void:
@@ -53,6 +65,7 @@ func _ready() -> void:
 	_build_collision()
 	_build_bots()
 	_build_furniture()
+	_build_props()
 	_build_toys()
 	pawn = HomePawn.new()
 	pawn.name = "Pawn"
@@ -75,6 +88,7 @@ func _ready() -> void:
 		camera.position += Vector3(0, 7.0, 4.0)
 	_intro_done = true
 	_build_ui()
+	_build_marker()
 	var locale := get_node_or_null("/root/Locale")
 	if locale != null and locale.has_signal("language_changed"):
 		locale.language_changed.connect(func(_code: String) -> void: _refresh_texts())
@@ -177,22 +191,19 @@ func _build_furniture() -> void:
 	for side in [-1.0, 1.0]:
 		HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(0.14, 3.4, 0.9), 0.04), shelf + Vector3(side * 1.6, 1.7, 0), dark_wood)
 	HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(3.34, 0.14, 0.94), 0.04), shelf + Vector3(0, 3.4, 0), dark_wood)
-	var box_colors := [Palette.CORAL, Palette.SUN, Palette.MINT, Color("7cc6fe"), Palette.LAVENDER, Palette.PLAYER_RED, Palette.PLAYER_GREEN, Palette.PAPER]
+	var shelf_games := [["parchis", "brisca", "ludo", "chess"], ["checkers", "domino", "island", "cards"]]
 	for row in 3:
 		HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(3.1, 0.09, 0.8), 0.03), shelf + Vector3(0, 0.25 + row * 1.05, 0.06), wood)
-		if row == 2:
-			continue
+	for row in 2:
 		for i in 4:
-			var tall := 0.62 + float((row * 4 + i) % 3) * 0.12
-			var game_box := HomeDecor.add_mesh(
-				self,
-				PieceKit.rounded_box(Vector3(0.58, tall, 0.62), 0.05),
-				shelf + Vector3(-1.08 + i * 0.72, 0.3 + row * 1.05 + tall * 0.5, 0.12),
-				box_colors[(row * 4 + i + row) % box_colors.size()]
-			)
-			game_box.rotation.z = deg_to_rad(-6.0 if (row + i) % 4 == 3 else 0.0)
+			var game_box := HomeProps.game_box(self, shelf_games[row][i], shelf + Vector3(-1.08 + i * 0.72, 0.3 + row * 1.05 + 0.375, 0.16))
+			game_box.rotation.z = deg_to_rad(-5.0 if (row + i) % 4 == 3 else 0.0)
+	var top_box := HomeProps.game_box(self, "sandbox", shelf + Vector3(-0.7, 2.4 + 0.375, 0.16))
+	top_box.rotation.z = deg_to_rad(4.0)
+	for k in 2:
+		HomeDecor.add_mesh(self, PieceKit.rounded_box(Vector3(0.8, 0.16, 0.6), 0.04), shelf + Vector3(0.75, 2.4 + 0.08 + k * 0.17, 0.12), [Palette.MINT, Palette.CORAL][k]).rotation.y = k * 0.25
 	_static_box(Vector3(3.4, 3.4, 1.0), shelf + Vector3(0, 1.7, 0))
-	_sign("JUEGOS", shelf + Vector3(0, 3.0, 0.52), 60, Palette.SUN)
+	_sign("JUEGOS", shelf + Vector3(0, 3.78, 0.45), 60, Palette.SUN)
 	_item("estanteria", "Elegir un juego", shelf, Vector3(-5.2, 0, -5.8), 1.7, Vector3(3.3, 3.4, 1.2), 4.3)
 
 	# Corcho con notas (fondo, centro): ajustes.
@@ -282,6 +293,158 @@ func _padlock(position: Vector3) -> void:
 	ring.rotation.z = PI / 2.0
 
 
+func _build_props() -> void:
+	HomeProps.floor_planks(self)
+	# Cuadros con portadas.
+	HomeProps.poster(self, "parchis", Vector3(-2.25, 2.05, -7.93), 0.0, -2.0, 1.3)
+	HomeProps.poster(self, "chess", Vector3(2.85, 2.3, -7.93), 0.0, 3.0, 1.3)
+	HomeProps.poster(self, "island", Vector3(-8.93, 2.4, -5.0), PI / 2.0, 2.0, 1.5)
+	HomeProps.poster(self, "domino", Vector3(-8.93, 2.7, 5.2), PI / 2.0, -3.0, 1.3)
+	HomeProps.poster(self, "ludo", Vector3(8.93, 2.6, 5.3), -PI / 2.0, 2.5, 1.3)
+	# Ventana con cortinas en la pared derecha.
+	_curtains = HomeProps.window(self, Vector3(8.93, 2.6, -1.0), -PI / 2.0)
+	# Plantas en las esquinas.
+	_leaves.append(HomeProps.plant(self, Vector3(-8.1, 0, -7.1), 1.15))
+	_leaves.append(HomeProps.plant(self, Vector3(8.1, 0, -7.1), 1.0))
+	_leaves.append(HomeProps.plant(self, Vector3(8.1, 0, 5.9), 0.9))
+	for spot in [Vector3(-8.1, 0, -7.1), Vector3(8.1, 0, -7.1), Vector3(8.1, 0, 5.9)]:
+		_static_box(Vector3(1.0, 1.4, 1.0), spot + Vector3(0, 0.7, 0))
+	# Guirnalda de luces y reloj en la pared del fondo.
+	_bulbs = HomeProps.garland(self, Vector3(-8.8, 4.2, -7.85), Vector3(8.8, 4.2, -7.85), 22, 0.25)
+	_clock_hands = HomeProps.clock(self, Vector3(-2.25, 3.42, -7.9))
+	# Puf con el gato dormido (delante, a la izquierda).
+	var bag := Vector3(-5.6, 0, 5.3)
+	_cat = HomeProps.cat_on_beanbag(self, bag, -1.3)
+	_static_box(Vector3(1.6, 1.0, 1.6), bag + Vector3(0, 0.5, 0))
+	_cat_zzz = _sign("z z", bag + Vector3(0.2, 2.0, 0), 40, Palette.PAPER)
+	_item("gato", "Acariciar al gato", bag, bag + Vector3(1.4, 0, -0.8), 0.9, Vector3(1.6, 1.4, 1.6), 2.3)
+	# Bocadillo de los bots.
+	_bot_bubble = _sign("¿Echamos una partida?", Vector3(-1.6, 3.2, -2.9), 48, Palette.INK)
+	_bot_bubble.outline_modulate = Palette.PAPER
+	_bot_bubble.outline_size = 22
+	_bot_bubble.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_bot_bubble.visible = false
+	# Motas de polvo bajo la lámpara.
+	var motes := CPUParticles3D.new()
+	motes.name = "DustMotes"
+	motes.amount = 40
+	motes.lifetime = 7.0
+	motes.preprocess = 7.0
+	motes.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	motes.emission_box_extents = Vector3(3.2, 1.4, 3.2)
+	motes.position = Vector3(0, 2.4, 0)
+	motes.direction = Vector3(0.2, 1, 0)
+	motes.spread = 60.0
+	motes.gravity = Vector3.ZERO
+	motes.initial_velocity_min = 0.03
+	motes.initial_velocity_max = 0.12
+	motes.scale_amount_min = 0.5
+	motes.scale_amount_max = 1.0
+	var mote := QuadMesh.new()
+	mote.size = Vector2(0.05, 0.05)
+	var mote_mat := StandardMaterial3D.new()
+	mote_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mote_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mote_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mote_mat.albedo_color = Color(1.0, 0.95, 0.75, 0.55)
+	mote.material = mote_mat
+	motes.mesh = mote
+	add_child(motes)
+
+
+## Aro en el suelo donde hay que ponerse para usar el objeto más cercano.
+func _build_marker() -> void:
+	_marker = MeshInstance3D.new()
+	_marker.name = "UseMarker"
+	_marker.mesh = PieceKit.torus(0.55, 0.05, 40)
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Palette.SUN
+	_marker.material_override = material
+	_marker.visible = false
+	add_child(_marker)
+
+
+func _animate_props(delta: float) -> void:
+	var calm := _reduce_motion()
+	for i in _curtains.size():
+		_curtains[i].rotation.z = 0.0 if calm else sin(_time * 0.9 + i) * 0.045
+	for i in _leaves.size():
+		_leaves[i].rotation.z = 0.0 if calm else sin(_time * 0.7 + i * 2.1) * 0.035
+	for i in _bulbs.size():
+		var material := _bulbs[i].material_override as StandardMaterial3D
+		if not material.has_meta(&"base"):
+			material.set_meta(&"base", material.albedo_color)
+		var base: Color = material.get_meta(&"base")
+		var glow := 0.5 + 0.5 * sin(_time * 2.2 + i * 1.7)
+		material.albedo_color = base.lerp(Color.WHITE, 0.0 if calm else glow * 0.45)
+	if _clock_hands.size() == 2:
+		var now := Time.get_time_dict_from_system()
+		var minutes := float(now["minute"]) + float(now["second"]) / 60.0
+		_clock_hands[0].rotation.z = -TAU * (float(int(now["hour"]) % 12) + minutes / 60.0) / 12.0
+		_clock_hands[1].rotation.z = -TAU * minutes / 60.0
+	# Gato: se despierta cuando el peón se acerca.
+	if _cat != null:
+		var near := Vector2(pawn.position.x, pawn.position.z).distance_to(Vector2(_cat.global_position.x, _cat.global_position.z)) < 2.8
+		if near != _cat_awake:
+			_cat_awake = near
+			_cat.get_node("Head/EyesOpen").visible = near
+			_cat.get_node("Head/EyesClosed").visible = not near
+			if near:
+				_sfx("pop", -14.0)
+		var head := _cat.get_node("Head") as Node3D
+		head.position.y = lerpf(head.position.y, 0.34 if _cat_awake else 0.2, minf(1.0, delta * 6.0))
+		var tail := _cat.get_node("Tail") as Node3D
+		tail.rotation.y = sin(_time * (5.0 if _cat_awake else 1.2)) * (0.5 if _cat_awake else 0.15)
+		var body := _cat.get_node("Body") as Node3D
+		body.scale.y = 0.72 + (0.0 if calm or _cat_awake else sin(_time * 1.6) * 0.03)
+		_cat_zzz.visible = not _cat_awake
+		_cat_zzz.position.y = 2.0 + sin(_time * 1.5) * 0.12
+		_cat_zzz.modulate.a = 0.55 + 0.45 * sin(_time * 1.5)
+	# Bots: miran al peón y le invitan cuando se acerca a la mesa.
+	for bot in _bots:
+		var head := bot.get_node_or_null("Head") as Node3D
+		if head == null:
+			continue
+		var local := bot.to_local(pawn.global_position + Vector3(0, 1.8, 0))
+		var yaw := clampf(atan2(local.x, local.z), -0.9, 0.9)
+		head.rotation.y = lerp_angle(head.rotation.y, yaw, minf(1.0, delta * 4.0))
+	_bot_bubble.visible = nearest != null and nearest.id == "mesa"
+	if _bot_bubble.visible:
+		_bot_bubble.position.y = 3.25 + sin(_time * 3.0) * 0.06
+	# Tocadiscos: notas que suben mientras suena.
+	var sfx := get_node_or_null("/root/Sfx")
+	if (sfx == null or sfx.get("enabled") == true) and not calm:
+		_note_timer -= delta
+		if _note_timer <= 0.0:
+			_note_timer = 0.9
+			_float_text("♪" if randf() < 0.5 else "♫", Vector3(-7.9, 1.5, 2.5), Palette.SUN)
+	# Aro de uso bajo el objeto más cercano.
+	_marker.visible = nearest != null and not settings_panel.visible
+	if _marker.visible:
+		var flat := Vector3(pawn.position.x, 0, pawn.position.z)
+		var spot := nearest.approach if nearest.id != "mesa" else flat.normalized() * (HomeDecor.TABLE_RADIUS + 0.75)
+		_marker.position = Vector3(spot.x, 0.04, spot.z)
+		var pulse := 1.0 + (0.0 if calm else sin(_time * 5.0) * 0.08)
+		_marker.scale = Vector3(pulse, 1.0, pulse)
+
+
+## Texto que sube y se desvanece (notas, corazones).
+func _float_text(text: String, at: Vector3, color: Color, size := 52) -> void:
+	var label := _sign(text, at, size, color)
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(label, "position", at + Vector3(randf_range(-0.3, 0.3), 1.3, 0), 1.6).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "modulate:a", 0.0, 1.6).set_ease(Tween.EASE_IN)
+	tween.chain().tween_callback(label.queue_free)
+
+
+func _sfx(sound: String, volume := 0.0) -> void:
+	var sfx := get_node_or_null("/root/Sfx")
+	if sfx != null and sfx.has_method("play"):
+		sfx.play(sound, volume)
+
+
 func _build_toys() -> void:
 	# Juguetes sueltos: dados y fichas que se pueden empujar con el peón.
 	var spots := [
@@ -320,6 +483,13 @@ func _build_toys() -> void:
 			mesh.material_override = material
 			body.add_child(mesh)
 		body.add_child(shape)
+		body.contact_monitor = true
+		body.max_contacts_reported = 2
+		var sound := "dice" if spots[i][1] == "die" else "drop"
+		body.body_entered.connect(func(_other: Node) -> void:
+			if body.linear_velocity.length() > 1.2:
+				_sfx(sound, -10.0)
+		)
 		add_child(body)
 
 
@@ -393,6 +563,13 @@ func _build_ui() -> void:
 
 	settings_panel = _build_settings()
 	root.add_child(settings_panel)
+
+	_fade = ColorRect.new()
+	_fade.name = "Fade"
+	_fade.color = Color(MenuBackdrop.VEIL, 0.0)
+	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(_fade)
 
 
 func _build_settings() -> Control:
@@ -542,6 +719,7 @@ func _process(delta: float) -> void:
 	_toast_timer -= delta
 	_toast.modulate.a = clampf(_toast_timer * 2.0, 0.0, 1.0)
 	_update_prompt()
+	_animate_props(delta)
 
 
 func _reduce_motion() -> bool:
@@ -580,6 +758,11 @@ func _update_prompt(force := false) -> void:
 		if nearest != null:
 			_prompt.text = "E  ·  " + nearest.prompt_text()
 			_prompt.reset_size()
+			if not force:
+				_prompt.pivot_offset = _prompt.size * 0.5
+				_prompt.scale = Vector2(0.6, 0.6)
+				create_tween().tween_property(_prompt, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+				_sfx("pop", -20.0)
 	_prompt.visible = nearest != null
 	if nearest != null:
 		var anchor := nearest.position + Vector3(0, nearest.label_height, 0)
@@ -667,7 +850,15 @@ func _on_item_used(item: Interactable) -> void:
 		_show_toast(tr("Disponible en el juego completo."))
 		return
 	last_item_id = item.id
+	_sfx("ui", -6.0)
+	pawn.hop()
 	match item.id:
+		"gato":
+			for k in 3:
+				get_tree().create_timer(k * 0.18).timeout.connect(func() -> void:
+					_float_text("♥", _cat.global_position + Vector3(0, 0.8, 0), Palette.CORAL, 60)
+				)
+			_show_toast(tr("Prrrr…"))
 		"espejo":
 			var index := HomePrefs.color_index() + 1
 			HomePrefs.set_color_index(index)
@@ -690,8 +881,17 @@ func _on_item_used(item: Interactable) -> void:
 				_go(SCENES[item.id])
 
 
+## Sale de la habitación: la cámara se acerca y la pantalla funde a tinta.
 func _go(path: String) -> void:
 	if _leaving:
 		return
 	_leaving = true
-	get_tree().change_scene_to_file.call_deferred(path)
+	pawn.input_enabled = false
+	pawn.stop()
+	if _reduce_motion() or DisplayServer.get_name() == "headless":
+		get_tree().change_scene_to_file.call_deferred(path)
+		return
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(camera, "fov", 30.0, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(_fade, "color:a", 1.0, 0.4)
+	tween.chain().tween_callback(func() -> void: get_tree().change_scene_to_file(path))

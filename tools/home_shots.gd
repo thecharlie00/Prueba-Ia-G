@@ -7,6 +7,7 @@ const SPOTS := {
 	"puerta": Vector3(-7.6, 0, -1.6),
 	"estanteria": Vector3(-5.2, 0, -5.8),
 	"taller": Vector3(6.3, 0, 2.3),
+	"gato": Vector3(-4.2, 0, 4.5),
 }
 
 
