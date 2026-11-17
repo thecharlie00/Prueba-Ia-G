@@ -184,6 +184,18 @@ const DEFS := {
 		"in": [["in", EXEC, ""], ["valor", ANY, "valor"]], "out": [["out", EXEC, ""]],
 		"params": [["nombre", "text", "Nombre", "turno"], ["valor", "number", "Valor", 0]],
 	},
+	"ac_escribir": {
+		"cat": "acciones", "title": "Escribir en la pieza",
+		"help": "Pone texto en una pieza (se ve en su etiqueta).",
+		"in": [["in", EXEC, ""], ["pieza", PIECE, "pieza"], ["texto", TEXT, "texto"]], "out": [["out", EXEC, ""]],
+		"params": [],
+	},
+	"ac_color": {
+		"cat": "acciones", "title": "Color de la pieza",
+		"help": "Pone el color de una pieza (#RRGGBBAA o nombre de la paleta).",
+		"in": [["in", EXEC, ""], ["pieza", PIECE, "pieza"], ["color", TEXT, "color"]], "out": [["out", EXEC, ""]],
+		"params": [],
+	},
 	# ---------------------------------------------------------------- Datos
 	"da_numero": {
 		"cat": "datos", "title": "Número", "in": [], "out": [["valor", NUM, "valor"]],
@@ -246,6 +258,141 @@ const DEFS := {
 	"da_nombre": {
 		"cat": "datos", "title": "Nombre de la pieza",
 		"in": [["pieza", PIECE, "pieza"]], "out": [["valor", TEXT, "nombre"]], "params": [],
+	},
+	"da_todas_piezas": {
+		"cat": "datos", "title": "Todas las piezas",
+		"help": "IDs de todas las piezas de la mesa (sin zona: todas).",
+		"in": [], "out": [["lista", LIST, "piezas"]], "params": [],
+	},
+	"da_etiquetas_pieza": {
+		"cat": "datos", "title": "Etiquetas de la pieza",
+		"help": "Lista de etiquetas de una pieza.",
+		"in": [["pieza", PIECE, "pieza"]], "out": [["lista", LIST, "etiquetas"]], "params": [],
+	},
+	"da_texto_de": {
+		"cat": "datos", "title": "Texto de la pieza",
+		"help": "Lee el texto escrito en una pieza.",
+		"in": [["pieza", PIECE, "pieza"]], "out": [["valor", TEXT, "texto"]], "params": [],
+	},
+	"da_zona_de": {
+		"cat": "datos", "title": "Zona de la pieza",
+		"help": "Nombre de la zona donde está la pieza, o \"\" si no está en ninguna.",
+		"in": [["pieza", PIECE, "pieza"]], "out": [["valor", TEXT, "zona"]], "params": [],
+	},
+	"da_zonas": {
+		"cat": "datos", "title": "Todas las zonas",
+		"help": "Nombres de todas las zonas de la mesa.",
+		"in": [], "out": [["lista", LIST, "zonas"]], "params": [],
+	},
+	"da_mano": {
+		"cat": "jugadores", "title": "Mano del turno",
+		"help": "ID de la zona de mano del jugador que tiene el turno.",
+		"in": [], "out": [["valor", PIECE, "zona"]], "params": [],
+	},
+	"da_nombre_jugador": {
+		"cat": "jugadores", "title": "Nombre del jugador",
+		"help": "Nombre de un jugador por número (1, 2…).",
+		"in": [["jugador", NUM, "jugador"]], "out": [["valor", TEXT, "nombre"]], "params": [["jugador", "number", "Jugador", 1]],
+	},
+	"da_rango": {
+		"cat": "datos", "title": "Rango",
+		"help": "Lista [0, 1, …, n-1] para recorrer con «Para cada».",
+		"in": [["n", NUM, "n"]], "out": [["lista", LIST, "índices"]], "params": [["n", "number", "N", 5]],
+	},
+	"da_color": {
+		"cat": "datos", "title": "Color de la pieza",
+		"help": "Color de una pieza (como texto #RRGGBBAA).",
+		"in": [["pieza", PIECE, "pieza"]], "out": [["valor", TEXT, "color"]], "params": [],
+	},
+	"da_cartas_en_mazo": {
+		"cat": "datos", "title": "Cartas en el mazo",
+		"help": "Número de cartas que tiene un mazo (pieza con DeckComponent).",
+		"in": [["mazo", PIECE, "mazo"]], "out": [["valor", NUM, "cuántas"]], "params": [],
+	},
+	"da_carta_arriba": {
+		"cat": "datos", "title": "Carta de arriba",
+		"help": "Nombre de la carta de arriba de un mazo, o \"\" si está vacío.",
+		"in": [["mazo", PIECE, "mazo"]], "out": [["valor", TEXT, "nombre"]], "params": [],
+	},
+	"ac_repartir_mazo": {
+		"cat": "acciones", "title": "Repartir del mazo",
+		"help": "Saca cartas de arriba de un mazo y las pone en una zona.",
+		"in": [["in", EXEC, ""], ["mazo", PIECE, "mazo"], ["cantidad", NUM, "cuántas"], ["zona", PIECE, "zona destino"]], "out": [["out", EXEC, ""]],
+		"params": [["cantidad", "number", "Cuántas", 1]],
+	},
+	"da_contador_valor": {
+		"cat": "datos", "title": "Valor del contador",
+		"help": "Valor actual del contador de una pieza (CounterComponent).",
+		"in": [["pieza", PIECE, "pieza"]], "out": [["valor", NUM, "valor"]], "params": [],
+	},
+	"da_bolsa_contar": {
+		"cat": "datos", "title": "Piezas en la bolsa",
+		"help": "Número de piezas dentro de una bolsa (BagComponent).",
+		"in": [["bolsa", PIECE, "bolsa"]], "out": [["valor", NUM, "cuántas"]], "params": [],
+	},
+	"da_nota_leer": {
+		"cat": "datos", "title": "Leer nota",
+		"help": "Texto de la nota de una pieza (NoteComponent).",
+		"in": [["pieza", PIECE, "pieza"]], "out": [["valor", TEXT, "texto"]], "params": [],
+	},
+	"da_reloj_tiempo": {
+		"cat": "datos", "title": "Tiempo del reloj",
+		"help": "Tiempo restante del reloj de una pieza (TimerComponent), en segundos.",
+		"in": [["reloj", PIECE, "reloj"]], "out": [["valor", NUM, "segundos"]], "params": [],
+	},
+	"ac_contador_sumar": {
+		"cat": "acciones", "title": "Sumar al contador",
+		"help": "Suma una cantidad al contador de una pieza (CounterComponent).",
+		"in": [["in", EXEC, ""], ["pieza", PIECE, "pieza"], ["cantidad", NUM, "cuánto"]], "out": [["out", EXEC, ""]],
+		"params": [["cantidad", "number", "Cuánto", 1]],
+	},
+	"ac_contador_poner": {
+		"cat": "acciones", "title": "Poner contador a",
+		"help": "Pone el contador de una pieza a un valor (CounterComponent).",
+		"in": [["in", EXEC, ""], ["pieza", PIECE, "pieza"], ["valor", NUM, "valor"]], "out": [["out", EXEC, ""]],
+		"params": [["valor", "number", "Valor", 0]],
+	},
+	"ac_contador_resetear": {
+		"cat": "acciones", "title": "Resetear contador",
+		"help": "Pone el contador de una pieza a su mínimo (CounterComponent).",
+		"in": [["in", EXEC, ""], ["pieza", PIECE, "pieza"]], "out": [["out", EXEC, ""]],
+		"params": [],
+	},
+	"ac_bolsa_sacar_azar": {
+		"cat": "acciones", "title": "Sacar de la bolsa",
+		"help": "Saca una pieza al azar de una bolsa y la deja en la mesa (BagComponent).",
+		"in": [["in", EXEC, ""], ["bolsa", PIECE, "bolsa"]], "out": [["out", EXEC, ""], ["pieza", PIECE, "pieza salida"]],
+		"params": [],
+	},
+	"ac_bolsa_agregar": {
+		"cat": "acciones", "title": "Agregar a la bolsa",
+		"help": "Agrega una pieza a una bolsa (BagComponent).",
+		"in": [["in", EXEC, ""], ["bolsa", PIECE, "bolsa"], ["pieza", PIECE, "pieza"]], "out": [["out", EXEC, ""]],
+		"params": [],
+	},
+	"ac_nota_escribir": {
+		"cat": "acciones", "title": "Escribir nota",
+		"help": "Escribe texto en la nota de una pieza (NoteComponent).",
+		"in": [["in", EXEC, ""], ["pieza", PIECE, "pieza"], ["texto", TEXT, "texto"]], "out": [["out", EXEC, ""]],
+		"params": [["texto", "text", "Texto", ""]],
+	},
+	"ac_reloj_iniciar": {
+		"cat": "acciones", "title": "Iniciar reloj",
+		"help": "Arranca la cuenta atrás del reloj de una pieza (TimerComponent).",
+		"in": [["in", EXEC, ""], ["reloj", PIECE, "reloj"]], "out": [["out", EXEC, ""]],
+		"params": [],
+	},
+	"ac_reloj_parar": {
+		"cat": "acciones", "title": "Parar reloj",
+		"help": "Para la cuenta atrás del reloj de una pieza (TimerComponent).",
+		"in": [["in", EXEC, ""], ["reloj", PIECE, "reloj"]], "out": [["out", EXEC, ""]],
+		"params": [],
+	},
+	"ac_reloj_reiniciar": {
+		"cat": "acciones", "title": "Reiniciar reloj",
+		"help": "Reinicia el reloj de una pieza a su duración completa (TimerComponent).",
+		"in": [["in", EXEC, ""], ["reloj", PIECE, "reloj"]], "out": [["out", EXEC, ""]],
+		"params": [],
 	},
 	# ---------------------------------------------------------------- GDScript
 	"gd_bloque": {

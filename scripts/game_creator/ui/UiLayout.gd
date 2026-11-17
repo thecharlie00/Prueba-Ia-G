@@ -39,6 +39,19 @@ const MAX_ELEMENTS := 60
 const MAX_TEXT := 200
 const MIN_SIZE := Vector2(24, 24)
 const IMAGE_ROOT := "user://creador/imagenes/"
+const GRID_STEP := 20.0  # Paso de la cuadrícula de diseño (píxeles de referencia).
+
+## Alineaciones soportadas para seleccionados.
+const ALIGN_LEFT := 0
+const ALIGN_CENTER_X := 1
+const ALIGN_RIGHT := 2
+const ALIGN_TOP := 3
+const ALIGN_CENTER_Y := 4
+const ALIGN_BOTTOM := 5
+
+## Direcciones de distribución.
+const DISTRIBUTE_HORIZONTAL := 0
+const DISTRIBUTE_VERTICAL := 1
 const DEFAULTS := {
 	"text": {"size": Vector2(260, 48), "text": "Texto", "font_size": 26, "color": "fff8ec", "bg": ""},
 	"button": {"size": Vector2(200, 56), "text": "Botón", "font_size": 20, "color": "1d1a3a", "bg": "ffc83d"},
@@ -49,6 +62,11 @@ const DEFAULTS := {
 
 var elements: Array[Dictionary] = []
 var _next_id := 1
+## IDs de los elementos seleccionados (selección múltiple en diseño).
+var selected: Array[int] = []
+## ID del grupo al que pertenece cada elemento (clave: element_id, valor: group_id).
+var groups: Dictionary = {}
+var _next_group_id := 1
 
 
 ## Añade un elemento del tipo dado, en el centro (cada nuevo algo desplazado). Devuelve su
@@ -78,6 +96,7 @@ func add(type: String) -> Dictionary:
 	_next_id += 1
 	elements.append(element)
 	reanchor(element)
+	selected = [int(element["id"])]
 	return element
 
 
@@ -96,16 +115,21 @@ func remove(id: int) -> bool:
 			for element in elements:
 				if int(element["target"]) == id:
 					element["target"] = 0
+			# Limpiar selección y grupo.
+			selected.erase(id)
+			groups.erase(id)
 			return true
 	return false
 
 
-## Lleva un elemento al frente (se dibuja el último).
+## Lleva un elemento al frente (se dibuja el último). Si hay selección múltiple, lleva todos los seleccionados al frente.
 func bring_to_front(id: int) -> void:
-	var element := find(id)
-	if not element.is_empty():
-		elements.erase(element)
-		elements.append(element)
+	var ids := selected if selected.size() > 1 else [id]
+	for target_id in ids:
+		var element := find(target_id)
+		if not element.is_empty():
+			elements.erase(element)
+			elements.append(element)
 
 
 ## Elementos a los que puede apuntar una acción: contadores, o cualquiera para «mostrar».
@@ -117,6 +141,259 @@ func targets_for(action: String, own_id: int) -> Array[Dictionary]:
 		if action == "toggle" or (action in ["add", "sub", "roll"] and element["type"] == "counter"):
 			found.append(element)
 	return found
+
+
+## Selecciona un elemento (o varios si `multi` y ya hay selección). Devuelve los IDs seleccionados.
+func select(id: int, multi: bool = false) -> Array[int]:
+	if multi:
+		if id in selected:
+			selected.erase(id)
+		else:
+			selected.append(id)
+	else:
+		selected = [id] if id != 0 else []
+	return selected.duplicate()
+
+
+## Devuelve los IDs de los elementos seleccionados.
+func get_selected() -> Array[int]:
+	return selected.duplicate()
+
+
+## Limpia la selección.
+func clear_selection() -> void:
+	selected = []
+
+
+## Devuelve los diccionarios de los elementos seleccionados.
+func selected_elements() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for id in selected:
+		var element := find(id)
+		if not element.is_empty():
+			result.append(element)
+	return result
+
+
+## Alinea los elementos seleccionados al tipo dado (ALIGN_*). Usa el primer seleccionado como referencia
+## para centro_x/centro_y, o el borde extremo para left/right/top/bottom.
+func align_selected(alignment: int) -> int:
+	var elems := selected_elements()
+	if elems.size() < 2:
+		return 0
+	var moved := 0
+	match alignment:
+		ALIGN_LEFT:
+			var min_x := 99999.0
+			for e in elems:
+				min_x = min(min_x, (e["pos"] as Vector2).x)
+			for e in elems:
+				var pos := e["pos"] as Vector2
+				if pos.x != min_x:
+					pos.x = min_x
+					e["pos"] = pos
+					moved += 1
+		ALIGN_CENTER_X:
+			var ref := elems[0]
+			var cx := (ref["pos"] as Vector2).x + (ref["size"] as Vector2).x * 0.5
+			for e in elems:
+				var pos := e["pos"] as Vector2
+				var size := e["size"] as Vector2
+				var nx := cx - size.x * 0.5
+				if pos.x != nx:
+					pos.x = nx
+					e["pos"] = pos
+					moved += 1
+		ALIGN_RIGHT:
+			var max_x := -99999.0
+			for e in elems:
+				var pos := e["pos"] as Vector2
+				var size := e["size"] as Vector2
+				max_x = max(max_x, pos.x + size.x)
+			for e in elems:
+				var pos := e["pos"] as Vector2
+				var size := e["size"] as Vector2
+				var nx := max_x - size.x
+				if pos.x != nx:
+					pos.x = nx
+					e["pos"] = pos
+					moved += 1
+		ALIGN_TOP:
+			var min_y := 99999.0
+			for e in elems:
+				min_y = min(min_y, (e["pos"] as Vector2).y)
+			for e in elems:
+				var pos := e["pos"] as Vector2
+				if pos.y != min_y:
+					pos.y = min_y
+					e["pos"] = pos
+					moved += 1
+		ALIGN_CENTER_Y:
+			var ref := elems[0]
+			var cy := (ref["pos"] as Vector2).y + (ref["size"] as Vector2).y * 0.5
+			for e in elems:
+				var pos := e["pos"] as Vector2
+				var size := e["size"] as Vector2
+				var ny := cy - size.y * 0.5
+				if pos.y != ny:
+					pos.y = ny
+					e["pos"] = pos
+					moved += 1
+		ALIGN_BOTTOM:
+			var max_y := -99999.0
+			for e in elems:
+				var pos := e["pos"] as Vector2
+				var size := e["size"] as Vector2
+				max_y = max(max_y, pos.y + size.y)
+			for e in elems:
+				var pos := e["pos"] as Vector2
+				var size := e["size"] as Vector2
+				var ny := max_y - size.y
+				if pos.y != ny:
+					pos.y = ny
+					e["pos"] = pos
+					moved += 1
+	for e in elems:
+		reanchor(e)
+	return moved
+
+
+## Distribuye los elementos seleccionados uniformemente (HORIZONTAL o VERTICAL) según sus centros.
+func distribute_selected(direction: int) -> int:
+	var elems := selected_elements()
+	if elems.size() < 3:
+		return 0
+	var sorted := elems.duplicate()
+	if direction == DISTRIBUTE_HORIZONTAL:
+		sorted.sort_custom(func(a, b):
+			return (a["pos"] as Vector2).x < (b["pos"] as Vector2).x
+		)
+	else:
+		sorted.sort_custom(func(a, b):
+			return (a["pos"] as Vector2).y < (b["pos"] as Vector2).y
+		)
+	var first := sorted[0]
+	var last := sorted[sorted.size() - 1]
+	var p1 := first["pos"] as Vector2
+	var p2 := last["pos"] as Vector2
+	var s1 := first["size"] as Vector2
+	var s2 := last["size"] as Vector2
+	var c1 := (p1.x + s1.x * 0.5) if direction == DISTRIBUTE_HORIZONTAL else (p1.y + s1.y * 0.5)
+	var c2 := (p2.x + s2.x * 0.5) if direction == DISTRIBUTE_HORIZONTAL else (p2.y + s2.y * 0.5)
+	var step := (c2 - c1) / float(sorted.size() - 1)
+	var moved := 0
+	for i in 1..sorted.size() - 2:
+		var e := sorted[i]
+		var pos := e["pos"] as Vector2
+		var size := e["size"] as Vector2
+		var target_c := c1 + step * float(i)
+		var nc: float
+		if direction == DISTRIBUTE_HORIZONTAL:
+			nc = target_c - size.x * 0.5
+			if pos.x != nc:
+				pos.x = nc
+				e["pos"] = pos
+				moved += 1
+		else:
+			nc = target_c - size.y * 0.5
+			if pos.y != nc:
+				pos.y = nc
+				e["pos"] = pos
+				moved += 1
+	for e in elems:
+		reanchor(e)
+	return moved
+
+
+## Duplica un elemento (o todos los seleccionados si no se pasa id). Devuelve los nuevos IDs.
+func duplicate(id_or_none: Variant = null) -> Array[int]:
+	var ids: Array[int] = []
+	if id_or_none is int and id_or_none != 0:
+		ids = [id_or_none]
+	else:
+		ids = get_selected()
+	var made: Array[int] = []
+	for id in ids:
+		var element := find(id)
+		if element.is_empty():
+			continue
+		var copy := element.duplicate(true)
+		copy["id"] = _next_id
+		_next_id += 1
+		var pos := copy["pos"] as Vector2
+		pos = pos + Vector2(18.0, 18.0)
+		copy["pos"] = pos
+		copy["name"] = copy["name"] + " copia"
+		if int(copy["target"]) == id:
+			copy["target"] = 0
+		elements.append(copy)
+		reanchor(copy)
+		made.append(int(copy["id"]))
+	return made
+
+
+## Copia los elementos seleccionados al portapapeles interno.
+func copy_selected() -> Array[Dictionary]:
+	var clipboard: Array[Dictionary] = []
+	for id in selected:
+		var element := find(id)
+		if not element.is_empty():
+			clipboard.append(element.duplicate(true))
+	return clipboard
+
+
+## Pega el portapapeles (desplazado). Devuelve los nuevos IDs.
+func paste(clipboard: Array[Dictionary]) -> Array[int]:
+	var made: Array[int] = []
+	for element in clipboard:
+		var copy := element.duplicate(true)
+		copy["id"] = _next_id
+		_next_id += 1
+		var pos := copy["pos"] as Vector2
+		pos = pos + Vector2(24.0, 24.0)
+		copy["pos"] = pos
+		copy["name"] = copy["name"] + " copia"
+		if int(copy["target"]) != 0:
+			copy["target"] = 0
+		elements.append(copy)
+		reanchor(copy)
+		made.append(int(copy["id"]))
+	selected = made
+	return made
+
+
+## Agrupa los elementos seleccionados bajo un nuevo group_id. Devuelve el group_id.
+func group_selected() -> int:
+	if selected.is_empty():
+		return 0
+	var gid := _next_group_id
+	_next_group_id += 1
+	for id in selected:
+		groups[id] = gid
+	return gid
+
+
+## Desagrupa los elementos seleccionados (elimina su asignación de grupo).
+func ungroup_selected() -> void:
+	for id in selected:
+		groups.erase(id)
+
+
+## Devuelve el group_id de un elemento, o 0 si no tiene grupo.
+func group_of(id: int) -> int:
+	return groups.get(id, 0)
+
+
+## Si un elemento tiene grupo, devuelve los IDs de todos los elementos de ese grupo.
+func group_members(id: int) -> Array[int]:
+	var gid := groups.get(id, 0)
+	if gid == 0:
+		return []
+	var result: Array[int] = []
+	for eid in groups.keys():
+		if groups[eid] == gid:
+			result.append(eid)
+	return result
 
 
 ## Mantiene el elemento dentro de la pantalla y lo sujeta al borde o esquina más cercano.
@@ -156,14 +433,26 @@ func to_record() -> Dictionary:
 		copy["pos"] = [element["pos"].x, element["pos"].y]
 		copy["size"] = [element["size"].x, element["size"].y]
 		list.append(copy)
-	return {"kind": "tablerama_ui", "version": 1, "elements": list}
+	var grupos := {}
+	for gid in groups.keys():
+		var eid := groups[gid]
+		if not grupos.has(gid):
+			grupos[gid] = []
+		grupos[gid].append(eid)
+	return {
+		"kind": "tablerama_ui",
+		"version": 2,
+		"elements": list,
+		"groups": grupos,
+	}
 
 
 ## Reconstruye un diseño desde datos guardados, o null si algo no es válido.
 static func from_record(data: Variant) -> UiLayout:
 	if not data is Dictionary or data.get("kind") != "tablerama_ui":
 		return null
-	if not _is_int(data.get("version")) or int(data["version"]) != 1:
+	var version := int(data.get("version", 1))
+	if not _is_int(data.get("version", 1)) or version != 2:
 		return null
 	var list: Variant = data.get("elements")
 	if not list is Array or list.size() > MAX_ELEMENTS:
@@ -177,6 +466,15 @@ static func from_record(data: Variant) -> UiLayout:
 		seen[element["id"]] = true
 		layout.elements.append(element)
 		layout._next_id = maxi(layout._next_id, int(element["id"]) + 1)
+	# Restaurar grupos.
+	var raw_groups := data.get("groups", {})
+	if raw_groups is Dictionary:
+		for gid in raw_groups.keys():
+			var members := raw_groups[gid]
+			if members is Array:
+				for eid in members:
+					if int(eid) > 0 and seen.has(int(eid)):
+						layout.groups[int(eid)] = int(gid)
 	for element in layout.elements:
 		if int(element["target"]) != 0 and not seen.has(int(element["target"])):
 			return null

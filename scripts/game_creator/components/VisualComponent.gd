@@ -22,6 +22,8 @@ extends BehaviorComponent
 @export var zone_kind: String = "normal"
 ## Zonas: de qué jugador es (0 = de nadie, 1..6).
 @export var owner_player: int = 0
+## Zonas: solo se aceptan piezas que lleven esta etiqueta (vacío = aceptar cualquiera).
+@export var tag_filter: String = ""
 ## Modelos 3D: tamaño del modelo ya encajado (a escala 1). La ruta va en mesh_path.
 @export var model_size: Vector3 = Vector3.ZERO
 @export var mesh_path: String = ""
@@ -46,6 +48,7 @@ func _serialize_extra(data: Dictionary) -> void:
 	data["shuffle_on_play"] = shuffle_on_play
 	data["zone_kind"] = zone_kind
 	data["owner_player"] = owner_player
+	data["tag_filter"] = tag_filter
 	data["model_size"] = model_size
 	data["mesh_path"] = mesh_path
 	data["texture_path"] = texture_path
@@ -65,6 +68,7 @@ func _deserialize_extra(data: Dictionary) -> void:
 	shuffle_on_play = data.get("shuffle_on_play", shuffle_on_play) == true
 	zone_kind = str(data.get("zone_kind", zone_kind)) if str(data.get("zone_kind", zone_kind)) in PieceShapes.ZONE_KINDS else "normal"
 	owner_player = clampi(int(data.get("owner_player", owner_player)), 0, GamePlayers.MAX)
+	tag_filter = str(data.get("tag_filter", tag_filter))
 	model_size = data.get("model_size", model_size) if data.get("model_size", model_size) is Vector3 else Vector3.ZERO
 	mesh_path = data.get("mesh_path", mesh_path)
 	texture_path = data.get("texture_path", texture_path)
