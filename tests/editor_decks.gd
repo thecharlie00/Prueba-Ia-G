@@ -57,7 +57,7 @@ func _run() -> void:
 	select_pieces_in_test(editor, [mazo])
 
 	# 2. El mazo es UNA entidad.
-	var deck := mazo.get_component("DeckComponent") as DeckComponent
+	var deck: DeckComponent = mazo.get_component("DeckComponent") as DeckComponent
 	_check(deck != null, "la pieza mazo tiene DeckComponent")
 	_check(hierarchy.entities.size() == 1, "el mazo cuenta como una sola entidad (tiene %d)" % hierarchy.entities.size())
 	_check(deck.count() == 52, "el mazo tiene 52 cartas (tiene %d)" % deck.count())
@@ -100,7 +100,7 @@ func _run() -> void:
 
 	# 7. Buscar una carta en el mazo y sacarla.
 	editor._remember("test_search")
-	var buscada := deck.search("As de Espadas")
+	var buscada: Dictionary = deck.search("As de Espadas") as Dictionary
 	_check(not buscada.is_empty(), "se buscó y encontró «%s»" % buscada.get("name", "?"))
 	_check(deck.count() == 50, "tras buscar quedan %d cartas" % deck.count())
 	var buscada_ent: PropEntity = editor._make_piece({
@@ -141,7 +141,7 @@ func _run() -> void:
 	editor.undo()
 	_check(hierarchy.entities.size() == 1, "tras deshacer todo vuelve a ser 1 entidad (el mazo) (%d)" % hierarchy.entities.size())
 	deck = hierarchy.entities[0].get_component("DeckComponent") as DeckComponent
-	var cartas_despues := deck.count() if deck != null else -1
+	var cartas_despues: int = deck.count() if deck != null else -1
 	_check(deck != null and cartas_despues == 52, "el mazo recupera sus 52 cartas tras deshacer (%d)" % cartas_despues)
 
 	# 11. Guardar y cargar conserva el mazo.
@@ -152,8 +152,8 @@ func _run() -> void:
 	_check(editor.load_table(), "se carga la mesa con el mazo")
 	_check(hierarchy.entities.size() == 1, "tras cargar hay 1 entidad (el mazo) (%d)" % hierarchy.entities.size())
 	var loaded_mazo := hierarchy.entities[0]
-	var loaded_deck := loaded_mazo.get_component("DeckComponent") as DeckComponent
-	var cartas_cargadas := loaded_deck.count() if loaded_deck != null else -1
+	var loaded_deck: DeckComponent = loaded_mazo.get_component("DeckComponent") as DeckComponent
+	var cartas_cargadas: int = loaded_deck.count() if loaded_deck != null else -1
 	_check(loaded_deck != null and cartas_cargadas == 52, "el mazo cargado tiene %d cartas" % cartas_cargadas)
 
 	# Limpieza.

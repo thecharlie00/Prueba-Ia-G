@@ -118,7 +118,7 @@ static func valid_piece(item: Variant) -> Dictionary:
 	var pattern := str(d.get("pattern", "liso"))
 	var finish := str(d.get("finish", "mate"))
 	# DeckComponent: validar mazo si viene.
-	var deck_value := d.get("deck", {})
+	var deck_value: Dictionary = d.get("deck", {}) as Dictionary
 	var deck_clean: Dictionary = {}
 	if deck_value is Dictionary and not deck_value.is_empty():
 		var cards_raw := deck_value.get("cards", []) as Array
