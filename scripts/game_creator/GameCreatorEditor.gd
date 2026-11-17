@@ -1640,7 +1640,7 @@ func _refresh_piece_inspector() -> void:
 
 
 func _get_entity_texture_info(entity: PropEntity) -> String:
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	if visual != null and not visual.texture_path.is_empty():
 		return visual.texture_path.get_file()
 	return "ninguna"
@@ -1760,7 +1760,7 @@ func repeat_selection(cols: int, rows: int) -> Array:
 		return []
 	_remember("repeat")
 	var source := _selected_entity
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	var size := PieceShapes.piece_size(visual)
 	var step := Vector2(size.x + 0.06, size.z + 0.06)
 	var record: Dictionary = TableRecord.valid_piece(TableRecord.piece_record(source))
@@ -1799,7 +1799,7 @@ func number_selection() -> void:
 		return a.position.y < b.position.y
 	)
 	for i in ordered.size():
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		visual.label = str(i + 1)
 		_refresh_entity_visual(ordered[i])
 	_bump(ordered)
@@ -1837,7 +1837,7 @@ func _free_spot() -> Vector3:
 			var free := true
 			for entity in _scene_hierarchy.entities:
 				if Vector2(entity.position.x - spot.x, entity.position.z - spot.z).length() < 0.5 and entity.position.y < 0.2:
-					var visual: VisualComponent =  as VisualComponent
+					var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 					if visual == null or not (visual.shape == "tablero" or visual.shape in PieceShapes.MARKERS):
 						free = false
 						break
@@ -1945,8 +1945,8 @@ func _edit_selection(property: String, value: Variant) -> void:
 		return
 	_remember("edit:" + property)
 	for entity in selection:
-		var visual: VisualComponent =  as VisualComponent
-		var physics: PhysicsComponent =  as PhysicsComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
+		var physics: PhysicsComponent = entity.get_component("PhysicsComponent") as PhysicsComponent
 		match property:
 			"shape":
 				visual.shape = PieceShapes.valid(str(value))
@@ -2077,7 +2077,7 @@ func open_logic_editor() -> void:
 func _zone_options() -> Array:
 	var result: Array = []
 	for entity in _scene_hierarchy.entities:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		if visual != null and visual.shape == PieceShapes.ZONE:
 			var shown := entity.entity_name if visual.label == "" else "%s (%s)" % [entity.entity_name, visual.label]
 			result.append([entity.entity_id, shown])
@@ -2142,7 +2142,7 @@ func set_players(count: int, remember := true) -> void:
 func hand_zone_of(index: int) -> String:
 	var fallback := ""
 	for entity in _scene_hierarchy.entities:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		if visual == null or visual.shape != PieceShapes.ZONE or visual.owner_player != index + 1:
 			continue
 		if visual.zone_kind == "mano":
@@ -2355,7 +2355,7 @@ func logic_zone_id(name_or_id: String) -> String:
 	if wanted == GamePlayers.CURRENT_HAND:
 		return hand_zone_of(current_player)
 	for entity in _scene_hierarchy.entities:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		if visual == null or visual.shape != PieceShapes.ZONE:
 			continue
 		if entity.entity_id.to_lower() == wanted or entity.entity_name.to_lower() == wanted or visual.label.to_lower() == wanted:
@@ -2389,7 +2389,7 @@ func logic_pieces(zone_id: String, tag: String) -> Array:
 
 
 func _inside_zone(zone: PropEntity, point: Vector3) -> bool:
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	var size := PieceShapes.piece_size(visual)
 	var local: Vector3 = zone.global_transform.affine_inverse() * point
 	return absf(local.x) <= size.x * 0.5 and absf(local.z) <= size.z * 0.5
@@ -2401,7 +2401,7 @@ func logic_zone_of(piece_id: String) -> String:
 	if entity == null:
 		return ""
 	for zone in _scene_hierarchy.entities:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		if visual != null and visual.shape == PieceShapes.ZONE and _inside_zone(zone, _piece_transform(entity).origin):
 			return zone.entity_name
 	return ""
@@ -2459,8 +2459,8 @@ func logic_move(piece_id: String, zone_id: String) -> void:
 
 func _place_in_zone(entity: PropEntity, zone: PropEntity, slot: int, count := -1, hold := false) -> void:
 	# FASE 1: zonas de mano solo aceptan piezas con la etiqueta del filtro (si hay uno).
-	var zone_visual: VisualComponent =  as VisualComponent
-	var visual: VisualComponent =  as VisualComponent
+	var zone_visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	if zone_visual != null and not zone_visual.tag_filter.is_empty():
 		var tags := Array(entity.tags)
 		if not zone_visual.tag_filter in tags:
@@ -2524,7 +2524,7 @@ func repartir_mazo(pieza: String, cantidad: int, zona: String) -> int:
 	var deck_entity := _find_piece(pieza)
 	if deck_entity == null:
 		return 0
-	var deck: DeckComponent =  as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck == null:
 		return 0
 	return deck.deal_to_zone(cantidad, self, zona)
@@ -2543,7 +2543,7 @@ func logic_flip(piece_id: String) -> void:
 	var body := entity.get_node_or_null("Body") as RigidBody3D
 	if body == null or _build_mode:
 		return
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	var xform := body.global_transform
 	var center := xform * (Vector3.UP * PieceShapes.piece_size(visual).y * 0.5)
 	xform = Transform3D.IDENTITY.translated(center) * Transform3D(Basis(Vector3.BACK, PI), Vector3.ZERO) * Transform3D.IDENTITY.translated(-center) * xform
@@ -3019,7 +3019,7 @@ func flip_selection() -> void:
 	for entity in selection:
 		entity.rotation_degrees.z = 180.0 if absf(entity.rotation_degrees.z) < 90.0 else 0.0
 		# La pieza volteada sigue apoyada: el giro se hace sobre su centro.
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		var height := PieceShapes.piece_size(visual).y
 		entity.position.y += height if entity.rotation_degrees.z > 90.0 else -height
 		entity.position.y = maxf(entity.position.y, 0.0)
@@ -3044,7 +3044,7 @@ func nudge_selection(offset: Vector3) -> void:
 func scale_selection(factor: float) -> void:
 	if selection.is_empty():
 		return
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	_edit_selection("scale", snappedf(visual.scale_factor * factor, 0.05))
 	_bump(selection)
 
@@ -3060,7 +3060,7 @@ func arrange_row_selection() -> void:
 	var total := 0.0
 	var center := Vector3.ZERO
 	for entity in ordered:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		var size := PieceShapes.piece_size(visual)
 		widths.append(size.x)
 		total += size.x
@@ -3087,7 +3087,7 @@ func stack_selection() -> void:
 	var base := selection[0]
 	var height := base.position.y
 	for entity in selection:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		entity.position = Vector3(base.position.x, height, base.position.z)
 		entity.rotation_degrees = Vector3(0, base.rotation_degrees.y, 0)
 		height += PieceShapes.piece_size(visual).y
@@ -3251,7 +3251,7 @@ func set_snap(on: bool) -> void:
 # Cuerpo visible de la pieza: su forma (con su color, acabado, imagen o dibujo, texto y,
 # en los dados, sus puntos) y su cuerpo físico.
 func _refresh_entity_visual(entity: PropEntity) -> void:
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	if visual == null:
 		visual = VisualComponent.new()
 		entity.add_component(visual)
@@ -3398,7 +3398,7 @@ func _refresh_entity_visual(entity: PropEntity) -> void:
 	# Los dados ruedan con gracia y se paran pronto; el resto se asienta sin patinar.
 	body.linear_damp = 0.8 if shape_name == "dado" else 0.4
 	body.angular_damp = 1.6 if shape_name == "dado" else 0.8
-	var physics: PhysicsComponent =  as PhysicsComponent
+	var physics: PhysicsComponent = entity.get_component("PhysicsComponent") as PhysicsComponent
 	if physics != null:
 		body.mass = physics.mass
 		var physics_material := PhysicsMaterial.new()
@@ -3456,12 +3456,12 @@ func _style_piece_material(mesh_node: MeshInstance3D, material: StandardMaterial
 
 ## Zonas y anclajes: marcas en la mesa que no chocan ni sostienen piezas.
 func _is_zone(entity: PropEntity) -> bool:
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	return visual != null and visual.shape in PieceShapes.MARKERS
 
 
 func _is_anchor(entity: PropEntity) -> bool:
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	return visual != null and visual.shape == PieceShapes.ANCHOR
 
 
@@ -3541,7 +3541,7 @@ func _refresh_markers() -> void:
 
 
 func _fit_marker(marker: MeshInstance3D, entity: PropEntity) -> void:
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	var size := PieceShapes.piece_size(visual) + Vector3.ONE * 0.06
 	var local := Transform3D(Basis.from_scale(size), Vector3(0, size.y * 0.5 - 0.03, 0))
 	marker.global_transform = entity.global_transform * local
@@ -3574,7 +3574,7 @@ func piece_at(screen: Vector2) -> PropEntity:
 
 
 func _hit_piece(entity: PropEntity, from: Vector3, direction: Vector3) -> Variant:
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	var size := PieceShapes.piece_size(visual)
 	var xform := _piece_transform(entity)
 	var inverse := xform.affine_inverse()
@@ -3668,7 +3668,7 @@ func _on_mouse_button(event: InputEventMouseButton) -> void:
 						_selected_entity = piece
 						_refresh_piece_inspector()
 					# FASE 1: mazo como objeto único — al arrastrar se toma la carta de arriba.
-					var deck: DeckComponent =  as DeckComponent
+					var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 					if deck != null and not deck.is_empty() and not event.alt_pressed:
 						var top_data := deck.draw_top()
 						if not top_data.is_empty():
@@ -3761,13 +3761,13 @@ func open_context_menu(screen: Vector2) -> Array:
 			add.call(tr("Mezclar lo de dentro"), func() -> void: _shuffle_zone(piece))
 		elif _movable_in_play(piece):
 			add.call(tr("Voltear") + "  ·  F", func() -> void: logic_flip(piece.entity_id))
-		var notes: VisualComponent =  as VisualComponent).notes
+		entity.get_component("VisualComponent") as VisualComponent).notes
 		if notes.strip_edges() != "":
 			add.call("ℹ  " + notes.left(60), func() -> void: logic_message(notes))
 		if players > 1:
 			add.call(tr("Pasar turno") + "  ·  T", logic_pass_turn)
 	# FASE 1: acciones de mazo (pieza con DeckComponent).
-	var deck: DeckComponent =  as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck != null:
 		add.call(tr("Repartir N…"), func() -> void: _deal_from_deck(piece))
 		add.call(tr("Barajar"), func() -> void: _shuffle_deck(piece))
@@ -3802,7 +3802,7 @@ func run_context_action(id: int) -> void:
 
 ## Reparte N cartas del mazo a una zona (diálogo de cantidad y destino).
 func _deal_from_deck(deck_piece: PropEntity) -> void:
-	var deck: DeckComponent =  as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck == null or deck.is_empty():
 		return
 	var dlg := ConfirmationDialog.new()
@@ -3848,7 +3848,7 @@ func _deal_from_deck(deck_piece: PropEntity) -> void:
 
 ## Baraja las cartas internas del mazo.
 func _shuffle_deck(deck_piece: PropEntity) -> void:
-	var deck: DeckComponent =  as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck == null:
 		return
 	_remember("deck_shuffle")
@@ -3858,7 +3858,7 @@ func _shuffle_deck(deck_piece: PropEntity) -> void:
 
 ## Busca una carta por nombre en el mazo y la saca a la mesa.
 func _search_deck(deck_piece: PropEntity) -> void:
-	var deck: DeckComponent =  as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck == null or deck.is_empty():
 		return
 	var dlg := AcceptDialog.new()
@@ -3914,7 +3914,7 @@ func _search_deck(deck_piece: PropEntity) -> void:
 
 ## Muestra las N cartas de arriba del mazo (sin sacarlas).
 func _peek_deck(deck_piece: PropEntity) -> void:
-	var deck: DeckComponent =  as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck == null or deck.is_empty():
 		return
 	var top := deck.peek(deck.peek_count)
@@ -3925,7 +3925,7 @@ func _peek_deck(deck_piece: PropEntity) -> void:
 
 ## Da la vuelta al mazo (invierte el orden y cambia cara/dorso).
 func _flip_deck(deck_piece: PropEntity) -> void:
-	var deck: DeckComponent =  as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck == null:
 		return
 	_remember("deck_flip")
@@ -3937,9 +3937,9 @@ func _flip_deck(deck_piece: PropEntity) -> void:
 func _place_card_in_zone(piece: Dictionary, zone: PropEntity, slot: int) -> void:
 	_remember("deck_place")
 	var entity := _make_piece(piece)
-	var zone_visual: VisualComponent =  as VisualComponent
+	var zone_visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	var zone_size := PieceShapes.piece_size(zone_visual) if zone_visual != null else Vector3(1, 0.006, 0.7)
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	var size := PieceShapes.piece_size(visual)
 	var step := size.x + 0.04
 	var count := logic_pieces(zone.entity_id, "").size()
@@ -4055,7 +4055,7 @@ func _drag_move(screen: Vector2) -> void:
 func _rest_offset(entity: PropEntity) -> float:
 	if absf(entity.rotation_degrees.z) < 90.0 and absf(entity.rotation_degrees.x) < 90.0:
 		return 0.0
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	return PieceShapes.piece_size(visual).y
 
 
@@ -4073,7 +4073,7 @@ func _end_drag() -> void:
 func _select_in_box(rect: Rect2) -> void:
 	var chosen: Array = (_drag["base"] as Array).duplicate() if _drag.get("additive", false) else []
 	for entity in _scene_hierarchy.entities:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		var center: Vector3 = entity.global_position + Vector3.UP * PieceShapes.piece_size(visual).y * 0.5
 		if _camera.is_position_behind(center):
 			continue
@@ -4259,7 +4259,7 @@ func _show_hover_info(piece: PropEntity) -> void:
 		if _build_mode or (_rolling.is_empty() and last_roll.is_empty()):
 			_update_status()
 		return
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	var text := piece.entity_name
 	if visual != null and visual.notes.strip_edges() != "":
 		text += " — " + visual.notes
@@ -4267,7 +4267,7 @@ func _show_hover_info(piece: PropEntity) -> void:
 
 
 func _shape_of(entity: PropEntity) -> String:
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	return visual.shape if visual != null else PieceShapes.DEFAULT
 
 
@@ -4281,7 +4281,7 @@ func _grab_in_play(screen: Vector2) -> void:
 	if piece == null or not _movable_in_play(piece):
 		return
 	# FASE 1: mazo como objeto único — al hacer clic se toma la carta de arriba.
-	var deck: DeckComponent =  as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck != null and not deck.is_empty():
 		var top_data := deck.draw_top()
 		if not top_data.is_empty():
@@ -4349,7 +4349,7 @@ func _release_in_play() -> void:
 	_snap_body_to_anchor(entity, body)
 	_play("drop")
 	for zone in _scene_hierarchy.entities:
-		var zone_visual: VisualComponent =  as VisualComponent
+		var zone_visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		if zone_visual != null and zone_visual.shape == PieceShapes.ZONE and _inside_zone(zone, body.global_position):
 			if zone_visual.zone_kind == "mano":
 				_arrange_hand(zone)
@@ -4377,7 +4377,7 @@ func _snap_body_to_anchor(entity: PropEntity, body: RigidBody3D) -> void:
 ## que se agarra: un mazo de cartas finas no se desparrama.
 func _hold_zone_contents() -> void:
 	for zone in _scene_hierarchy.entities:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		if visual == null or visual.shape != PieceShapes.ZONE:
 			continue
 		for id in logic_pieces(zone.entity_id, ""):
@@ -4394,7 +4394,7 @@ func _cover_hidden_zones(on: bool) -> void:
 		if old != null:
 			zone.remove_child(old)
 			old.queue_free()
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		if not on or visual == null or visual.shape != PieceShapes.ZONE or visual.zone_kind != "oculta":
 			continue
 		var size := PieceShapes.piece_size(visual)
@@ -4429,7 +4429,7 @@ func _arrange_hand(zone: PropEntity) -> void:
 func shuffle_zones() -> int:
 	var shuffled := 0
 	for zone in _scene_hierarchy.entities:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		if visual != null and visual.shape == PieceShapes.ZONE and visual.shuffle_on_play:
 			shuffled += _shuffle_zone(zone)
 	return shuffled
@@ -4542,7 +4542,7 @@ func flip_in_play() -> void:
 	if body == null:
 		return
 	var xform := body.global_transform
-	var visual: VisualComponent =  as VisualComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 	var center := xform * (Vector3.UP * PieceShapes.piece_size(visual).y * 0.5)
 	var flip := Transform3D(Basis(Vector3.BACK, PI), Vector3.ZERO)
 	xform = Transform3D.IDENTITY.translated(center) * flip * Transform3D.IDENTITY.translated(-center) * xform
@@ -4597,7 +4597,7 @@ func focus_selection() -> void:
 		center += entity.global_position
 	center /= selection.size()
 	for entity in selection:
-		var visual: VisualComponent =  as VisualComponent
+		var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
 		reach = maxf(reach, entity.global_position.distance_to(center) + PieceShapes.piece_size(visual).length())
 	_orbit_goal["target"] = center
 	_orbit_goal["distance"] = clampf(reach * 3.2, 1.6, 11.0)
@@ -4662,8 +4662,8 @@ func _update_zoom_panel() -> void:
 func _show_zoom(entity: PropEntity) -> void:
 	if _zoom_panel == null or entity == null:
 		return
-	var visual: VisualComponent =  as VisualComponent
-	var deck: DeckComponent =  as DeckComponent
+	var visual: VisualComponent = entity.get_component("VisualComponent") as VisualComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	var texture: Texture2D = null
 	if visual != null and not visual.texture_path.is_empty():
 		texture = _image_importer.load_texture(visual.texture_path)
