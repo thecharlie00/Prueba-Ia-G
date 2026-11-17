@@ -14,7 +14,7 @@ func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
 	for i in range(10):
 		await process_frame
-	var editor: GameCreatorEditor = current_scene
+	var editor: GameCreatorEditor = current_scene as GameCreatorEditor
 	editor.table_save_path = "user://test_editor_decks.json"
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
 
@@ -51,7 +51,7 @@ func _run() -> void:
 		},
 	}
 	editor._remember("test_create_deck")
-	var mazo := editor._make_piece(mazo_piece)
+	var mazo: PropEntity = editor._make_piece(mazo_piece) as PropEntity
 	mazo.position.y = editor._surface_height(mazo.position, [mazo])
 	editor._pop_in(mazo)
 	select_pieces_in_test(editor, [mazo])
@@ -70,15 +70,15 @@ func _run() -> void:
 	editor._remember("test_shuffle")
 	deck.shuffle()
 	_check(deck.count() == 52, "tras barajar sigue habiendo 52 cartas")
-	var antes := deck.top_card().get("name", "")
+	var antes: String = deck.top_card().get("name", "") as String
 	editor._remember("test_shuffle2")
 	deck.shuffle()
-	var despues := deck.top_card().get("name", "")
+	var despues: String = deck.top_card().get("name", "") as String
 	_check(antes != despues or true, "barajar cambia el orden (o al menos se ejecuta sin error)")
 
 	# 5. Robar la carta de arriba (el mazo se queda como objeto, la carta sale).
 	editor._remember("test_draw")
-	var arriba := deck.draw_top()
+	var arriba: Dictionary = deck.draw_top() as Dictionary
 	_check(not arriba.is_empty(), "se robó la carta de arriba: «%s»" % arriba.get("name", "?"))
 	_check(deck.count() == 51, "tras robar quedan %d cartas" % deck.count())
 
@@ -103,7 +103,7 @@ func _run() -> void:
 	var buscada := deck.search("As de Espadas")
 	_check(not buscada.is_empty(), "se buscó y encontró «%s»" % buscada.get("name", "?"))
 	_check(deck.count() == 50, "tras buscar quedan %d cartas" % deck.count())
-	var buscada_ent := editor._make_piece({
+	var buscada_ent: PropEntity = editor._make_piece({
 		"id": "", "name": buscada.get("name", "Carta"), "shape": "carta",
 		"color": Palette.PAPER.to_html(true), "texture": buscada.get("texture", ""),
 		"back": buscada.get("back", ""), "label": buscada.get("label", ""),
@@ -118,7 +118,7 @@ func _run() -> void:
 	_check(hierarchy.entities.size() == 3, "ahora hay 3 entidades (%d)" % hierarchy.entities.size())
 
 	# 8. Ver N de arriba (peek) sin desordenar.
-	var peek := deck.peek(3)
+	var peek: Array = deck.peek(3) as Array
 	_check(peek.size() == 3, "peek devuelve %d cartas" % peek.size())
 	_check(deck.count() == 50, "peek no saca cartas: quedan %d" % deck.count())
 

@@ -15,7 +15,7 @@ func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
 	for i in range(10):
 		await process_frame
-	var editor: GameCreatorEditor = current_scene
+	var editor: GameCreatorEditor = current_scene as GameCreatorEditor
 	editor.table_save_path = "user://test_editor_export_import.json"
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
 
@@ -49,7 +49,7 @@ func _run() -> void:
 		},
 	}
 	editor._remember("test_create_deck")
-	var mazo := editor._make_piece(mazo_piece)
+	var mazo: PropEntity = editor._make_piece(mazo_piece) as PropEntity
 	mazo.position.y = editor._surface_height(mazo.position, [mazo])
 	editor._pop_in(mazo)
 	editor.select_pieces([mazo])
@@ -65,7 +65,7 @@ func _run() -> void:
 		"bounce": 0.1,
 	}
 	editor._remember("test_create_zone")
-	var zona := editor._make_piece(zona_piece)
+	var zona: PropEntity = editor._make_piece(zona_piece) as PropEntity
 	zona.position.y = editor._surface_height(zona.position, [zona])
 	editor._pop_in(zona)
 	editor.select_pieces([mazo, zona])
@@ -90,7 +90,7 @@ func _run() -> void:
 	_check(hierarchy.entities.size() == 2, "tras importar hay 2 entidades (%d)" % hierarchy.entities.size())
 
 	# 6. Verificar que el mazo conserva sus cartas.
-	var imported_mazo := null
+	var imported_mazo: PropEntity = null
 	for e in hierarchy.entities:
 		var v := e.get_component("VisualComponent") as VisualComponent
 		if v != null and v.shape == "carta" and e.entity_name == "Mazo test":
@@ -100,11 +100,11 @@ func _run() -> void:
 	var imported_deck := imported_mazo.get_component("DeckComponent") as DeckComponent
 	_check(imported_deck != null, "el mazo importado tiene DeckComponent")
 	_check(imported_deck.count() == 3, "el mazo importado tiene %d cartas" % imported_deck.count())
-	var carta0 := imported_deck.top_card()
+	var carta0: Dictionary = imported_deck.top_card() as Dictionary
 	_check(carta0.get("name", "") == "Carta 3", "la carta de arriba es «Carta 3» (es «%s»)" % carta0.get("name", "?"))
 
 	# 7. Verificar que la zona conserva sus datos.
-	var imported_zona := null
+	var imported_zona: PropEntity = null
 	for e in hierarchy.entities:
 		var v := e.get_component("VisualComponent") as VisualComponent
 		if v != null and v.shape == "zona" and e.entity_name == "Zona destino":

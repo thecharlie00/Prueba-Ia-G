@@ -81,7 +81,7 @@ func _run() -> void:
 	_check(layout.group_of(1) == 0, "desagrupar elimina grupo de elemento 1")
 
 	# 9. Validación: no más de MAX_ELEMENTOS.
-	for i in layout.elements.size()..UiLayout.MAX_ELEMENTS:
+	for i in range(layout.elements.size(), UiLayout.MAX_ELEMENTS):
 		layout.add("text")
 	_check(layout.elements.size() >= UiLayout.MAX_ELEMENTS, "se llegó al máximo de elementos")
 	var extra := layout.add("text")

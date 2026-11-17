@@ -381,12 +381,12 @@ func ungroup_selected() -> void:
 
 ## Devuelve el group_id de un elemento, o 0 si no tiene grupo.
 func group_of(id: int) -> int:
-	return groups.get(id, 0)
+	return groups.get(id, 0) as int
 
 
 ## Si un elemento tiene grupo, devuelve los IDs de todos los elementos de ese grupo.
 func group_members(id: int) -> Array[int]:
-	var gid := groups.get(id, 0)
+	var gid := groups.get(id, 0) as int
 	if gid == 0:
 		return []
 	var result: Array[int] = []
@@ -437,7 +437,7 @@ func to_record() -> Dictionary:
 		list.append(copy)
 	var grupos := {}
 	for gid in groups.keys():
-		var eid := groups[gid]
+		var eid := groups[gid] as int
 		if not grupos.has(gid):
 			grupos[gid] = []
 		grupos[gid].append(eid)

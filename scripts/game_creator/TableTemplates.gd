@@ -70,7 +70,7 @@ static func pieces(name: String) -> Array:
 			var corner := PieceShapes.size_of("tablero").x * 0.5 - 0.1
 			var spots := [Vector3(-corner, top, -corner), Vector3(corner, top, -corner), Vector3(corner, top, corner), Vector3(-corner, top, corner)]
 			var names := ["Peón rojo", "Peón azul", "Peón verde", "Peón amarillo"]
-			for i in 4:
+			for i in range(4):
 				list.append(_piece("peon", _t(names[i]), spots[i], PieceLooks.CORNER_COLORS[i], {"scale": 0.55, "finish": "plastico"}))
 			list.append(_piece("dado", _t("Dado"), Vector3(0, top, 0), Palette.PAPER, {"scale": 0.8}))
 		"cartas":
@@ -86,7 +86,7 @@ static func pieces(name: String) -> Array:
 					height += card
 		"dados":
 			list.append(_piece("zona", _t("Zona de tirada"), Vector3(0, 0, 0.3), Palette.MINT, {"label": _t("TIRADA"), "scale": 1.6, "locked": true}))
-			for i in 5:
+			for i in range(5):
 				list.append(_piece("dado", _t("Dado %d") % (i + 1), Vector3(-0.8 + i * 0.4, 0, -0.7), Palette.PAPER, {"finish": "plastico"}))
 	var clean: Array = []
 	for item in list:

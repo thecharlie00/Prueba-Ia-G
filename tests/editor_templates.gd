@@ -14,7 +14,7 @@ func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
 	for i in range(10):
 		await process_frame
-	var editor: GameCreatorEditor = current_scene
+	var editor: GameCreatorEditor = current_scene as GameCreatorEditor
 	editor.table_save_path = "user://test_editor_templates.json"
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
 
@@ -23,14 +23,14 @@ func _run() -> void:
 	_check(hierarchy.entities.size() >= 3, "plantilla cartas pone al menos mazo, descarte y mano (%d)" % hierarchy.entities.size())
 
 	# Verificar que el mazo existe y tiene cartas.
-	var mazo := null
-	var mano := null
+	var mazo: PropEntity = null
+	var mano: PropEntity = null
 	for e in hierarchy.entities:
 		var v := e.get_component("VisualComponent") as VisualComponent
 		if v != null and v.shape == "zona":
-			if e.entity_name == "Zona mazo" or e.entity_name.label == "MAZO":
+			if e.entity_name == "Zona mazo" or e.entity_name == "MAZO":
 				mazo = e
-			if e.entity_name == "Zona mano" or e.entity_name.label == "MANO":
+			if e.entity_name == "Zona mano" or e.entity_name == "MANO":
 				mano = e
 	_check(mazo != null, "se encontró la zona mazo")
 	_check(mano != null, "se encontró la zona mano")
@@ -46,10 +46,10 @@ func _run() -> void:
 	# 3. Cargar plantilla "dados" con auto-setup (mezclar zona de tirada).
 	editor.load_template("dados")
 	_check(hierarchy.entities.size() >= 6, "plantilla dados pone zona + 5 dados (%d)" % hierarchy.entities.size())
-	var zona_tirada := null
+	var zona_tirada: PropEntity = null
 	for e in hierarchy.entities:
 		var v := e.get_component("VisualComponent") as VisualComponent
-		if v != null and v.shape == "zona" and e.entity_name.label == "TIRADA":
+		if v != null and v.shape == "zona" and e.entity_name == "TIRADA":
 			zona_tirada = e
 			break
 	_check(zona_tirada != null, "se encontró la zona de tirada")
@@ -61,7 +61,7 @@ func _run() -> void:
 	# 5. Crear un mazo de 4 cartas con dorso automático desde imágenes existentes.
 	# Usamos deck_from_sheet con una imagen de la galería, pero como no hay imágenes
 	# reales, verificamos que la función acepta el parámetro back_path sin errores.
-	var deck_result := editor.deck_from_sheet("", 1, 1, 1)
+	var deck_result: Array = editor.deck_from_sheet("", 1, 1, 1) as Array
 	_check(deck_result.is_empty(), "deck_from_sheet con path vacío devuelve array vacío")
 
 	# 6. Limpiar.
