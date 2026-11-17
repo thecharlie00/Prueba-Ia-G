@@ -37,7 +37,7 @@ func _run() -> void:
 	scene.free()
 
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
-	for i in 10:
+	for i in range(10):
 		await process_frame
 	var editor := current_scene
 
@@ -100,7 +100,7 @@ func _run() -> void:
 	editor.select_pieces([hidden])
 	editor._edit_selection("zone_kind", "oculta")
 	var cards: Array = []
-	for i in 3:
+	for i in range(3):
 		var card: PropEntity = editor.add_piece("carta")
 		card.position = Vector3(0.9 - i * 0.6, 0, -0.9)
 		cards.append(card)

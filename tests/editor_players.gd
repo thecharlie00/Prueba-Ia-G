@@ -11,7 +11,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
-	for i in 10:
+	for i in range(10):
 		await process_frame
 	var editor := current_scene
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
@@ -29,13 +29,13 @@ func _run() -> void:
 	editor._toggle_mode()
 	await process_frame
 	await process_frame
-	for i in 3:
+	for i in range(3):
 		_check(editor.logic_pieces(hands[i], "").size() == 5, "al probar, el jugador %d recibe 5 cartas" % (i + 1))
 	_check(editor.logic_pieces("zona_mazo", "").size() == 5, "y en el mazo quedan 5: %d" % editor.logic_pieces("zona_mazo", "").size())
 	_check(editor.current_player == 0, "tras repartir, el turno vuelve al primero")
 	_check(editor._turn_bar.visible and editor._turn_label.text.contains(GamePlayers.player_name(0)), "la barra de turno dice de quién es")
 	_key(editor, KEY_1)
-	for i in 30:
+	for i in range(30):
 		await physics_frame
 	_check(editor.logic_pieces(hands[0], "").size() == 6, "la tecla 1 roba para quien tiene el turno")
 	_key(editor, KEY_T)

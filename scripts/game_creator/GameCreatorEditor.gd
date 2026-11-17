@@ -1973,14 +1973,14 @@ func _edit_selection(property: String, value: Variant) -> void:
 				visual.notes = str(value).left(TableRecord.MAX_NOTES)
 			"shuffle":
 				visual.shuffle_on_play = bool(value)
-			"owner":
-				visual.owner_player = clampi(int(value), 0, GamePlayers.MAX)
-		"zone_kind":
-			visual.zone_kind = str(value) if str(value) in PieceShapes.ZONE_KINDS else "normal"
-		"tag_filter":
-			visual.tag_filter = str(value)
-		"tags":
-			entity.tags.assign(TableRecord.clean_tags(value))
+				"owner":
+					visual.owner_player = clampi(int(value), 0, GamePlayers.MAX)
+				"zone_kind":
+					visual.zone_kind = str(value) if str(value) in PieceShapes.ZONE_KINDS else "normal"
+				"tag_filter":
+					visual.tag_filter = str(value)
+				"tags":
+					entity.tags.assign(TableRecord.clean_tags(value))
 		_refresh_entity_visual(entity)
 	if property in ["shape", "scale"]:
 		_settle(selection)

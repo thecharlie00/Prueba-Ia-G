@@ -76,7 +76,7 @@ func _run() -> void:
 
 	# 10. Demasiadas dependencias.
 	var manifest_many_deps := ModManifest.new("id3", "Muchas Deps")
-	for i in 11:
+	for i in range(11):
 		manifest_many_deps.dependencies.append("dep_%d" % i)
 	_check(manifest_many_deps.validate() != "", "se rechazan más de %d dependencias" % ModManifest.MAX_DEPENDENCIES)
 

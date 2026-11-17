@@ -35,7 +35,7 @@ func sub(amount: int = 1) -> int:
 	return value
 
 ## Pone el valor a `nuevo`, respetando mín/máx. Devuelve el valor resultante.
-func set(nuevo: int) -> int:
+func set_value(nuevo: int) -> int:
 	value = clampi(int(nuevo), min_value, max_value)
 	return value
 

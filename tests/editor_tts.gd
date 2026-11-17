@@ -15,7 +15,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
-	for i in 10:
+	for i in range(10):
 		await process_frame
 	var editor := current_scene
 	var importer: ImageImporter = editor._image_importer
@@ -26,7 +26,7 @@ func _run() -> void:
 	# 1. Una hoja de 4 × 2 cartas de colores se corta sola en un mazo.
 	var colors := [Color.RED, Color.GREEN, Color.BLUE, Color.YELLOW, Color.CYAN, Color.MAGENTA, Color.ORANGE, Color.WHITE]
 	var sheet := Image.create(400, 280, false, Image.FORMAT_RGBA8)
-	for i in 8:
+	for i in range(8):
 		sheet.fill_rect(Rect2i((i % 4) * 100, (i / 4) * 140, 100, 140), colors[i])
 	var saved: Dictionary = importer.save_image(sheet, "hoja")
 	_check(saved.get("success") == true, "se guarda una imagen hecha en el editor")
@@ -92,7 +92,7 @@ func _run() -> void:
 	editor._edit_selection("shuffle", true)
 	_check((zone.get_component("VisualComponent") as VisualComponent).shuffle_on_play, "una zona se marca para mezclar")
 	var tokens: Array = []
-	for i in 4:
+	for i in range(4):
 		var t: PropEntity = editor.add_piece("ficha")
 		t.position = Vector3(-1.3 + i * 0.2, 0.0, 0.6)
 		(t.get_component("VisualComponent") as VisualComponent).label = str(i + 1)
