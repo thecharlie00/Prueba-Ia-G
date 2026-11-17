@@ -14,7 +14,7 @@ func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
 	for i in range(10):
 		await process_frame
-	var editor: GameCreatorEditor = current_scene
+	var editor: GameCreatorEditor = current_scene as GameCreatorEditor
 	editor.table_save_path = "user://test_editor_components.json"
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
 
@@ -31,7 +31,7 @@ func _run() -> void:
 			"value": 10, "min_value": 0, "max_value": 100, "step": 1, "label": "Puntos",
 		},
 	}
-	var contador_ent := editor._make_piece(contador_piece)
+	var contador_ent: PropEntity = editor._make_piece(contador_piece) as PropEntity
 	contador_ent.position.y = editor._surface_height(contador_ent.position, [contador_ent])
 	editor._pop_in(contador_ent)
 	editor.select_pieces([contador_ent])
@@ -45,7 +45,7 @@ func _run() -> void:
 	_check(counter.value == 15, "tras sumar 5, el contador vale 15 (vale %d)" % counter.value)
 	counter.sub(3)
 	_check(counter.value == 12, "tras restar 3, el contador vale 12 (vale %d)" % counter.value)
-	counter.set(50)
+	counter.set_value(50)
 	_check(counter.value == 50, "tras poner a 50, el contador vale 50 (vale %d)" % counter.value)
 	counter.reset()
 	_check(counter.value == 0, "tras resetear, el contador vale 0 (vale %d)" % counter.value)
@@ -63,7 +63,7 @@ func _run() -> void:
 			"label": "Bolsa de fichas", "hidden": true, "contained_ids": [],
 		},
 	}
-	var bolsa_ent := editor._make_piece(bolsa_piece)
+	var bolsa_ent: PropEntity = editor._make_piece(bolsa_piece) as PropEntity
 	bolsa_ent.position.y = editor._surface_height(bolsa_ent.position, [bolsa_ent])
 	editor._pop_in(bolsa_ent)
 	editor.select_pieces([bolsa_ent])
@@ -93,7 +93,7 @@ func _run() -> void:
 			"text": "Esta es una nota de prueba", "show_on_hover": true,
 		},
 	}
-	var nota_ent := editor._make_piece(nota_piece)
+	var nota_ent: PropEntity = editor._make_piece(nota_piece) as PropEntity
 	nota_ent.position.y = editor._surface_height(nota_ent.position, [nota_ent])
 	editor._pop_in(nota_ent)
 	editor.select_pieces([nota_ent])
@@ -118,7 +118,7 @@ func _run() -> void:
 			"running": false, "time_left": 30.0, "on_finish_message": "¡Tiempo agotado!",
 		},
 	}
-	var reloj_ent := editor._make_piece(reloj_piece)
+	var reloj_ent: PropEntity = editor._make_piece(reloj_piece) as PropEntity
 	reloj_ent.position.y = editor._surface_height(reloj_ent.position, [reloj_ent])
 	editor._pop_in(reloj_ent)
 	editor.select_pieces([reloj_ent])
@@ -142,7 +142,7 @@ func _run() -> void:
 	_check(hierarchy.entities.size() == 4, "tras cargar hay 4 entidades (%d)" % hierarchy.entities.size())
 
 	# Verificar que el contador conservó su valor.
-	var loaded_counter := null
+	var loaded_counter: CounterComponent = null
 	for e in hierarchy.entities:
 		var c := e.get_component("CounterComponent") as CounterComponent
 		if c != null:
@@ -152,7 +152,7 @@ func _run() -> void:
 	_check(loaded_counter.value == 0, "el contador cargado tiene valor 0 (tiene %d)" % loaded_counter.value)
 
 	# Verificar que la nota conservó su texto.
-	var loaded_note := null
+	var loaded_note: NoteComponent = null
 	for e in hierarchy.entities:
 		var n := e.get_component("NoteComponent") as NoteComponent
 		if n != null:
@@ -162,7 +162,7 @@ func _run() -> void:
 	_check(loaded_note.get_text() == "Nota modificada", "la nota cargada dice: «%s»" % loaded_note.get_text())
 
 	# Verificar que el reloj conservó su configuración.
-	var loaded_timer := null
+	var loaded_timer: TimerComponent = null
 	for e in hierarchy.entities:
 		var t := e.get_component("TimerComponent") as TimerComponent
 		if t != null:
