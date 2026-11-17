@@ -97,7 +97,7 @@ func _run() -> void:
 			imported_mazo = e
 			break
 	_check(imported_mazo != null, "se encontró el mazo importado")
-	var imported_deck := imported_mazo.get_component("DeckComponent") as DeckComponent
+	var imported_deck: DeckComponent = imported_mazo.get_component("DeckComponent") as DeckComponent
 	_check(imported_deck != null, "el mazo importado tiene DeckComponent")
 	_check(imported_deck.count() == 3, "el mazo importado tiene %d cartas" % imported_deck.count())
 	var carta0: Dictionary = imported_deck.top_card() as Dictionary
