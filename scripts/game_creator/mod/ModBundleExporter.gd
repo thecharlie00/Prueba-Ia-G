@@ -21,7 +21,7 @@ func export_mod(manifest: ModManifest, scene_path: String, resources_dir: String
 	manifest.updated_at = Time.get_datetime_string_from_system()
 
 	var zip := ZIPPacker.new()
-	var zip_error := zip.open(output_path, ZIPPacker.MODE_WRITE)
+	var zip_error := zip.open(output_path, 1)  # flag 1 = CREATE mode
 	if zip_error != OK:
 		return {
 			"success": false,
@@ -42,18 +42,23 @@ func export_mod(manifest: ModManifest, scene_path: String, resources_dir: String
 	if resources_dir != "" and DirAccess.dir_exists_absolute(resources_dir):
 		_dir_to_zip(zip, resources_dir, "resources/")
 
-	# 4. Calcular checksum del ZIP (SHA-256 del contenido empaquetado).
 	zip.close()
+
+	# 4. Calcular checksum del archivo ZIP creado.
 	var checksum := _compute_checksum(output_path)
 	manifest.checksum = checksum
 
 	# 5. Reabrir el ZIP para añadir checksum.sha256 al final.
-	zip.open(output_path, ZIPPacker.MODE_WRITE)
+	zip.open(output_path, 3)  # flag 3 = CREATE | APPEND
 	zip.add_file("checksum.sha256", checksum.to_utf8_buffer())
 	zip.close()
 
 	# Verificar tamaño del archivo resultante.
-	var size_mb := FileAccess.get_length(output_path) / (1024 * 1024)
+	var f := FileAccess.open(output_path, FileAccess.READ)
+	var size_mb := 0.0
+	if f != null:
+		size_mb = float(f.get_length()) / (1024.0 * 1024.0)
+		f.close()
 	if size_mb > max_mod_size_mb:
 		return {
 			"success": false,

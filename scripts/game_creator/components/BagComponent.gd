@@ -40,13 +40,17 @@ func draw_random() -> String:
 	if contained_ids.is_empty():
 		return ""
 	var idx := randi_range(0, contained_ids.size() - 1)
-	return contained_ids.remove_at(idx)
+	var id := contained_ids[idx]
+	contained_ids.remove_at(idx)
+	return id
 
 ## Saca y devuelve la primera pieza de la bolsa, o "" si está vacía.
 func draw_first() -> String:
 	if contained_ids.is_empty():
 		return ""
-	return contained_ids.remove_at(0)
+	var id := contained_ids[0]
+	contained_ids.remove_at(0)
+	return id
 
 ## Devuelve una copia de los IDs de las piezas dentro.
 func all_ids() -> Array:

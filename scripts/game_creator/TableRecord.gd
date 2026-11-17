@@ -121,7 +121,7 @@ static func valid_piece(item: Variant) -> Dictionary:
 	var deck_value := d.get("deck", {})
 	var deck_clean: Dictionary = {}
 	if deck_value is Dictionary and not deck_value.is_empty():
-		var cards_raw := deck_value.get("cards", [])
+		var cards_raw := deck_value.get("cards", []) as Array
 		var cards_clean: Array = []
 		if cards_raw is Array:
 			for c in cards_raw:
@@ -381,7 +381,7 @@ static func _clean_bag(raw: Variant) -> Dictionary:
 		return {}
 	var label := str(raw.get("label", "Bolsa")).left(MAX_NAME)
 	var hidden := raw.get("hidden", true) == true
-	var ids := raw.get("contained_ids", [])
+	var ids := raw.get("contained_ids", []) as Array
 	if not ids is Array:
 		ids = []
 	var clean_ids: Array = []

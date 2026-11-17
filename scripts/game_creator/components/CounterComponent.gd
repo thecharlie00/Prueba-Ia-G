@@ -25,12 +25,12 @@ func _deserialize_extra(data: Dictionary) -> void:
 	label = str(data.get("label", label))
 
 ## Suma `cantidad` al valor, respetando el máximo. Devuelve el valor resultante.
-func add(amount: int := 1) -> int:
+func add(amount: int = 1) -> int:
 	value = clampi(value + int(amount), min_value, max_value)
 	return value
 
 ## Resta `cantidad` al valor, respetando el mínimo. Devuelve el valor resultante.
-func sub(amount: int := 1) -> int:
+func sub(amount: int = 1) -> int:
 	value = clampi(value - int(amount), min_value, max_value)
 	return value
 
