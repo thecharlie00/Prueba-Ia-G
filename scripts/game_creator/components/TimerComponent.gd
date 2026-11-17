@@ -71,5 +71,5 @@ func remaining() -> float:
 func remaining_text() -> String:
 	var total := maxf(0.0, int(time_left))
 	var minutos := int(total / 60)
-	var segundos := int(total % 60)
+	var segundos := int(total) % 60
 	return "%02d:%02d" % [minutos, segundos]

@@ -897,13 +897,13 @@ func _build_piece_inspector(column: VBoxContainer) -> void:
 		_zone_owner.add_item(tr("De %s") % GamePlayers.player_name(i))
 	_zone_owner.item_selected.connect(func(index: int) -> void: _edit_selection("owner", index))
 	fields.add_child(_zone_owner)
-		_shuffle_check = CheckBox.new()
-		_shuffle_check.name = "ZoneShuffle"
-		_shuffle_check.text = "Mezclar lo de dentro al probar"
-		_shuffle_check.toggled.connect(func(on: bool) -> void: _edit_selection("shuffle", on))
-		fields.add_child(_shuffle_check)
-		_zone_tag_filter = LineEdit.new()
-		_zone_tag_filter.name = "ZoneTagFilter"
+	_shuffle_check = CheckBox.new()
+	_shuffle_check.name = "ZoneShuffle"
+	_shuffle_check.text = "Mezclar lo de dentro al probar"
+	_shuffle_check.toggled.connect(func(on: bool) -> void: _edit_selection("shuffle", on))
+	fields.add_child(_shuffle_check)
+	_zone_tag_filter = LineEdit.new()
+	_zone_tag_filter.name = "ZoneTagFilter"
 	_zone_tag_filter.name = "ZoneTagFilter"
 	_zone_tag_filter.placeholder_text = "Etiqueta requerida (vacío = cualquier pieza)"
 	_zone_tag_filter.tooltip_text = "Solo se aceptan piezas con esta etiqueta en la zona"

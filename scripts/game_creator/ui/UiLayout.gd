@@ -282,7 +282,7 @@ func distribute_selected(direction: int) -> int:
 	var c2 := (p2.x + s2.x * 0.5) if direction == DISTRIBUTE_HORIZONTAL else (p2.y + s2.y * 0.5)
 	var step := (c2 - c1) / float(sorted.size() - 1)
 	var moved := 0
-	for i in 1..sorted.size() - 2:
+	for i in range(1, sorted.size() - 1):
 		var e := sorted[i]
 		var pos := e["pos"] as Vector2
 		var size := e["size"] as Vector2
