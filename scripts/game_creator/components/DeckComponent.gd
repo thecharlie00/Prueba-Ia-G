@@ -86,7 +86,7 @@ func deal(count: int) -> Array:
 ## Busca una carta por nombre (o por id) y la saca del mazo. Devuelve la carta o {}.
 func search(name_or_id: String) -> Dictionary:
 	var wanted := name_or_id.strip_edges().to_lower()
-	for i in cards.size():
+	for i in range(cards.size()):
 		var c := cards[i]
 		if str(c.get("id", "")).to_lower() == wanted or str(c.get("name", "")).to_lower() == wanted:
 			return cards.remove_at(i)

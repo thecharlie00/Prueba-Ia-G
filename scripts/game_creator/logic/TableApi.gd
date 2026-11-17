@@ -227,7 +227,7 @@ func cartas_en_mazo(pieza: String) -> int:
 	var e := _editor()
 	if e == null:
 		return 0
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0
 	var deck := entity.get_component("DeckComponent") as DeckComponent
@@ -239,7 +239,7 @@ func carta_arriba(pieza: String) -> String:
 	var e := _editor()
 	if e == null:
 		return ""
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return ""
 	var deck := entity.get_component("DeckComponent") as DeckComponent
@@ -253,7 +253,7 @@ func repartir_mazo(pieza: String, cantidad: int, zona: String) -> int:
 	var e := _editor()
 	if e == null:
 		return 0
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0
 	var deck := entity.get_component("DeckComponent") as DeckComponent
@@ -267,7 +267,7 @@ func contador_valor(pieza: String) -> int:
 	var e := _editor()
 	if e == null:
 		return 0
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0
 	var counter := entity.get_component("CounterComponent") as CounterComponent
@@ -278,7 +278,7 @@ func contador_sumar(pieza: String, cantidad: int) -> int:
 	var e := _editor()
 	if e == null:
 		return 0
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0
 	var counter := entity.get_component("CounterComponent") as CounterComponent
@@ -291,20 +291,20 @@ func contador_poner(pieza: String, valor: int) -> int:
 	var e := _editor()
 	if e == null:
 		return 0
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0
 	var counter := entity.get_component("CounterComponent") as CounterComponent
 	if counter == null:
 		return 0
-	return counter.set(int(valor))
+	return counter.set_value(int(valor))
 
 ## Pone el contador de una pieza a su mínimo. Devuelve el valor resultante.
 func contador_resetear(pieza: String) -> int:
 	var e := _editor()
 	if e == null:
 		return 0
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0
 	var counter := entity.get_component("CounterComponent") as CounterComponent
@@ -317,7 +317,7 @@ func bolsa_contar(pieza: String) -> int:
 	var e := _editor()
 	if e == null:
 		return 0
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0
 	var bag := entity.get_component("BagComponent") as BagComponent
@@ -328,7 +328,7 @@ func bolsa_sacar_azar(pieza: String) -> String:
 	var e := _editor()
 	if e == null:
 		return ""
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return ""
 	var bag := entity.get_component("BagComponent") as BagComponent
@@ -339,7 +339,7 @@ func bolsa_agregar(pieza: String, entidad: String) -> bool:
 	var e := _editor()
 	if e == null:
 		return false
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return false
 	var bag := entity.get_component("BagComponent") as BagComponent
@@ -352,7 +352,7 @@ func nota_leer(pieza: String) -> String:
 	var e := _editor()
 	if e == null:
 		return ""
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return ""
 	var note := entity.get_component("NoteComponent") as NoteComponent
@@ -363,7 +363,7 @@ func nota_escribir(pieza: String, texto: String) -> void:
 	var e := _editor()
 	if e == null:
 		return
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return
 	var note := entity.get_component("NoteComponent") as NoteComponent
@@ -375,7 +375,7 @@ func reloj_iniciar(pieza: String) -> void:
 	var e := _editor()
 	if e == null:
 		return
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return
 	var timer := entity.get_component("TimerComponent") as TimerComponent
@@ -387,7 +387,7 @@ func reloj_parar(pieza: String) -> void:
 	var e := _editor()
 	if e == null:
 		return
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return
 	var timer := entity.get_component("TimerComponent") as TimerComponent
@@ -399,7 +399,7 @@ func reloj_reiniciar(pieza: String) -> void:
 	var e := _editor()
 	if e == null:
 		return
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return
 	var timer := entity.get_component("TimerComponent") as TimerComponent
@@ -411,7 +411,7 @@ func reloj_tiempo(pieza: String) -> float:
 	var e := _editor()
 	if e == null:
 		return 0.0
-	var entity := e._find_piece(pieza)
+	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0.0
 	var timer := entity.get_component("TimerComponent") as TimerComponent

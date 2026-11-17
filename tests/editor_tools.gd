@@ -12,7 +12,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
-	for i in 10:
+	for i in range(10):
 		await process_frame
 	var editor := current_scene
 	editor.table_save_path = "user://test_editor_mesa.json"

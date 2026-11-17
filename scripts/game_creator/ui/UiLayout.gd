@@ -178,7 +178,7 @@ func selected_elements() -> Array[Dictionary]:
 ## Alinea los elementos seleccionados al tipo dado (ALIGN_*). Usa el primer seleccionado como referencia
 ## para centro_x/centro_y, o el borde extremo para left/right/top/bottom.
 func align_selected(alignment: int) -> int:
-	var elems := selected_elements()
+	var elems: Array[Dictionary] = selected_elements()
 	if elems.size() < 2:
 		return 0
 	var moved := 0
@@ -260,10 +260,10 @@ func align_selected(alignment: int) -> int:
 
 ## Distribuye los elementos seleccionados uniformemente (HORIZONTAL o VERTICAL) según sus centros.
 func distribute_selected(direction: int) -> int:
-	var elems := selected_elements()
+	var elems: Array[Dictionary] = selected_elements()
 	if elems.size() < 3:
 		return 0
-	var sorted := elems.duplicate()
+	var sorted: Array[Dictionary] = elems.duplicate()
 	if direction == DISTRIBUTE_HORIZONTAL:
 		sorted.sort_custom(func(a, b):
 			return (a["pos"] as Vector2).x < (b["pos"] as Vector2).x
@@ -272,8 +272,8 @@ func distribute_selected(direction: int) -> int:
 		sorted.sort_custom(func(a, b):
 			return (a["pos"] as Vector2).y < (b["pos"] as Vector2).y
 		)
-	var first := sorted[0]
-	var last := sorted[sorted.size() - 1]
+	var first: Dictionary = sorted[0]
+	var last: Dictionary = sorted[sorted.size() - 1]
 	var p1 := first["pos"] as Vector2
 	var p2 := last["pos"] as Vector2
 	var s1 := first["size"] as Vector2
@@ -283,7 +283,7 @@ func distribute_selected(direction: int) -> int:
 	var step := (c2 - c1) / float(sorted.size() - 1)
 	var moved := 0
 	for i in range(1, sorted.size() - 1):
-		var e := sorted[i]
+		var e: Dictionary = sorted[i] as Dictionary
 		var pos := e["pos"] as Vector2
 		var size := e["size"] as Vector2
 		var target_c := c1 + step * float(i)
@@ -390,7 +390,9 @@ func group_members(id: int) -> Array[int]:
 	if gid == 0:
 		return []
 	var result: Array[int] = []
-	for eid in groups.keys():
+	var keys := groups.keys()
+	for i in range(keys.size()):
+		var eid := keys[i] as int
 		if groups[eid] == gid:
 			result.append(eid)
 	return result
@@ -467,10 +469,10 @@ static func from_record(data: Variant) -> UiLayout:
 		layout.elements.append(element)
 		layout._next_id = maxi(layout._next_id, int(element["id"]) + 1)
 	# Restaurar grupos.
-	var raw_groups := data.get("groups", {})
+	var raw_groups := data.get("groups", {}) as Dictionary
 	if raw_groups is Dictionary:
 		for gid in raw_groups.keys():
-			var members := raw_groups[gid]
+			var members := raw_groups[gid] as Array
 			if members is Array:
 				for eid in members:
 					if int(eid) > 0 and seen.has(int(eid)):

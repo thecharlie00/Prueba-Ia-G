@@ -269,106 +269,105 @@ func _compute_inner(id: int, _out: String) -> Variant:
 	var node: Dictionary = graph.nodes[id]
 	var p: Dictionary = node["params"]
 	match str(node["type"]):
-		"da_numero":
-			return float(p["valor"])
-		"da_texto":
-			return str(p["valor"])
-		"da_piezas":
-			return _editor.logic_pieces(str(p["zona"]), str(p["etiqueta"]))
-		"da_contar":
-			var list: Variant = _value(id, "lista")
-			return float((list as Array).size()) if list is Array else 0.0
-		"da_azar":
-			var low := int(_number(_value(id, "min")))
-			var high := int(_number(_value(id, "max")))
-			return float(randi_range(mini(low, high), maxi(low, high)))
-		"da_operar":
-			var a := _number(_value(id, "a"))
-			var b := _number(_value(id, "b"))
-			match str(p["op"]):
-				"+": return a + b
-				"-": return a - b
-				"×": return a * b
-				"÷": return a / b if not is_zero_approx(b) else 0.0
-				"resto": return fposmod(a, b) if not is_zero_approx(b) else 0.0
-				"mín": return minf(a, b)
-				"máx": return maxf(a, b)
-		"da_comparar":
-			return _compare(_value(id, "a"), _value(id, "b"), str(p["op"]))
-		"da_logica":
-			var a := _truthy(_value(id, "a"))
-			var b := _truthy(_value(id, "b"))
-			match str(p["op"]):
-				"y": return a and b
-				"o": return a or b
-				"no": return not a
-		"da_variable":
-			return _editor.logic_variable(str(p["nombre"]))
-		"da_contador":
-			return float(_editor.logic_counter(int(p["contador"])))
-		"da_dados":
-			var total := 0
-			for value in _editor.last_roll:
-				total += value
-			return float(total)
-		"da_unir":
-			return _text(_value(id, "a")) + _text(_value(id, "b"))
-		"da_etiqueta":
-			return str(p["etiqueta"]).strip_edges().to_lower() in _editor.logic_piece_tags(str(_value(id, "pieza")))
-		"da_nombre":
-			return _editor.logic_piece_name(str(_value(id, "pieza")))
-		"da_todas_piezas":
-			return _editor.logic_pieces("", "")
-		"da_etiquetas_pieza":
-			return _editor.logic_piece_tags(str(_value(id, "pieza")))
-		"da_texto_de":
-			return _editor.logic_piece_label(str(_value(id, "pieza")))
-		"da_zona_de":
-			return _editor.logic_zone_of(str(_value(id, "pieza")))
-		"da_zonas":
-			return _editor.logic_zone_names()
-		"da_mano":
-			return _editor.hand_zone_of(_editor.current_player)
-		"da_nombre_jugador":
-			return GamePlayers.player_name(clampi(int(_number(_value(id, "jugador"))) - 1, 0, _editor.players - 1))
-		"da_rango":
-			var n := clampi(int(_number(_value(id, "n"))), 0, 1000)
-			return range(n)
-		"da_color":
-			var c := _editor.logic_piece_color(str(_value(id, "pieza")))
-			return c.to_html(true)
-		"da_cartas_en_mazo":
-			return float(_editor.cartas_en_mazo(str(_value(id, "mazo"))))
-		"da_carta_arriba":
-			return _editor.carta_arriba(str(_value(id, "mazo")))
-		"da_contador_valor":
+	"da_numero":
+		return float(p["valor"])
+	"da_texto":
+		return str(p["valor"])
+	"da_piezas":
+		return _editor.logic_pieces(str(p["zona"]), str(p["etiqueta"]))
+	"da_contar":
+		var list: Variant = _value(id, "lista")
+		return float((list as Array).size()) if list is Array else 0.0
+	"da_azar":
+		var low := int(_number(_value(id, "min")))
+		var high := int(_number(_value(id, "max")))
+		return float(randi_range(mini(low, high), maxi(low, high)))
+	"da_operar":
+		var a := _number(_value(id, "a"))
+		var b := _number(_value(id, "b"))
+		match str(p["op"]):
+		"+": return a + b
+		"-": return a - b
+		"×": return a * b
+		"÷": return a / b if not is_zero_approx(b) else 0.0
+		"resto": return fposmod(a, b) if not is_zero_approx(b) else 0.0
+		"mín": return minf(a, b)
+		"máx": return maxf(a, b)
+	"da_comparar":
+		return _compare(_value(id, "a"), _value(id, "b"), str(p["op"]))
+	"da_logica":
+		var a := _truthy(_value(id, "a"))
+		var b := _truthy(_value(id, "b"))
+		match str(p["op"]):
+		"y": return a and b
+		"o": return a or b
+		"no": return not a
+	"da_variable":
+		return _editor.logic_variable(str(p["nombre"]))
+	"da_contador":
+		return float(_editor.logic_counter(int(p["contador"])))
+	"da_dados":
+		var total := 0
+		for value in _editor.last_roll:
+			total += value
+		return float(total)
+	"da_unir":
+		return _text(_value(id, "a")) + _text(_value(id, "b"))
+	"da_etiqueta":
+		return str(p["etiqueta"]).strip_edges().to_lower() in _editor.logic_piece_tags(str(_value(id, "pieza")))
+	"da_nombre":
+		return _editor.logic_piece_name(str(_value(id, "pieza")))
+	"da_todas_piezas":
+		return _editor.logic_pieces("", "")
+	"da_etiquetas_pieza":
+		return _editor.logic_piece_tags(str(_value(id, "pieza")))
+	"da_texto_de":
+		return _editor.logic_piece_label(str(_value(id, "pieza")))
+	"da_zona_de":
+		return _editor.logic_zone_of(str(_value(id, "pieza")))
+	"da_zonas":
+		return _editor.logic_zone_names()
+	"da_mano":
+		return _editor.hand_zone_of(_editor.current_player)
+	"da_nombre_jugador":
+		return GamePlayers.player_name(clampi(int(_number(_value(id, "jugador"))) - 1, 0, _editor.players - 1))
+	"da_rango":
+		var n := clampi(int(_number(_value(id, "n"))), 0, 1000)
+		return range(n)
+	"da_color":
+		var c := _editor.logic_piece_color(str(_value(id, "pieza")))
+		return c.to_html(true)
+	"da_cartas_en_mazo":
+		return float(_editor.cartas_en_mazo(str(_value(id, "mazo"))))
+	"da_carta_arriba":
+		return _editor.carta_arriba(str(_value(id, "mazo")))
+	"da_contador_valor":
 		var e := _editor()
 		var entity := e._find_piece(str(_value(id, "pieza"))) if e != null else null
 		var counter := entity.get_component("CounterComponent") if entity != null else null
 		return float(counter.value if counter != null else 0)
-		"da_bolsa_contar":
+	"da_bolsa_contar":
 		var e := _editor()
 		var entity := e._find_piece(str(_value(id, "bolsa"))) if e != null else null
 		var bag := entity.get_component("BagComponent") if entity != null else null
 		return float(bag.count() if bag != null else 0)
-		"da_nota_leer":
+	"da_nota_leer":
 		var e := _editor()
 		var entity := e._find_piece(str(_value(id, "pieza"))) if e != null else null
 		var note := entity.get_component("NoteComponent") if entity != null else null
 		return note.get_text() if note != null else ""
-		"da_reloj_tiempo":
+	"da_reloj_tiempo":
 		var e := _editor()
 		var entity := e._find_piece(str(_value(id, "reloj"))) if e != null else null
 		var timer := entity.get_component("TimerComponent") if entity != null else null
 		return float(timer.remaining() if timer != null else 0.0)
-		"gd_expresion":
-			return _run_code(id)
-		"da_jugador":
-			return float(_editor.current_player + 1) if _out == "jugador" else GamePlayers.player_name(_editor.current_player)
-		"da_jugadores":
-			return float(_editor.players)
-	return null
-
+	"gd_expresion":
+		return _run_code(id)
+	"da_jugador":
+		return float(_editor.current_player + 1) if _out == "jugador" else GamePlayers.player_name(_editor.current_player)
+	"da_jugadores":
+		return float(_editor.players)
+return null
 
 func _run_code(id: int) -> Variant:
 	if errors.has(id):

@@ -21,11 +21,11 @@ const LIMIT_Y := 6.0
 static func piece_record(entity: PropEntity) -> Dictionary:
 	var visual := entity.get_component("VisualComponent") as VisualComponent
 	var physics := entity.get_component("PhysicsComponent") as PhysicsComponent
-	var deck := entity.get_component("DeckComponent") as DeckComponent
-	var counter := entity.get_component("CounterComponent") as CounterComponent
-	var bag := entity.get_component("BagComponent") as BagComponent
-	var note := entity.get_component("NoteComponent") as NoteComponent
-	var timer := entity.get_component("TimerComponent") as TimerComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
+	var counter: CounterComponent = entity.get_component("CounterComponent") as CounterComponent
+	var bag: BagComponent = entity.get_component("BagComponent") as BagComponent
+	var note: NoteComponent = entity.get_component("NoteComponent") as NoteComponent
+	var timer: TimerComponent = entity.get_component("TimerComponent") as TimerComponent
 	return {
 		"id": entity.entity_id,
 		"name": entity.entity_name,
@@ -213,11 +213,11 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 	if entity.get_component("InteractiveComponent") == null:
 		entity.add_component(InteractiveComponent.new())
 	# DeckComponent: mazo como un solo objeto (FASE 1).
-	var deck_data := piece.get("deck", {})
+	var deck_data: Dictionary = piece.get("deck", {}) as Dictionary
 	if deck_data is Dictionary and not deck_data.is_empty():
 		if entity.get_component("DeckComponent") == null:
 			entity.add_component(DeckComponent.new())
-		var deck := entity.get_component("DeckComponent") as DeckComponent
+		var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 		deck.cards = deck_data.get("cards", []) if deck_data.get("cards") is Array else []
 		deck.face_up = deck_data.get("face_up", true) == true
 		deck.show_count = deck_data.get("show_count", true) == true
@@ -225,39 +225,39 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 		deck.max_capacity = int(deck_data.get("max_capacity", -1))
 		deck.default_deal_zone = str(deck_data.get("default_deal_zone", ""))
 	# CounterComponent (FASE 5).
-	var counter_data := piece.get("counter", {})
+	var counter_data: Dictionary = piece.get("counter", {}) as Dictionary
 	if counter_data is Dictionary and not counter_data.is_empty():
 		if entity.get_component("CounterComponent") == null:
 			entity.add_component(CounterComponent.new())
-		var counter := entity.get_component("CounterComponent") as CounterComponent
+		var counter: CounterComponent = entity.get_component("CounterComponent") as CounterComponent
 		counter.value = clampi(int(counter_data.get("value", 0)), int(counter_data.get("min_value", 0)), int(counter_data.get("max_value", 999)))
 		counter.min_value = int(counter_data.get("min_value", 0))
 		counter.max_value = int(counter_data.get("max_value", 999))
 		counter.step = int(counter_data.get("step", 1))
 		counter.label = str(counter_data.get("label", "Contador"))
 	# BagComponent (FASE 5).
-	var bag_data := piece.get("bag", {})
+	var bag_data: Dictionary = piece.get("bag", {}) as Dictionary
 	if bag_data is Dictionary and not bag_data.is_empty():
 		if entity.get_component("BagComponent") == null:
 			entity.add_component(BagComponent.new())
-		var bag := entity.get_component("BagComponent") as BagComponent
+		var bag: BagComponent = entity.get_component("BagComponent") as BagComponent
 		bag.label = str(bag_data.get("label", "Bolsa"))
 		bag.hidden = bag_data.get("hidden", true) == true
 		bag.contained_ids = bag_data.get("contained_ids", []) if bag_data.get("contained_ids") is Array else []
 	# NoteComponent (FASE 5).
-	var note_data := piece.get("note", {})
+	var note_data: Dictionary = piece.get("note", {}) as Dictionary
 	if note_data is Dictionary and not note_data.is_empty():
 		if entity.get_component("NoteComponent") == null:
 			entity.add_component(NoteComponent.new())
-		var note := entity.get_component("NoteComponent") as NoteComponent
+		var note: NoteComponent = entity.get_component("NoteComponent") as NoteComponent
 		note.text = str(note_data.get("text", "")).left(NoteComponent.MAX_NOTES)
 		note.show_on_hover = note_data.get("show_on_hover", true) == true
 	# TimerComponent (FASE 5).
-	var timer_data := piece.get("timer", {})
+	var timer_data: Dictionary = piece.get("timer", {}) as Dictionary
 	if timer_data is Dictionary and not timer_data.is_empty():
 		if entity.get_component("TimerComponent") == null:
 			entity.add_component(TimerComponent.new())
-		var timer := entity.get_component("TimerComponent") as TimerComponent
+		var timer: TimerComponent = entity.get_component("TimerComponent") as TimerComponent
 		timer.label = str(timer_data.get("label", "Reloj"))
 		timer.duration_seconds = clampf(float(timer_data.get("duration_seconds", 60.0)), 0.0, 3600.0)
 		timer.running = timer_data.get("running", false) == true
@@ -380,7 +380,7 @@ static func _clean_bag(raw: Variant) -> Dictionary:
 	if not raw is Dictionary:
 		return {}
 	var label := str(raw.get("label", "Bolsa")).left(MAX_NAME)
-	var hidden := raw.get("hidden", true) == true
+	var hidden: bool = raw.get("hidden", true) == true
 	var ids := raw.get("contained_ids", []) as Array
 	if not ids is Array:
 		ids = []
@@ -409,7 +409,7 @@ static func _clean_timer(raw: Variant) -> Dictionary:
 	if not raw is Dictionary:
 		return {}
 	var duration := clampf(float(raw.get("duration_seconds", 60.0)), 0.0, 3600.0)
-	var running := raw.get("running", false) == true
+	var running: bool = raw.get("running", false) == true
 	var time_left := clampf(float(raw.get("time_left", duration)), 0.0, duration)
 	var message := str(raw.get("on_finish_message", "¡Tiempo agotado!")).left(MAX_NOTES)
 	return {

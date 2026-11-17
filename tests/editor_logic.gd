@@ -45,7 +45,7 @@ func _run() -> void:
 
 	# 3. Al probar: la plantilla de cartas mezcla y reparte 5; la tecla 1 roba otra.
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
-	for i in 10:
+	for i in range(10):
 		await process_frame
 	var editor := current_scene
 	editor.load_template("cartas")
@@ -83,7 +83,7 @@ func _run() -> void:
 	# 5. Bloque GDScript con «mesa»: escribe en todas las piezas; un bucle enorme se corta.
 	editor.logic = LogicGraph.new()
 	g = editor.logic
-	for i in 3:
+	for i in range(3):
 		editor.add_piece("ficha")
 	var begin := g.add_node("ev_inicio")
 	var code := g.add_node("gd_bloque")
