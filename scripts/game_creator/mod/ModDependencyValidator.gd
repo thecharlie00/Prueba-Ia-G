@@ -34,7 +34,7 @@ static func validate(manifest: ModManifest, installed_mod_ids: Array[String]) ->
 			lista += missing[i]
 		return {
 			"ok": false,
-			"error": tr("Faltan dependencias: %s") % lista,
+			"error": "Faltan dependencias: %s" % lista,
 			"missing": missing,
 		}
 
@@ -43,7 +43,7 @@ static func validate(manifest: ModManifest, installed_mod_ids: Array[String]) ->
 	if manifest.mod_id in manifest.dependencies:
 		return {
 			"ok": false,
-			"error": tr("El mod «%s» depende de sí mismo.") % manifest.mod_id,
+			"error": "El mod «%s» depende de sí mismo." % manifest.mod_id,
 			"missing": [],
 		}
 

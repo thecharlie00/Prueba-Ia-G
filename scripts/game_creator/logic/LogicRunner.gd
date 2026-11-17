@@ -175,29 +175,29 @@ func _exec(id: int) -> void:
 			var e := _editor()
 			if e != null:
 				var entity := e._find_piece(str(_value(id, "pieza")))
-		var counter := entity.get_component("CounterComponent") if entity != null else null
-			if counter != null:
-				counter.add(int(_number(_value(id, "cantidad"))))
+				var counter := entity.get_component("CounterComponent") if entity != null else null
+				if counter != null:
+					counter.add(int(_number(_value(id, "cantidad"))))
 		"ac_contador_poner":
 			var e := _editor()
 			if e != null:
 				var entity := e._find_piece(str(_value(id, "pieza")))
-		var counter := entity.get_component("CounterComponent") if entity != null else null
-			if counter != null:
-				counter.set(int(_number(_value(id, "valor"))))
+				var counter := entity.get_component("CounterComponent") if entity != null else null
+				if counter != null:
+					counter.set(int(_number(_value(id, "valor"))))
 		"ac_contador_resetear":
 			var e := _editor()
 			if e != null:
 				var entity := e._find_piece(str(_value(id, "pieza")))
-		var counter := entity.get_component("CounterComponent") if entity != null else null
-			if counter != null:
-				counter.reset()
+				var counter := entity.get_component("CounterComponent") if entity != null else null
+				if counter != null:
+					counter.reset()
 		"ac_bolsa_sacar_azar":
 			var e := _editor()
 			if e != null:
 				var entity := e._find_piece(str(_value(id, "bolsa")))
-		var bag := entity.get_component("BagComponent") if entity != null else null
-			var id_sacado := bag.draw_random() if bag != null else ""
+				var bag := entity.get_component("BagComponent") if entity != null else null
+				var id_sacado := bag.draw_random() if bag != null else ""
 				_outputs[id] = {"pieza": id_sacado}
 		"ac_bolsa_agregar":
 			var e := _editor()
@@ -211,30 +211,30 @@ func _exec(id: int) -> void:
 			var e := _editor()
 			if e != null:
 				var entity := e._find_piece(str(_value(id, "pieza")))
-		var note := entity.get_component("NoteComponent") if entity != null else null
-			if note != null:
-				note.set_text(str(_value(id, "texto")))
+				var note := entity.get_component("NoteComponent") if entity != null else null
+				if note != null:
+					note.set_text(str(_value(id, "texto")))
 		"ac_reloj_iniciar":
 			var e := _editor()
 			if e != null:
 				var entity := e._find_piece(str(_value(id, "reloj")))
-		var timer := entity.get_component("TimerComponent") if entity != null else null
-			if timer != null:
-				timer.start()
+				var timer := entity.get_component("TimerComponent") if entity != null else null
+				if timer != null:
+					timer.start()
 		"ac_reloj_parar":
 			var e := _editor()
 			if e != null:
 				var entity := e._find_piece(str(_value(id, "reloj")))
-		var timer := entity.get_component("TimerComponent") if entity != null else null
-			if timer != null:
-				timer.stop()
+				var timer := entity.get_component("TimerComponent") if entity != null else null
+				if timer != null:
+					timer.stop()
 		"ac_reloj_reiniciar":
 			var e := _editor()
 			if e != null:
 				var entity := e._find_piece(str(_value(id, "reloj")))
-		var timer := entity.get_component("TimerComponent") if entity != null else null
-			if timer != null:
-				timer.reset()
+				var timer := entity.get_component("TimerComponent") if entity != null else null
+				if timer != null:
+					timer.reset()
 		"gd_bloque":
 			_outputs[id] = {"resultado": _run_code(id)}
 		"ac_pasar_turno":
