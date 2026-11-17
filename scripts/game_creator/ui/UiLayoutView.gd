@@ -8,6 +8,8 @@ extends Control
 
 signal element_selected(id: int)
 signal element_changed(id: int)
+## En modo juego: se ha pulsado un botón (lo escucha la lógica del juego).
+signal button_pressed(id: int)
 
 const HANDLE := 16.0
 const SELECT_COLOR := Color("7cc6fe")
@@ -272,6 +274,22 @@ func change_counter(id: int, amount: int) -> void:
 	_show_counter(id)
 
 
+## Pone un contador a un valor (la lógica del juego).
+func set_counter(id: int, value: int) -> void:
+	if not _state.has(id):
+		return
+	_state[id]["value"] = clampi(value, -999999, 999999)
+	_show_counter(id)
+
+
+## Muestra u oculta un elemento (la lógica del juego).
+func set_element_visible(id: int, visible_now: bool) -> void:
+	if not _state.has(id):
+		return
+	_state[id]["visible"] = visible_now
+	_place_all()
+
+
 func _show_counter(id: int) -> void:
 	var node := node_for(id)
 	var value := node.find_child("Value", true, false) as Label if node != null else null
@@ -284,6 +302,7 @@ func _run_action(id: int) -> void:
 	var element := layout.find(id)
 	if element.is_empty() or design:
 		return
+	button_pressed.emit(id)
 	var target := int(element["target"])
 	if not _state.has(target):
 		return

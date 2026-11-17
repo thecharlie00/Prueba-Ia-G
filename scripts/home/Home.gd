@@ -29,6 +29,9 @@ static var last_item_id := ""
 static var _intro_done := false
 ## Las pruebas lo activan para recorrer la caída animada aunque no haya pantalla.
 static var force_drop_animation := false
+## Mallas de los paquetes y sus efectos, construidas una sola vez por sesión: generarlas en
+## mitad de la caída (cajas redondeadas, toro, cúpula) daba un tirón.
+static var _fx_meshes := {}
 
 var pawn: HomePawn
 var camera: Camera3D
@@ -104,6 +107,7 @@ func _ready() -> void:
 	_build_ui()
 	_build_marker()
 	FxMaterials.prewarm(self)
+	_prewarm_parcels()
 	for id in HomePrefs.placed_decor():
 		_place_decor(id, false)
 	for id in HomePrefs.deliveries():
@@ -1082,10 +1086,10 @@ func _spawn_parcel(id: String, animated: bool, delay := 0.0) -> void:
 	parcel.add_child(box)
 	parcel.scale = Vector3.ONE * 1.25
 	var cardboard := Color("c99a63")
-	HomeDecor.add_mesh(box, PieceKit.rounded_box(Vector3(0.9, 0.7, 0.9), 0.05), Vector3(0, 0.35, 0), cardboard)
-	var lid := HomeDecor.add_mesh(box, PieceKit.rounded_box(Vector3(0.94, 0.08, 0.94), 0.03), Vector3(0, 0.72, 0), cardboard.darkened(0.08))
+	HomeDecor.add_mesh(box, _fx_mesh("box"), Vector3(0, 0.35, 0), cardboard)
+	var lid := HomeDecor.add_mesh(box, _fx_mesh("lid"), Vector3(0, 0.72, 0), cardboard.darkened(0.08))
 	lid.name = "Lid"
-	HomeDecor.add_mesh(lid, PieceKit.rounded_box(Vector3(0.96, 0.03, 0.2), 0.01), Vector3(0, 0.04, 0), Palette.SUN)
+	HomeDecor.add_mesh(lid, _fx_mesh("tape"), Vector3(0, 0.04, 0), Palette.SUN)
 	for side in [-1.0, 1.0]:
 		var brand := Label3D.new()
 		brand.text = "dadazon"
@@ -1131,13 +1135,9 @@ func _sky_drop(parcel: Node3D, id: String, spot: Vector3, delay: float) -> void:
 	box.position.y = 18.0
 	box.rotation = Vector3(randf_range(-0.6, 0.6), randf_range(0, TAU), randf_range(-0.6, 0.6))
 	# Sombra que avisa de dónde va a caer.
-	var shadow := MeshInstance3D.new()
-	shadow.mesh = PieceKit.rounded_disc(0.7, 0.01, 0.005, 32)
 	var shadow_mat := FxMaterials.make(FxMaterials.GLOW_ALPHA, Color(Palette.INK, 0.0))
-	shadow.material_override = shadow_mat
-	shadow.position = Vector3(0, 0.03, 0)
+	var shadow := _fx_node(parcel, "shadow", shadow_mat, Vector3(0, 0.03, 0))
 	shadow.scale = Vector3(0.15, 1.0, 0.15)
-	parcel.add_child(shadow)
 	# Paracaídas (plegado hasta que se abre).
 	var chute := _make_parachute()
 	chute.scale = Vector3.ONE * 0.05
@@ -1189,32 +1189,18 @@ func _sky_drop(parcel: Node3D, id: String, spot: Vector3, delay: float) -> void:
 func _make_parachute() -> Node3D:
 	var chute := Node3D.new()
 	chute.name = "Parachute"
-	var dome := MeshInstance3D.new()
-	var half := SphereMesh.new()
-	half.radius = 1.0
-	half.height = 1.0
-	half.is_hemisphere = true
-	dome.mesh = half
-	var cloth := FxMaterials.make(FxMaterials.CLOTH, Palette.CORAL)
-	dome.material_override = cloth
-	dome.position.y = 2.2
+	var dome := _fx_node(chute, "dome", FxMaterials.make(FxMaterials.CLOTH, Palette.CORAL), Vector3(0, 2.2, 0))
 	dome.scale = Vector3(1.0, 0.7, 1.0)
-	chute.add_child(dome)
-	var band := HomeDecor.add_mesh(chute, PieceKit.torus(0.92, 0.07, 40), Vector3(0, 2.45, 0), Palette.SUN)
-	band.scale = Vector3(1.0, 1.0, 1.0)
-	HomeDecor.add_mesh(chute, PieceKit.rounded_disc(0.2, 0.08, 0.03, 20), Vector3(0, 2.92, 0), Palette.SUN)
+	_fx_node(chute, "band", FxMaterials.make(FxMaterials.CLOTH, Palette.SUN), Vector3(0, 2.45, 0))
+	_fx_node(chute, "cap", FxMaterials.make(FxMaterials.CLOTH, Palette.SUN), Vector3(0, 2.92, 0))
 	for k in 4:
 		var angle := TAU * (k + 0.5) / 4.0
 		var top := Vector3(cos(angle) * 0.95, 2.2, sin(angle) * 0.95)
 		var bottom := Vector3(cos(angle) * 0.38, 0.75, sin(angle) * 0.38)
-		var rope := CylinderMesh.new()
-		rope.top_radius = 0.012
-		rope.bottom_radius = 0.012
-		rope.height = top.distance_to(bottom)
-		var line := HomeDecor.add_mesh(chute, rope, (top + bottom) * 0.5, Palette.PAPER)
+		var line := _fx_node(chute, "rope", FxMaterials.make(FxMaterials.CLOTH, Palette.PAPER), (top + bottom) * 0.5)
 		var up := (top - bottom).normalized()
 		var side := up.cross(Vector3.FORWARD).normalized() if absf(up.z) < 0.95 else Vector3.RIGHT
-		line.basis = Basis(side, up, side.cross(up)).orthonormalized()
+		line.basis = Basis(side, up * top.distance_to(bottom), side.cross(up))
 	var logo := Label3D.new()
 	logo.text = "dadazon"
 	logo.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
@@ -1251,12 +1237,8 @@ func _land(parcel: Node3D, box: Node3D, spot: Vector3) -> void:
 	_sfx("dice", -4.0)
 	_shake = 0.35
 	# Anillo de polvo que se abre.
-	var ring := MeshInstance3D.new()
-	ring.mesh = PieceKit.torus(0.6, 0.12, 40)
 	var ring_mat := FxMaterials.make(FxMaterials.GLOW_ALPHA, Color(1, 0.96, 0.88, 0.85))
-	ring.material_override = ring_mat
-	ring.position = spot + Vector3(0, 0.08, 0)
-	add_child(ring)
+	var ring := _fx_node(self, "ring", ring_mat, spot + Vector3(0, 0.08, 0))
 	var tween := ring.create_tween().set_parallel(true)
 	tween.tween_property(ring, "scale", Vector3(3.2, 1.0, 3.2), 0.5).set_ease(Tween.EASE_OUT)
 	tween.tween_property(ring_mat, "albedo_color:a", 0.0, 0.5)
@@ -1345,13 +1327,7 @@ func _place_decor(id: String, animated: bool) -> void:
 func _confetti(at: Vector3) -> void:
 	var colors := [Palette.SUN, Palette.CORAL, Palette.MINT, Color("7cc6fe"), Palette.LAVENDER]
 	for i in 24:
-		var bit := MeshInstance3D.new()
-		var quad := QuadMesh.new()
-		quad.size = Vector2(0.09, 0.14)
-		bit.mesh = quad
-		bit.material_override = FxMaterials.make(FxMaterials.GLOW_TWO_SIDED, colors[i % colors.size()])
-		bit.position = at
-		add_child(bit)
+		var bit := _fx_node(self, "confetti", FxMaterials.make(FxMaterials.GLOW_TWO_SIDED, colors[i % colors.size()]), at)
 		var flight := Vector3(randf_range(-1.6, 1.6), randf_range(1.2, 2.6), randf_range(-1.6, 1.6))
 		var tween := bit.create_tween().set_parallel(true)
 		tween.tween_property(bit, "position", at + flight, 0.45).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
@@ -1389,3 +1365,80 @@ func _animate_decor(delta: float) -> void:
 		var body := bot.get_node_or_null("BotitoBody") as Node3D
 		if body != null and not calm:
 			body.position.y = absf(sin(_time * 6.0)) * 0.06 + 0.15 + sin(_time * 2.0) * 0.05
+
+
+## Malla de efectos cacheada (se construye la primera vez y se reutiliza).
+static func _fx_mesh(key: String) -> Mesh:
+	if _fx_meshes.has(key):
+		return _fx_meshes[key]
+	var mesh: Mesh
+	match key:
+		"box":
+			mesh = PieceKit.rounded_box(Vector3(0.9, 0.7, 0.9), 0.05)
+		"lid":
+			mesh = PieceKit.rounded_box(Vector3(0.94, 0.08, 0.94), 0.03)
+		"tape":
+			mesh = PieceKit.rounded_box(Vector3(0.96, 0.03, 0.2), 0.01)
+		"dome":
+			var half := SphereMesh.new()
+			half.radius = 1.0
+			half.height = 1.0
+			half.is_hemisphere = true
+			half.radial_segments = 32
+			half.rings = 12
+			mesh = half
+		"band":
+			mesh = PieceKit.torus(0.92, 0.07, 32)
+		"cap":
+			mesh = PieceKit.rounded_disc(0.2, 0.08, 0.03, 20)
+		"rope":
+			var rope := CylinderMesh.new()
+			rope.top_radius = 0.012
+			rope.bottom_radius = 0.012
+			rope.height = 1.0
+			rope.radial_segments = 6
+			rope.rings = 1
+			mesh = rope
+		"ring":
+			mesh = PieceKit.torus(0.6, 0.12, 32)
+		"shadow":
+			mesh = PieceKit.rounded_disc(0.7, 0.01, 0.005, 32)
+		"confetti":
+			var quad := QuadMesh.new()
+			quad.size = Vector2(0.09, 0.14)
+			mesh = quad
+	_fx_meshes[key] = mesh
+	return mesh
+
+
+## Efecto sin sombra proyectada (los efectos efímeros no deben redibujar el mapa de sombras).
+static func _fx_node(parent: Node, key: String, material: Material, at: Vector3) -> MeshInstance3D:
+	var node := MeshInstance3D.new()
+	node.mesh = _fx_mesh(key)
+	node.material_override = material
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.position = at
+	parent.add_child(node)
+	return node
+
+
+## Prepara al cargar la habitación todo lo que usa la caída de un paquete: mallas, textos con
+## sus tamaños de letra (se rasterizan las letras) y un paracaídas entero bajo el suelo, para
+## que los shaders y las texturas estén listos antes del primer pedido.
+func _prewarm_parcels() -> void:
+	var holder := Node3D.new()
+	holder.name = "ParcelPrewarm"
+	holder.position = Vector3(0, -6.0, 0)
+	add_child(holder)
+	for key in ["box", "lid", "tape", "dome", "band", "cap", "rope", "ring", "shadow", "confetti"]:
+		_fx_mesh(key)
+	var chute := _make_parachute()
+	chute.name = "ParachutePrewarm"
+	holder.add_child(chute)
+	for spec in [["¡PLOF!", 96, 24], ["!", 90, 14], ["dadazon", 40, 0], ["♥", 60, 14]]:
+		var label := Label3D.new()
+		label.text = tr(spec[0])
+		label.font = MenuStyle.DISPLAY_FONT
+		label.font_size = spec[1]
+		label.outline_size = spec[2]
+		holder.add_child(label)

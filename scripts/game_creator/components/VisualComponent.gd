@@ -3,6 +3,27 @@
 class_name VisualComponent
 extends BehaviorComponent
 
+## Forma de la pieza (PieceShapes.SHAPES).
+@export var shape: String = "ficha"
+## Texto escrito en la cara de arriba (números de carta, nombres de zona…).
+@export var label: String = ""
+## Dibujo de la cara de arriba (PieceShapes.PATTERNS) y casillas por lado.
+@export var pattern: String = "liso"
+@export var cells: int = 8
+## Acabado del material (PieceShapes.FINISHES).
+@export var finish: String = "mate"
+## Imagen del reverso (cartas, losetas): se ve al voltear la pieza.
+@export var back_path: String = ""
+## Descripción para los jugadores: se ve al pasar el ratón por la pieza.
+@export var notes: String = ""
+## Zonas: al empezar a probar, se mezclan las piezas que hay dentro.
+@export var shuffle_on_play: bool = false
+## Zonas: normal, mano u oculta (PieceShapes.ZONE_KINDS).
+@export var zone_kind: String = "normal"
+## Zonas: de qué jugador es (0 = de nadie, 1..6).
+@export var owner_player: int = 0
+## Modelos 3D: tamaño del modelo ya encajado (a escala 1). La ruta va en mesh_path.
+@export var model_size: Vector3 = Vector3.ZERO
 @export var mesh_path: String = ""
 ## Imagen que se ve en la pieza (ruta de ImageImporter).
 @export var texture_path: String = ""
@@ -15,6 +36,17 @@ extends BehaviorComponent
 var mesh_node: MeshInstance3D = null
 
 func _serialize_extra(data: Dictionary) -> void:
+	data["shape"] = shape
+	data["label"] = label
+	data["pattern"] = pattern
+	data["cells"] = cells
+	data["finish"] = finish
+	data["back_path"] = back_path
+	data["notes"] = notes
+	data["shuffle_on_play"] = shuffle_on_play
+	data["zone_kind"] = zone_kind
+	data["owner_player"] = owner_player
+	data["model_size"] = model_size
 	data["mesh_path"] = mesh_path
 	data["texture_path"] = texture_path
 	data["material_path"] = material_path
@@ -23,6 +55,17 @@ func _serialize_extra(data: Dictionary) -> void:
 	data["billboard"] = billboard
 
 func _deserialize_extra(data: Dictionary) -> void:
+	shape = PieceShapes.valid(str(data.get("shape", shape)))
+	label = str(data.get("label", label)).left(TableRecord.MAX_LABEL)
+	pattern = str(data.get("pattern", pattern)) if str(data.get("pattern", pattern)) in PieceShapes.PATTERNS else "liso"
+	cells = clampi(int(data.get("cells", cells)), PieceShapes.MIN_CELLS, PieceShapes.MAX_CELLS)
+	finish = str(data.get("finish", finish)) if str(data.get("finish", finish)) in PieceShapes.FINISHES else "mate"
+	back_path = str(data.get("back_path", back_path))
+	notes = str(data.get("notes", notes)).left(TableRecord.MAX_NOTES)
+	shuffle_on_play = data.get("shuffle_on_play", shuffle_on_play) == true
+	zone_kind = str(data.get("zone_kind", zone_kind)) if str(data.get("zone_kind", zone_kind)) in PieceShapes.ZONE_KINDS else "normal"
+	owner_player = clampi(int(data.get("owner_player", owner_player)), 0, GamePlayers.MAX)
+	model_size = data.get("model_size", model_size) if data.get("model_size", model_size) is Vector3 else Vector3.ZERO
 	mesh_path = data.get("mesh_path", mesh_path)
 	texture_path = data.get("texture_path", texture_path)
 	material_path = data.get("material_path", material_path)
