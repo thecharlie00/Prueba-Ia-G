@@ -286,22 +286,22 @@ func _compute_inner(id: int, _out: String) -> Variant:
 			var a := _number(_value(id, "a"))
 			var b := _number(_value(id, "b"))
 			match str(p["op"]):
-			"+": return a + b
-			"-": return a - b
-			"×": return a * b
-			"÷": return a / b if not is_zero_approx(b) else 0.0
-			"resto": return fposmod(a, b) if not is_zero_approx(b) else 0.0
-			"mín": return minf(a, b)
-			"máx": return maxf(a, b)
+				"+": return a + b
+				"-": return a - b
+				"×": return a * b
+				"÷": return a / b if not is_zero_approx(b) else 0.0
+				"resto": return fposmod(a, b) if not is_zero_approx(b) else 0.0
+				"mín": return minf(a, b)
+				"máx": return maxf(a, b)
 		"da_comparar":
 			return _compare(_value(id, "a"), _value(id, "b"), str(p["op"]))
 		"da_logica":
 			var a := _truthy(_value(id, "a"))
 			var b := _truthy(_value(id, "b"))
 			match str(p["op"]):
-			"y": return a and b
-			"o": return a or b
-			"no": return not a
+				"y": return a and b
+				"o": return a or b
+				"no": return not a
 		"da_variable":
 			return _editor.logic_variable(str(p["nombre"]))
 		"da_contador":
@@ -416,12 +416,12 @@ static func _compare(a: Variant, b: Variant, op: String) -> bool:
 		var x := _number(a)
 		var y := _number(b)
 		match op:
-			"==": return is_equal_approx(x, y)
-			"!=": return not is_equal_approx(x, y)
-			"<": return x < y
-			">": return x > y
-			"<=": return x <= y or is_equal_approx(x, y)
-			">=": return x >= y or is_equal_approx(x, y)
+				"==": return is_equal_approx(x, y)
+				"!=": return not is_equal_approx(x, y)
+				"<": return x < y
+				">": return x > y
+				"<=": return x <= y or is_equal_approx(x, y)
+				">=": return x >= y or is_equal_approx(x, y)
 	var s := _text(a)
 	var t := _text(b)
 	match op:
