@@ -19,6 +19,30 @@ const HINTS := {
 const BOARD_COLOR := Color("e8cf9f")
 
 
+## Auto-setup de una plantilla: acciones que se aplican al cargar la plantilla.
+## Cada entrada es { "accion": "repartir"|"mezclar"|"colocar", ... }.
+## Acciones soportadas:
+##   - repartir: { "zona": "zona_origen", "destino": "zona_destino", "cantidad": N, "etiqueta": "" }
+##   - mezclar:  { "zona": "zona_a_mezclar" }
+##   - colocar:  { "pieza": "nombre_pieza", "zona": "zona_destino" }
+const AUTO_SETUP := {
+	"cartas": [
+		{ "accion": "mezclar", "zona": "zona_mazo" },
+		{ "accion": "repartir", "zona": "zona_mazo", "destino": "zona_mano", "cantidad": 5, "etiqueta": "" },
+	],
+	"dados": [
+		{ "accion": "mezclar", "zona": "zona_tirada" },
+	],
+	"damas": [],
+	"recorrido": [],
+}
+
+
+## Devuelve las acciones de auto-setup de la plantilla `name` (o un array vacío).
+static func auto_setup(name: String) -> Array:
+	return AUTO_SETUP.get(name, [])
+
+
 ## Piezas limpias (como las de TableRecord.valid_piece) de la plantilla `name`.
 static func pieces(name: String) -> Array:
 	var list: Array = []

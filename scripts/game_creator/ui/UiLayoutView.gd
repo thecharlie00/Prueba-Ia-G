@@ -13,10 +13,13 @@ signal button_pressed(id: int)
 
 const HANDLE := 16.0
 const SELECT_COLOR := Color("7cc6fe")
+const GRID_COLOR := Color("7cc6fe", 0.15)
 
 var layout: UiLayout
 var design := true
 var selected_id := 0
+## Si se activan las guías de cuadrícula al arrastrar en diseño.
+var grid_snap := true
 ## Para cargar las imágenes de la galería (ImageImporter); sin él, las imágenes salen vacías.
 var image_loader: Callable
 
@@ -26,6 +29,7 @@ var _drag_id := 0
 var _drag_resize := false
 var _drag_from := Vector2.ZERO
 var _drag_origin := Vector2.ZERO
+var _drag_offsets := {}  # element_id -> offset desde el origen del arrastre (para multi-selección)
 var _textures := {}
 
 
@@ -46,6 +50,20 @@ func _draw() -> void:
 		return
 	draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, 0.05), true)
 	draw_rect(Rect2(Vector2.ZERO, size), Color(1, 1, 1, 0.45), false, 2.0)
+	# Cuadrícula de referencia (solo cuando grid_snap está activo).
+	if grid_snap and layout != null:
+		var scale := _scale()
+		var step := UiLayout.GRID_STEP * scale
+		var w := size.x
+		var h := size.y
+		var x := 0.0
+		while x < w:
+			draw_line(Vector2(x, 0.0), Vector2(x, h), GRID_COLOR, 1.0)
+			x += step
+		var y := 0.0
+		while y < h:
+			draw_line(Vector2(0.0, y), Vector2(w, y), GRID_COLOR, 1.0)
+			y += step
 
 
 func show_layout(new_layout: UiLayout, design_mode: bool) -> void:
@@ -327,25 +345,65 @@ func begin_drag(id: int, local: Vector2, at: Vector2) -> void:
 	var node := node_for(id)
 	if element.is_empty() or node == null or not design:
 		return
-	select(id)
+	# Selección múltiple: Ctrl+clic añade/quita; clic simple selecciona solo este.
+	if not Input.is_key_pressed(KEY_CTRL):
+		layout.select(id, false)
+		selected_id = id
+	else:
+		layout.select(id, true)
+		if layout.get_selected().size() > 0:
+			selected_id = layout.get_selected()[0]
+	emit_selected()
 	_drag_id = id
-	_drag_resize = local.x > node.size.x - HANDLE and local.y > node.size.y - HANDLE
+	_drag_resize = local.x > node.size.x - HANDLE and local.y > node.size.y - HANDLE and layout.get_selected().size() == 1
 	_drag_from = at
 	_drag_origin = element["size"] if _drag_resize else element["pos"]
+	# Guardar offsets relativos para cada elemento seleccionado (arrastre en grupo).
+	_drag_offsets.clear()
+	if _drag_resize:
+		_drag_offsets[id] = Vector2.ZERO
+	else:
+		for eid in layout.get_selected():
+			var el := layout.find(eid)
+			if not el.is_empty():
+				var epos := el["pos"] as Vector2
+				_drag_offsets[eid] = at - (epos * _scale())
+		# Si el elemento clicado no estaba en la selección, añadirlo.
+		if not _drag_offsets.has(id):
+			_drag_offsets[id] = Vector2.ZERO
 
 
 func drag_to(at: Vector2) -> void:
-	var element := layout.find(_drag_id) if layout != null else {}
-	if element.is_empty():
+	if _drag_id == 0 or layout == null:
 		return
-	var delta := (at - _drag_from) / _scale()
+	var scale := _scale()
+	var delta := (at - _drag_from) / scale
 	if _drag_resize:
+		var element := layout.find(_drag_id)
+		if element.is_empty():
+			return
 		element["size"] = (_drag_origin + delta).clamp(UiLayout.MIN_SIZE, UiLayout.REFERENCE - (element["pos"] as Vector2))
+		layout.reanchor(element)
 	else:
-		element["pos"] = _drag_origin + delta
-	layout.reanchor(element)
+		# Mover cada elemento del arrastre (selección o grupo).
+		for eid in _drag_offsets.keys():
+			var element := layout.find(eid)
+			if element.is_empty():
+				continue
+			var pos := element["pos"] as Vector2
+			var offset := _drag_offsets[eid]
+			var new_pos := (at - offset) / scale
+			if grid_snap:
+				new_pos = Vector2(
+					round(new_pos.x / UiLayout.GRID_STEP) * UiLayout.GRID_STEP,
+					round(new_pos.y / UiLayout.GRID_STEP) * UiLayout.GRID_STEP,
+				)
+			pos = new_pos
+			element["pos"] = pos
+			layout.reanchor(element)
 	_place_all()
-	element_changed.emit(_drag_id)
+	if layout.get_selected().size() > 0:
+		element_changed.emit(layout.get_selected()[0])
 
 
 func end_drag() -> void:
@@ -353,6 +411,20 @@ func end_drag() -> void:
 		# El texto se ajusta al tamaño nuevo.
 		rebuild()
 	_drag_id = 0
+	_drag_offsets.clear()
+
+
+## Emite la señal de selección actual al editor.
+func emit_selected() -> void:
+	if layout == null:
+		return
+	var ids := layout.get_selected()
+	if ids.size() > 0:
+		selected_id = ids[0]
+		element_selected.emit(selected_id)
+	else:
+		selected_id = 0
+		element_selected.emit(0)
 
 
 ## Marco de cada elemento: recibe el ratón en modo diseño.

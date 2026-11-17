@@ -165,6 +165,76 @@ func _exec(id: int) -> void:
 			_editor.logic_show_element(int(node["params"]["elemento"]), _truthy(_value(id, "visible")))
 		"ac_variable":
 			_editor.logic_store(str(node["params"]["nombre"]), _value(id, "valor"))
+		"ac_escribir":
+			_editor.logic_set_label(str(_value(id, "pieza")), str(_value(id, "texto")))
+		"ac_color":
+			_editor.logic_set_color(str(_value(id, "pieza")), str(_value(id, "color")))
+		"ac_repartir_mazo":
+			_editor.repartir_mazo(str(_value(id, "mazo")), int(_number(_value(id, "cantidad"))), str(_value(id, "zona")))
+		"ac_contador_sumar":
+			var e := _editor()
+			if e != null:
+				var entity := e._find_piece(str(_value(id, "pieza")))
+		var counter := entity.get_component("CounterComponent") if entity != null else null
+			if counter != null:
+				counter.add(int(_number(_value(id, "cantidad"))))
+		"ac_contador_poner":
+			var e := _editor()
+			if e != null:
+				var entity := e._find_piece(str(_value(id, "pieza")))
+		var counter := entity.get_component("CounterComponent") if entity != null else null
+			if counter != null:
+				counter.set(int(_number(_value(id, "valor"))))
+		"ac_contador_resetear":
+			var e := _editor()
+			if e != null:
+				var entity := e._find_piece(str(_value(id, "pieza")))
+		var counter := entity.get_component("CounterComponent") if entity != null else null
+			if counter != null:
+				counter.reset()
+		"ac_bolsa_sacar_azar":
+			var e := _editor()
+			if e != null:
+				var entity := e._find_piece(str(_value(id, "bolsa")))
+		var bag := entity.get_component("BagComponent") if entity != null else null
+			var id_sacado := bag.draw_random() if bag != null else ""
+				_outputs[id] = {"pieza": id_sacado}
+		"ac_bolsa_agregar":
+			var e := _editor()
+			if e != null:
+				var bag_entity := e._find_piece(str(_value(id, "bolsa")))
+				var piece_entity := e._find_piece(str(_value(id, "pieza")))
+				var bag := bag_entity.get_component("BagComponent") if bag_entity != null else null
+				if bag != null and piece_entity != null:
+					bag.add(piece_entity.entity_id)
+		"ac_nota_escribir":
+			var e := _editor()
+			if e != null:
+				var entity := e._find_piece(str(_value(id, "pieza")))
+		var note := entity.get_component("NoteComponent") if entity != null else null
+			if note != null:
+				note.set_text(str(_value(id, "texto")))
+		"ac_reloj_iniciar":
+			var e := _editor()
+			if e != null:
+				var entity := e._find_piece(str(_value(id, "reloj")))
+		var timer := entity.get_component("TimerComponent") if entity != null else null
+			if timer != null:
+				timer.start()
+		"ac_reloj_parar":
+			var e := _editor()
+			if e != null:
+				var entity := e._find_piece(str(_value(id, "reloj")))
+		var timer := entity.get_component("TimerComponent") if entity != null else null
+			if timer != null:
+				timer.stop()
+		"ac_reloj_reiniciar":
+			var e := _editor()
+			if e != null:
+				var entity := e._find_piece(str(_value(id, "reloj")))
+		var timer := entity.get_component("TimerComponent") if entity != null else null
+			if timer != null:
+				timer.reset()
 		"gd_bloque":
 			_outputs[id] = {"resultado": _run_code(id)}
 		"ac_pasar_turno":
@@ -247,6 +317,50 @@ func _compute_inner(id: int, _out: String) -> Variant:
 			return str(p["etiqueta"]).strip_edges().to_lower() in _editor.logic_piece_tags(str(_value(id, "pieza")))
 		"da_nombre":
 			return _editor.logic_piece_name(str(_value(id, "pieza")))
+		"da_todas_piezas":
+			return _editor.logic_pieces("", "")
+		"da_etiquetas_pieza":
+			return _editor.logic_piece_tags(str(_value(id, "pieza")))
+		"da_texto_de":
+			return _editor.logic_piece_label(str(_value(id, "pieza")))
+		"da_zona_de":
+			return _editor.logic_zone_of(str(_value(id, "pieza")))
+		"da_zonas":
+			return _editor.logic_zone_names()
+		"da_mano":
+			return _editor.hand_zone_of(_editor.current_player)
+		"da_nombre_jugador":
+			return GamePlayers.player_name(clampi(int(_number(_value(id, "jugador"))) - 1, 0, _editor.players - 1))
+		"da_rango":
+			var n := clampi(int(_number(_value(id, "n"))), 0, 1000)
+			return range(n)
+		"da_color":
+			var c := _editor.logic_piece_color(str(_value(id, "pieza")))
+			return c.to_html(true)
+		"da_cartas_en_mazo":
+			return float(_editor.cartas_en_mazo(str(_value(id, "mazo"))))
+		"da_carta_arriba":
+			return _editor.carta_arriba(str(_value(id, "mazo")))
+		"da_contador_valor":
+		var e := _editor()
+		var entity := e._find_piece(str(_value(id, "pieza"))) if e != null else null
+		var counter := entity.get_component("CounterComponent") if entity != null else null
+		return float(counter.value if counter != null else 0)
+		"da_bolsa_contar":
+		var e := _editor()
+		var entity := e._find_piece(str(_value(id, "bolsa"))) if e != null else null
+		var bag := entity.get_component("BagComponent") if entity != null else null
+		return float(bag.count() if bag != null else 0)
+		"da_nota_leer":
+		var e := _editor()
+		var entity := e._find_piece(str(_value(id, "pieza"))) if e != null else null
+		var note := entity.get_component("NoteComponent") if entity != null else null
+		return note.get_text() if note != null else ""
+		"da_reloj_tiempo":
+		var e := _editor()
+		var entity := e._find_piece(str(_value(id, "reloj"))) if e != null else null
+		var timer := entity.get_component("TimerComponent") if entity != null else null
+		return float(timer.remaining() if timer != null else 0.0)
 		"gd_expresion":
 			return _run_code(id)
 		"da_jugador":

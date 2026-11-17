@@ -10,6 +10,11 @@ const METHODS := [
 	"zona_de", "zonas", "mover", "repartir", "mezclar", "voltear", "tirar_dados", "ultima_tirada",
 	"contador", "sumar", "poner", "mensaje", "variable", "guardar", "rango", "azar", "mostrar",
 	"color", "texto_de", "escribir", "jugador", "jugadores", "nombre_jugador", "pasar_turno", "dar_turno", "mano",
+	"cartas_en_mazo", "carta_arriba", "repartir_mazo",
+	"contador_valor", "contador_sumar", "contador_poner", "contador_resetear",
+	"bolsa_contar", "bolsa_sacar_azar", "bolsa_agregar",
+	"nota_leer", "nota_escribir",
+	"reloj_iniciar", "reloj_parar", "reloj_reiniciar", "reloj_tiempo",
 ]
 
 const HELP := """mesa.piezas() → todas las piezas (ids)
@@ -215,6 +220,202 @@ func mano(n := 0) -> String:
 		return ""
 	var zone: String = e.hand_zone_of((n - 1) if n > 0 else e.current_player)
 	return e.logic_piece_name(zone)
+
+
+## Número de cartas en un mazo (pieza con DeckComponent).
+func cartas_en_mazo(pieza: String) -> int:
+	var e := _editor()
+	if e == null:
+		return 0
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return 0
+	var deck := entity.get_component("DeckComponent")
+	return deck.count() if deck != null else 0
+
+
+## Nombre de la carta de arriba de un mazo, o "" si no es mazo o está vacío.
+func carta_arriba(pieza: String) -> String:
+	var e := _editor()
+	if e == null:
+		return ""
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return ""
+	var deck := entity.get_component("DeckComponent")
+	if deck == null or deck.is_empty():
+		return ""
+	return str(deck.top_card().get("name", ""))
+
+
+## Reparte `cantidad` cartas de un mazo a una zona. Devuelve cuántas repartió.
+func repartir_mazo(pieza: String, cantidad: int, zona: String) -> int:
+	var e := _editor()
+	if e == null:
+		return 0
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return 0
+	var deck := entity.get_component("DeckComponent")
+	if deck == null:
+		return 0
+	return deck.deal_to_zone(int(cantidad), e, zona)
+
+
+## Valor del contador de una pieza (pieza con CounterComponent).
+func contador_valor(pieza: String) -> int:
+	var e := _editor()
+	if e == null:
+		return 0
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return 0
+	var counter := entity.get_component("CounterComponent")
+	return counter.value if counter != null else 0
+
+## Suma `cantidad` al contador de una pieza. Devuelve el valor resultante.
+func contador_sumar(pieza: String, cantidad: int) -> int:
+	var e := _editor()
+	if e == null:
+		return 0
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return 0
+	var counter := entity.get_component("CounterComponent")
+	if counter == null:
+		return 0
+	return counter.add(int(cantidad))
+
+## Pone el contador de una pieza a `valor`. Devuelve el valor resultante.
+func contador_poner(pieza: String, valor: int) -> int:
+	var e := _editor()
+	if e == null:
+		return 0
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return 0
+	var counter := entity.get_component("CounterComponent")
+	if counter == null:
+		return 0
+	return counter.set(int(valor))
+
+## Pone el contador de una pieza a su mínimo. Devuelve el valor resultante.
+func contador_resetear(pieza: String) -> int:
+	var e := _editor()
+	if e == null:
+		return 0
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return 0
+	var counter := entity.get_component("CounterComponent")
+	if counter == null:
+		return 0
+	return counter.reset()
+
+## Número de piezas dentro de una bolsa (pieza con BagComponent).
+func bolsa_contar(pieza: String) -> int:
+	var e := _editor()
+	if e == null:
+		return 0
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return 0
+	var bag := entity.get_component("BagComponent")
+	return bag.count() if bag != null else 0
+
+## Saca una pieza al azar de una bolsa y devuelve su entity_id, o "" si está vacía.
+func bolsa_sacar_azar(pieza: String) -> String:
+	var e := _editor()
+	if e == null:
+		return ""
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return ""
+	var bag := entity.get_component("BagComponent")
+	return bag.draw_random() if bag != null else ""
+
+## Añade una pieza (por entity_id) a una bolsa. Devuelve true si se pudo.
+func bolsa_agregar(pieza: String, entidad: String) -> bool:
+	var e := _editor()
+	if e == null:
+		return false
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return false
+	var bag := entity.get_component("BagComponent")
+	if bag == null:
+		return false
+	return bag.add(str(entidad))
+
+## Lee el texto de una nota (pieza con NoteComponent).
+func nota_leer(pieza: String) -> String:
+	var e := _editor()
+	if e == null:
+		return ""
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return ""
+	var note := entity.get_component("NoteComponent")
+	return note.get_text() if note != null else ""
+
+## Escribe el texto de una nota (pieza con NoteComponent).
+func nota_escribir(pieza: String, texto: String) -> void:
+	var e := _editor()
+	if e == null:
+		return
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return
+	var note := entity.get_component("NoteComponent")
+	if note != null:
+		note.set_text(str(texto))
+
+## Inicia el reloj de una pieza (pieza con TimerComponent).
+func reloj_iniciar(pieza: String) -> void:
+	var e := _editor()
+	if e == null:
+		return
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return
+	var timer := entity.get_component("TimerComponent")
+	if timer != null:
+		timer.start()
+
+## Para el reloj de una pieza.
+func reloj_parar(pieza: String) -> void:
+	var e := _editor()
+	if e == null:
+		return
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return
+	var timer := entity.get_component("TimerComponent")
+	if timer != null:
+		timer.stop()
+
+## Reinicia el reloj de una pieza a su duración completa.
+func reloj_reiniciar(pieza: String) -> void:
+	var e := _editor()
+	if e == null:
+		return
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return
+	var timer := entity.get_component("TimerComponent")
+	if timer != null:
+		timer.reset()
+
+## Tiempo restante del reloj de una pieza (segundos).
+func reloj_tiempo(pieza: String) -> float:
+	var e := _editor()
+	if e == null:
+		return 0.0
+	var entity := e._find_piece(pieza)
+	if entity == null:
+		return 0.0
+	var timer := entity.get_component("TimerComponent")
+	return timer.remaining() if timer != null else 0.0
 
 
 func azar(desde: int, hasta: int) -> int:

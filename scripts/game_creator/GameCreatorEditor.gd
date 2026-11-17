@@ -32,6 +32,16 @@ var _file_dialog: FileDialog = null
 var _selected_entity: PropEntity = null
 var selection: Array[PropEntity] = []
 
+# --- Vista ampliada con Alt (FASE 1) -----------------------------------------------
+# Panel que se muestra al mantener Alt sobre una pieza: imagen, texto y descripción.
+var _zoom_panel: PanelContainer = null
+var _zoom_image: TextureRect = null
+var _zoom_name: Label = null
+var _zoom_desc: Label = null
+var _zoom_count: Label = null
+var _zoom_entity: PropEntity = null
+const ZOOM_PANEL_SIZE := Vector2(340, 420)
+
 # --- Mesa: cámara, cuadrícula, arrastre, historial ---------------------------------
 const TABLE_SAVE_PATH := "user://creador/mesa.json"
 const TABLE_SAVE_BYTES := 400000
@@ -86,6 +96,7 @@ var _turn_label: Label
 var _turn_dot: Panel
 var _players_spin: SpinBox
 var _zone_owner: OptionButton
+var _zone_tag_filter: LineEdit
 ## Lógica del juego (blueprints) y quien la ejecuta al probar.
 var logic := LogicGraph.new()
 var logic_editor: LogicEditor
@@ -100,6 +111,7 @@ var _zone_kind: OptionButton
 var _pattern_option: OptionButton
 var _repeat_cols: SpinBox
 var _repeat_rows: SpinBox
+var _sheet_back_check: CheckButton
 
 # --- Diseñador de interfaz -------------------------------------------------------
 const UI_SAVE_PATH := "user://creador/interfaz.json"
@@ -109,6 +121,7 @@ const SAVE_STORE := preload("res://scripts/persistence/SaveStore.gd")
 var ui_layout := UiLayout.new()
 var ui_view: UiLayoutView
 var ui_save_path := UI_SAVE_PATH
+var _ui_clipboard: Array[Dictionary] = []
 var _piece_inspector: VBoxContainer
 var _ui_inspector: VBoxContainer
 var _ui_name: Label
@@ -168,6 +181,56 @@ func _ready() -> void:
 	_marquee.add_theme_stylebox_override("panel", box_style)
 	add_child(_marquee)
 	move_child(_marquee, ui_view.get_index() + 1)
+
+	# Panel de vista ampliada (Alt sobre una pieza): imagen, texto y descripción.
+	_zoom_panel = PanelContainer.new()
+	_zoom_panel.name = "ZoomPanel"
+	_zoom_panel.visible = false
+	_zoom_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_zoom_panel.custom_minimum_size = ZOOM_PANEL_SIZE
+	_zoom_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_zoom_panel.offset_top = -160
+	var zoom_style := StyleBoxFlat.new()
+	zoom_style.bg_color = Palette.INK
+	zoom_style.set_corner_radius_all(12)
+	zoom_style.border_color = Palette.PAPER
+	zoom_style.set_border_width_all(2)
+	_zoom_panel.add_theme_stylebox_override("panel", zoom_style)
+	var zoom_col := VBoxContainer.new()
+	zoom_col.name = "ZoomColumn"
+	zoom_col.add_theme_constant_override("separation", 10)
+	zoom_col.add_theme_constant_override("margin_left", 18)
+	zoom_col.add_theme_constant_override("margin_right", 18)
+	zoom_col.add_theme_constant_override("margin_top", 16)
+	zoom_col.add_theme_constant_override("margin_bottom", 16)
+	_zoom_panel.add_child(zoom_col)
+	_zoom_image = TextureRect.new()
+	_zoom_image.name = "ZoomImage"
+	_zoom_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_zoom_image.custom_minimum_size = Vector2(260, 260)
+	_zoom_image.expanded = true
+	zoom_col.add_child(_zoom_image)
+	_zoom_name = Label.new()
+	_zoom_name.name = "ZoomName"
+	_zoom_name.add_theme_font_size_override("font_size", 20)
+	_zoom_name.add_theme_color_override("font_color", Palette.PAPER)
+	_zoom_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	zoom_col.add_child(_zoom_name)
+	_zoom_desc = Label.new()
+	_zoom_desc.name = "ZoomDesc"
+	_zoom_desc.add_theme_font_size_override("font_size", 15)
+	_zoom_desc.add_theme_color_override("font_color", Color(Palette.PAPER, 0.85))
+	_zoom_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	zoom_col.add_child(_zoom_desc)
+	_zoom_count = Label.new()
+	_zoom_count.name = "ZoomCount"
+	_zoom_count.add_theme_font_size_override("font_size", 14)
+	_zoom_count.add_theme_color_override("font_color", Palette.SUN)
+	_zoom_count.visible = false
+	zoom_col.add_child(_zoom_count)
+	add_child(_zoom_panel)
+	move_child(_zoom_panel, get_child_count() - 1)
+
 	_build_editor_ui()
 	resized.connect(_layout_canvas)
 	_layout_canvas.call_deferred()
@@ -540,10 +603,21 @@ func _build_editor_ui() -> void:
 		spin.select_all_on_focus = true
 		sheet_grid.add_child(_labelled(entry[0], spin))
 		_sheet_spins[entry[1]] = spin
+	_sheet_back_check = CheckButton.new()
+	_sheet_back_check.name = "SheetBackCheck"
+	_sheet_back_check.text = tr("Poner reverso a todas las cartas")
+	_sheet_back_check.tooltip_text = "Usa la imagen seleccionada en la galería como dorso de cada carta del mazo"
+	_sheet_back_check.button_pressed = false
+	_sheet_back_check.focus_mode = Control.FOCUS_NONE
+	images_tab.add_child(_sheet_back_check)
 	var from_sheet := _button("Mazo desde la hoja elegida", func() -> void:
-		deck_from_sheet(str(_asset_browser.selected_image.get("path", "")), int(_sheet_spins["SheetCols"].value), int(_sheet_spins["SheetRows"].value), int(_sheet_spins["SheetCount"].value))
+		var back_path := ""
+		if _sheet_back_check.button_pressed and _asset_browser != null and _asset_browser.selected_image.has("path"):
+			back_path = str(_asset_browser.selected_image.get("path"))
+		deck_from_sheet(str(_asset_browser.selected_image.get("path", "")), int(_sheet_spins["SheetCols"].value), int(_sheet_spins["SheetRows"].value), int(_sheet_spins["SheetCount"].value), back_path)
 	)
 	from_sheet.name = "DeckFromSheet"
+	from_sheet.tooltip_text = "Corta la hoja en rejilla y crea un mazo. Marca «Poner reverso» para darles dorso a todas."
 	images_tab.add_child(from_sheet)
 	var from_gallery := _button("Una carta por imagen", cards_from_gallery)
 	from_gallery.name = "CardsFromGallery"
@@ -823,11 +897,19 @@ func _build_piece_inspector(column: VBoxContainer) -> void:
 		_zone_owner.add_item(tr("De %s") % GamePlayers.player_name(i))
 	_zone_owner.item_selected.connect(func(index: int) -> void: _edit_selection("owner", index))
 	fields.add_child(_zone_owner)
-	_shuffle_check = CheckBox.new()
-	_shuffle_check.name = "ZoneShuffle"
-	_shuffle_check.text = "Mezclar lo de dentro al probar"
-	_shuffle_check.toggled.connect(func(on: bool) -> void: _edit_selection("shuffle", on))
-	fields.add_child(_shuffle_check)
+		_shuffle_check = CheckBox.new()
+		_shuffle_check.name = "ZoneShuffle"
+		_shuffle_check.text = "Mezclar lo de dentro al probar"
+		_shuffle_check.toggled.connect(func(on: bool) -> void: _edit_selection("shuffle", on))
+		fields.add_child(_shuffle_check)
+		_zone_tag_filter = LineEdit.new()
+		_zone_tag_filter.name = "ZoneTagFilter"
+	_zone_tag_filter.name = "ZoneTagFilter"
+	_zone_tag_filter.placeholder_text = "Etiqueta requerida (vacío = cualquier pieza)"
+	_zone_tag_filter.tooltip_text = "Solo se aceptan piezas con esta etiqueta en la zona"
+	_zone_tag_filter.text_submitted.connect(func(text: String) -> void: _edit_selection("tag_filter", text))
+	_zone_tag_filter.focus_exited.connect(func() -> void: _edit_selection("tag_filter", _zone_tag_filter.text))
+	fields.add_child(_zone_tag_filter)
 	_lock_check = CheckBox.new()
 	_lock_check.name = "PieceLocked"
 	_lock_check.text = "Fija: no se mueve al probar"
@@ -1089,6 +1171,131 @@ func _build_ui_inspector(column: VBoxContainer) -> void:
 	_ui_inspector.add_child(row)
 
 
+# --- Mejoras FASE 7: alineación, distribución, copiar/pegar y cuadrícula ---
+	var align_row := HBoxContainer.new()
+	align_row.add_theme_constant_override("separation", 4)
+	align_row.add_child(_caption("ALINEAR / DISTRIBUIR"))
+	var btn_align_left := _button("Izq", func() -> void:
+		var n := ui_layout.align_selected(UiLayout.ALIGN_LEFT)
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) alineado(s) a la izquierda.") % n)
+	)
+	btn_align_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	align_row.add_child(btn_align_left)
+	var btn_align_center_x := _button("Centrar X", func() -> void:
+		var n := ui_layout.align_selected(UiLayout.ALIGN_CENTER_X)
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) centrado(s) en X.") % n)
+	)
+	btn_align_center_x.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	align_row.add_child(btn_align_center_x)
+	var btn_align_right := _button("Der", func() -> void:
+		var n := ui_layout.align_selected(UiLayout.ALIGN_RIGHT)
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) alineado(s) a la derecha.") % n)
+	)
+	btn_align_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	align_row.add_child(btn_align_right)
+	_ui_inspector.add_child(align_row)
+
+	var align_row2 := HBoxContainer.new()
+	align_row2.add_theme_constant_override("separation", 4)
+	var btn_align_top := _button("Arriba", func() -> void:
+		var n := ui_layout.align_selected(UiLayout.ALIGN_TOP)
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) alineado(s) arriba.") % n)
+	)
+	btn_align_top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	align_row2.add_child(btn_align_top)
+	var btn_align_center_y := _button("Centrar Y", func() -> void:
+		var n := ui_layout.align_selected(UiLayout.ALIGN_CENTER_Y)
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) centrado(s) en Y.") % n)
+	)
+	btn_align_center_y.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	align_row2.add_child(btn_align_center_y)
+	var btn_align_bottom := _button("Abajo", func() -> void:
+		var n := ui_layout.align_selected(UiLayout.ALIGN_BOTTOM)
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) alineado(s) abajo.") % n)
+	)
+	btn_align_bottom.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	align_row2.add_child(btn_align_bottom)
+	_ui_inspector.add_child(align_row2)
+
+	var dist_row := HBoxContainer.new()
+	dist_row.add_theme_constant_override("separation", 4)
+	var btn_dist_h := _button("Dist. H", func() -> void:
+		var n := ui_layout.distribute_selected(UiLayout.DISTRIBUTE_HORIZONTAL)
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) distribuido(s) horizontalmente.") % n)
+	)
+	btn_dist_h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dist_row.add_child(btn_dist_h)
+	var btn_dist_v := _button("Dist. V", func() -> void:
+		var n := ui_layout.distribute_selected(UiLayout.DISTRIBUTE_VERTICAL)
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) distribuido(s) verticalmente.") % n)
+	)
+	btn_dist_v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dist_row.add_child(btn_dist_v)
+	_ui_inspector.add_child(dist_row)
+
+	var clip_row := HBoxContainer.new()
+	clip_row.add_theme_constant_override("separation", 4)
+	var btn_copy := _button("Copiar", func() -> void:
+		var clipboard := ui_layout.copy_selected()
+		_ui_clipboard = clipboard
+		_say(tr("%d elemento(s) copiado(s).") % clipboard.size())
+	)
+	btn_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clip_row.add_child(btn_copy)
+	var btn_paste := _button("Pegar", func() -> void:
+		if _ui_clipboard == null:
+			_say(tr("No hay nada en el portapapeles."))
+			return
+		var made := ui_layout.paste(_ui_clipboard)
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) pegado(s).") % made.size())
+	)
+	btn_paste.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clip_row.add_child(btn_paste)
+	var btn_dup := _button("Duplicar", func() -> void:
+		var made := ui_layout.duplicate()
+		ui_view.rebuild()
+		_say(tr("%d elemento(s) duplicado(s).") % made.size())
+	)
+	btn_dup.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clip_row.add_child(btn_dup)
+	_ui_inspector.add_child(clip_row)
+
+	var grid_row := HBoxContainer.new()
+	grid_row.add_theme_constant_override("separation", 4)
+	var btn_grid := CheckButton.new()
+	btn_grid.text = "Cuadrícula"
+	btn_grid.pressed = ui_view.grid_snap
+	btn_grid.toggled.connect(func(pressed: bool) -> void:
+		ui_view.grid_snap = pressed
+		ui_view.queue_redraw()
+	)
+	grid_row.add_child(btn_grid)
+	var btn_group := _button("Agrupar", func() -> void:
+		var gid := ui_layout.group_selected()
+		if gid > 0:
+			_say(tr("Grupo %d creado (%d elemento(s)).") % [gid, ui_layout.get_selected().size()])
+		ui_view.rebuild()
+	)
+	btn_group.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid_row.add_child(btn_group)
+	var btn_ungroup := _button("Desagrupar", func() -> void:
+		ui_layout.ungroup_selected()
+		ui_view.rebuild()
+	)
+	btn_ungroup.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid_row.add_child(btn_ungroup)
+	_ui_inspector.add_child(grid_row)
+
+
 # Fila de colores de la paleta; con allow_none, el primero es «sin fondo».
 func _swatches(property: String, allow_none: bool) -> HFlowContainer:
 	var flow := HFlowContainer.new()
@@ -1130,28 +1337,40 @@ func add_ui_element(type: String) -> int:
 
 
 func remove_ui_element() -> void:
-	var id := ui_view.selected_id
-	if ui_layout.remove(id):
-		ui_view.rebuild()
-		ui_view.select(0)
-		_say("Elemento de interfaz quitado.")
+	var ids := ui_layout.get_selected()
+	if ids.is_empty():
+		return
+	for id in ids:
+		ui_layout.remove(id)
+	ui_view.rebuild()
+	ui_layout.clear_selection()
+	ui_view.emit_selected()
+	_say(tr("%d elemento(s) de interfaz quitado(s).") % ids.size())
 
 
-## Cambia una propiedad del elemento seleccionado (texto, colores, acción…).
+## Cambia una propiedad de todos los elementos seleccionados (texto, colores, acción…).
 func set_ui_property(property: String, value: Variant) -> void:
 	if _syncing_ui:
 		return
-	var element := ui_layout.find(ui_view.selected_id)
-	if element.is_empty() or not element.has(property):
+	var ids := ui_layout.get_selected()
+	if ids.is_empty():
 		return
-	element[property] = value
-	if property == "action":
-		# El destino anterior puede no valer para la acción nueva.
-		var valid := ui_layout.targets_for(str(value), int(element["id"]))
-		if valid.filter(func(item: Dictionary) -> bool: return int(item["id"]) == int(element["target"])).is_empty():
-			element["target"] = int(valid[0]["id"]) if not valid.is_empty() else 0
+	var first_element := ui_layout.find(ids[0])
+	if first_element.is_empty() or not first_element.has(property):
+		return
+	for id in ids:
+		var element := ui_layout.find(id)
+		if element.is_empty() or not element.has(property):
+			continue
+		element[property] = value
+		if property == "action":
+			# El destino anterior puede no valer para la acción nueva.
+			var valid := ui_layout.targets_for(str(value), int(element["id"]))
+			if valid.filter(func(item: Dictionary) -> bool: return int(item["id"]) == int(element["target"])).is_empty():
+				element["target"] = int(valid[0]["id"]) if not valid.is_empty() else 0
 	ui_view.rebuild()
-	_fill_ui_inspector(element, property != "text")
+	if not first_element.is_empty():
+		_fill_ui_inspector(first_element, property != "text")
 
 
 func _apply_image_to_ui() -> void:
@@ -1164,11 +1383,15 @@ func _apply_image_to_ui() -> void:
 
 
 func _on_ui_selected(id: int) -> void:
-	var element := ui_layout.find(id)
-	_ui_inspector.visible = not element.is_empty()
-	_piece_inspector.visible = element.is_empty()
-	_scene_hierarchy.visible = element.is_empty()
-	if not element.is_empty():
+	var ids := ui_layout.get_selected()
+	var any_element := false
+	if ids.size() > 0:
+		any_element = true
+	var element := ui_layout.find(ids[0]) if ids.size() > 0 else {}
+	_ui_inspector.visible = any_element
+	_piece_inspector.visible = not any_element
+	_scene_hierarchy.visible = not any_element
+	if any_element:
 		_fill_ui_inspector(element, true)
 
 
@@ -1398,6 +1621,9 @@ func _refresh_piece_inspector() -> void:
 	_shuffle_check.visible = visual.shape == PieceShapes.ZONE
 	_zone_kind.visible = visual.shape == PieceShapes.ZONE
 	_zone_owner.visible = visual.shape == PieceShapes.ZONE
+	_zone_tag_filter.visible = visual.shape == PieceShapes.ZONE
+	if _zone_tag_filter.text != visual.tag_filter and not _zone_tag_filter.has_focus():
+		_zone_tag_filter.text = visual.tag_filter
 	_zone_owner.select(clampi(visual.owner_player, 0, GamePlayers.MAX))
 	_zone_kind.select(maxi(0, PieceShapes.ZONE_KINDS.find(visual.zone_kind)))
 	_shuffle_check.set_pressed_no_signal(visual.shuffle_on_play)
@@ -1473,7 +1699,54 @@ func load_template(name: String) -> void:
 		_pop_in(entity)
 	_play("pop")
 	focus_all()
-	_say(tr("Plantilla «%s» puesta. Cámbiala a tu gusto; Ctrl+Z recupera la mesa de antes.") % tr(TableTemplates.TITLES[name]))
+	# Auto-setup: la plantilla se prepara sola (mezclar, repartir, colocar).
+	apply_auto_setup(name)
+	_say(tr("Plantilla «%s» puesta y lista para jugar. Ctrl+Z recupera la mesa de antes.") % tr(TableTemplates.TITLES[name]))
+
+
+## Busca una entidad por su nombre (entity_name) en la mesa actual.
+func find_entity_by_name(name: String) -> PropEntity:
+	for entity in _scene_hierarchy.entities:
+		if entity.entity_name == name:
+			return entity
+	return null
+
+
+## Aplica las acciones de auto-setup de una plantilla (mezclar, repartir, colocar).
+## Todas deshacibles vía _remember.
+func apply_auto_setup(template_name: String) -> void:
+	var actions := TableTemplates.auto_setup(template_name)
+	if actions.is_empty():
+		return
+	for action in actions:
+		if not action is Dictionary:
+			continue
+		var tipo := str(action.get("accion", ""))
+		match tipo:
+			"mezclar":
+				var zona := str(action.get("zona", ""))
+				var zona_id := logic_zone_id(zona)
+				if zona_id != "":
+					_remember("auto_setup_mezclar")
+					logic_shuffle(zona_id)
+			"repartir":
+				var zona_origen := str(action.get("zona", ""))
+				var zona_destino := str(action.get("destino", ""))
+				var cantidad := int(action.get("cantidad", 1))
+				var etiqueta := str(action.get("etiqueta", ""))
+				var origen_id := logic_zone_id(zona_origen)
+				var destino_id := logic_zone_id(zona_destino)
+				if origen_id != "" and destino_id != "":
+					_remember("auto_setup_repartir")
+					logic_deal(cantidad, origen_id, destino_id, etiqueta)
+			"colocar":
+				var pieza_nombre := str(action.get("pieza", ""))
+				var zona_nombre := str(action.get("zona", ""))
+				var pieza := find_entity_by_name(pieza_nombre)
+				var zona_id := logic_zone_id(zona_nombre)
+				if pieza != null and zona_id != "":
+					_remember("auto_setup_colocar")
+					logic_move(pieza.entity_id, zona_id)
 
 
 ## Copias de la pieza principal en una rejilla de `cols` × `rows`, empezando en ella.
@@ -1702,10 +1975,12 @@ func _edit_selection(property: String, value: Variant) -> void:
 				visual.shuffle_on_play = bool(value)
 			"owner":
 				visual.owner_player = clampi(int(value), 0, GamePlayers.MAX)
-			"zone_kind":
-				visual.zone_kind = str(value) if str(value) in PieceShapes.ZONE_KINDS else "normal"
-			"tags":
-				entity.tags.assign(TableRecord.clean_tags(value))
+		"zone_kind":
+			visual.zone_kind = str(value) if str(value) in PieceShapes.ZONE_KINDS else "normal"
+		"tag_filter":
+			visual.tag_filter = str(value)
+		"tags":
+			entity.tags.assign(TableRecord.clean_tags(value))
 		_refresh_entity_visual(entity)
 	if property in ["shape", "scale"]:
 		_settle(selection)
@@ -2023,6 +2298,10 @@ func new_game(kind: String, count: int, hands: bool, scores: bool) -> void:
 			_apply_logic(TableTemplates.cards_logic_for_players())
 	if scores:
 		_make_score_counters()
+	# Auto-setup: la plantilla se prepara sola (excepto cartas con manos por jugador,
+	# que ya usan cards_logic_for_players()).
+	if kind != "vacio" and not (kind == "cartas" and hands):
+		apply_auto_setup(kind)
 	for entity in _scene_hierarchy.entities:
 		_pop_in(entity)
 	select_pieces([])
@@ -2155,6 +2434,18 @@ func logic_set_label(piece_id: String, text: String) -> void:
 	_refresh_entity_visual(entity)
 
 
+## Pone el color de una pieza (texto #RRGGBBAA).
+func logic_set_color(piece_id: String, color_text: String) -> void:
+	var entity := _find_piece(piece_id)
+	if entity == null:
+		return
+	var color := Color.WHITE
+	if Color.html_is_valid(color_text):
+		color = Color.html(color_text)
+	(entity.get_component("VisualComponent") as VisualComponent).color_tint = color
+	_refresh_entity_visual(entity)
+
+
 ## Lleva una pieza a una zona, al siguiente hueco libre (en fila, boca arriba si era carta).
 func logic_move(piece_id: String, zone_id: String) -> void:
 	var entity := _find_piece(piece_id)
@@ -2166,9 +2457,14 @@ func logic_move(piece_id: String, zone_id: String) -> void:
 
 
 func _place_in_zone(entity: PropEntity, zone: PropEntity, slot: int, count := -1, hold := false) -> void:
+	# FASE 1: zonas de mano solo aceptan piezas con la etiqueta del filtro (si hay uno).
 	var zone_visual := zone.get_component("VisualComponent") as VisualComponent
+	if zone_visual != null and not zone_visual.tag_filter.is_empty():
+		var visual := entity.get_component("VisualComponent") as VisualComponent
+		var tags := Array(entity.tags)
+		if not zone_visual.tag_filter in tags:
+			return
 	var zone_size := PieceShapes.piece_size(zone_visual)
-	var visual := entity.get_component("VisualComponent") as VisualComponent
 	var size := PieceShapes.piece_size(visual)
 	var local := Vector3.ZERO
 	var lift := 0.12
@@ -2219,6 +2515,18 @@ func logic_deal(count: int, from_zone: String, to_zone: String, tag := "") -> in
 	if not moving.is_empty():
 		_play("card")
 	return moving.size()
+
+
+## Reparte `cantidad` cartas de un mazo (pieza con DeckComponent) a una zona.
+## Devuelve cuántas se repartieron. Usado por TableApi.repartir_mazo.
+func repartir_mazo(pieza: String, cantidad: int, zona: String) -> int:
+	var deck_entity := _find_piece(pieza)
+	if deck_entity == null:
+		return 0
+	var deck := deck_entity.get_component("DeckComponent") as DeckComponent
+	if deck == null:
+		return 0
+	return deck.deal_to_zone(cantidad, self, zona)
 
 
 func logic_shuffle(zone_id: String) -> void:
@@ -2387,7 +2695,7 @@ func handle_dropped_files(files: PackedStringArray) -> int:
 # ===================================================================================
 
 ## Corta una hoja de cartas en rejilla (`cols` × `rows`, las `count` primeras) y pone el mazo.
-func deck_from_sheet(path: String, cols: int, rows: int, count: int) -> Array:
+func deck_from_sheet(path: String, cols: int, rows: int, count: int, back_path := "") -> Array:
 	if path.is_empty():
 		_say("Elige primero una imagen de la galería (pestaña Imágenes).")
 		return []
@@ -2415,7 +2723,7 @@ func deck_from_sheet(path: String, cols: int, rows: int, count: int) -> Array:
 		if saved.get("success") == true:
 			paths.append(saved["path"])
 	_asset_browser.refresh()
-	return _spawn_deck(paths, base)
+	return _spawn_deck(paths, base, back_path)
 
 
 ## Un mazo con una carta por imagen de la galería.
@@ -2431,7 +2739,7 @@ func cards_from_gallery() -> Array:
 
 
 ## Pone una carta por imagen, apiladas en un hueco libre y seleccionadas.
-func _spawn_deck(paths: Array, base: String) -> Array:
+func _spawn_deck(paths: Array, base: String, back_path := "") -> Array:
 	if paths.is_empty():
 		return []
 	_remember("deck")
@@ -2443,7 +2751,7 @@ func _spawn_deck(paths: Array, base: String) -> Array:
 		var path: String = paths[i]
 		var piece := {
 			"id": "", "name": "%s %d" % [base.left(30), i + 1], "shape": "carta", "color": Palette.PAPER.to_html(true),
-			"texture": path, "label": "", "pattern": "liso", "cells": 8, "finish": "brillo", "back": "", "notes": "",
+			"texture": path, "label": "", "pattern": "liso", "cells": 8, "finish": "brillo", "back": back_path, "notes": "",
 			"pos": Vector3(spot.x, height + thickness * i, spot.z), "rot": Vector3.ZERO, "scale": 1.0,
 			"locked": false, "mass": 0.2, "bounce": 0.05,
 		}
@@ -2451,7 +2759,8 @@ func _spawn_deck(paths: Array, base: String) -> Array:
 	select_pieces(made)
 	_bump(made)
 	_play("card")
-	_say(tr("Mazo de %d cartas. Elige una imagen y pulsa «Poner reverso» para darles dorso.") % made.size())
+	var note := tr("Mazo de %d cartas con dorso.") % made.size() if back_path != "" else tr("Mazo de %d cartas. Elige una imagen y pulsa «Poner reverso» para darles dorso.") % made.size()
+	_say(note)
 	return made
 
 
@@ -2496,6 +2805,70 @@ func _open_package_dialog(saving: bool) -> void:
 	add_child(_package_dialog)
 	_package_dialog.popup_centered_ratio(0.7)
 
+
+## Valida un paquete .tablerama parseado antes de tocar la mesa actual.
+## Devuelve { } si es válido, o { "error": texto } si no lo es.
+## Comprueba: estructura, tamaño, rutas user:// o res://, y código GDScript sandbox.
+static func validate_tablerama_data(parsed: Variant) -> Dictionary:
+	if not parsed is Dictionary:
+		return {"error": "El archivo no es un juego de Tablerama válido."}
+	if parsed.get("format") != PACKAGE_FORMAT:
+		return {"error": "Ese archivo no es un juego de Tablerama."}
+	if parsed.get("version", 0) != PACKAGE_VERSION:
+		return {"error": "Versión del juego no soportada por esta versión del editor."}
+	var table := parsed.get("table")
+	if not table is Dictionary:
+		return {"error": "El juego no tiene mesa válida."}
+	var pieces := table.get("pieces")
+	if not pieces is Array:
+		return {"error": "La mesa no tiene lista de piezas."}
+	if pieces.size() > TableRecord.MAX_PIECES:
+		return {"error": "El juego tiene demasiadas piezas (máximo %d)." % TableRecord.MAX_PIECES}
+	# Validar rutas de todas las piezas y sus mazos.
+	for piece in pieces:
+		if not piece is Dictionary:
+			return {"error": "Una pieza de la mesa no es válida."}
+		for key in ["texture", "back", "model"]:
+			var path := str(piece.get(key, ""))
+			if path != "" and not TableRecord._valid_path(path):
+				return {"error": "Ruta no permitida en «%s»: %s (solo user:// o res://)." % [str(piece.get("name", "pieza")), path]}
+		# Rutas de las cartas dentro del mazo.
+		var deck := piece.get("deck", {})
+		if deck is Dictionary:
+			var cards := deck.get("cards", [])
+			if cards is Array:
+				for c in cards:
+					if c is Dictionary:
+						for key in ["texture", "back"]:
+							var cpath := str(c.get(key, ""))
+							if cpath != "" and not TableRecord._valid_path(cpath):
+								return {"error": "Ruta no permitida en una carta del mazo: %s (solo user:// o res://)." % cpath}
+	# Validar código GDScript de los bloques de lógica (solo GdSandbox).
+	var logic_record := table.get("logic", {})
+	if logic_record is Dictionary:
+		var logic := LogicGraph.from_record(logic_record)
+		if logic == null:
+			return {"error": "La lógica del juego no es válida."}
+		for id in logic.nodes.keys():
+			var node := logic.nodes[id]
+			if not node is Dictionary:
+				continue
+			var type := str(node.get("type", ""))
+			if type.begins_with("gd_"):
+				var params := node.get("params", {})
+				if params is Dictionary:
+					var code := str(params.get("codigo", ""))
+					if code != "":
+						var problem := GdSandbox.check(code)
+						if problem != "":
+							return {"error": "Bloque GDScript inválido (%s): %s" % [type, problem]}
+	# Validar interfaz.
+	var ui := parsed.get("ui")
+	if ui is Dictionary:
+		var elements := ui.get("elements", [])
+		if not elements is Array:
+			return {"error": "La interfaz del juego no es válida."}
+	return {}
 
 ## Escribe el juego entero en un archivo: mesa, interfaz e imágenes dentro (no depende de
 ## enlaces a webs que luego se rompen).
@@ -2557,11 +2930,10 @@ func import_game(path: String) -> bool:
 		return false
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	file.close()
-	if not parsed is Dictionary or parsed.get("format") != PACKAGE_FORMAT or not parsed.get("images") is Dictionary:
-		_say("Ese archivo no es un juego de Tablerama.")
-		return false
-	if TableRecord.pieces_of(parsed.get("table")) == null:
-		_say("El juego tiene piezas que no son válidas; no se ha cargado.")
+	# Validación estricta antes de tocar nada de la mesa actual.
+	var validation := validate_tablerama_data(parsed)
+	if validation.has("error"):
+		_say(validation["error"])
 		return false
 	# Las imágenes vuelven a la galería con nombres nuevos; las rutas se corrigen.
 	var remap := {}
@@ -3294,6 +3666,33 @@ func _on_mouse_button(event: InputEventMouseButton) -> void:
 					else:
 						_selected_entity = piece
 						_refresh_piece_inspector()
+					# FASE 1: mazo como objeto único — al arrastrar se toma la carta de arriba.
+					var deck := piece.get_component("DeckComponent") as DeckComponent
+					if deck != null and not deck.is_empty() and not event.alt_pressed:
+						var top_data := deck.draw_top()
+						if not top_data.is_empty():
+							_remember("deck_draw")
+							var card_piece := {
+								"id": "", "name": str(top_data.get("name", "Carta")),
+								"shape": "carta", "color": Palette.PAPER.to_html(true),
+								"texture": str(top_data.get("texture", "")),
+								"back": str(top_data.get("back", "")),
+								"label": str(top_data.get("label", "")),
+								"pattern": "liso", "cells": 8, "finish": "brillo",
+				"notes": str(top_data.get("notes", "")), "shuffle": false,
+				"tags": [], "zkind": "normal", "player": 0,
+				"model": "", "msize": [0, 0, 0], "pos": [0, 0, 0],
+				"rot": [0, 0, 0], "scale": 1.0, "locked": false,
+				"mass": 0.2, "bounce": 0.05,
+							}
+							var card_entity := _make_piece(card_piece)
+							card_entity.position.y = _surface_height(card_entity.position, [card_entity])
+							_pop_in(card_entity)
+							select_pieces([card_entity])
+							_play("card")
+							_begin_move(event.position, card_entity, false)
+							accept_event()
+							return
 					_begin_move(event.position, piece, event.alt_pressed)
 				accept_event()
 			else:
@@ -3366,6 +3765,14 @@ func open_context_menu(screen: Vector2) -> Array:
 			add.call("ℹ  " + notes.left(60), func() -> void: logic_message(notes))
 		if players > 1:
 			add.call(tr("Pasar turno") + "  ·  T", logic_pass_turn)
+	# FASE 1: acciones de mazo (pieza con DeckComponent).
+	var deck := piece.get_component("DeckComponent") as DeckComponent
+	if deck != null:
+		add.call(tr("Repartir N…"), func() -> void: _deal_from_deck(piece))
+		add.call(tr("Barajar"), func() -> void: _shuffle_deck(piece))
+		add.call(tr("Buscar carta…"), func() -> void: _search_deck(piece))
+		add.call(tr("Ver %d de arriba") % deck.peek_count, func() -> void: _peek_deck(piece))
+		add.call(tr("Dar la vuelta al mazo"), func() -> void: _flip_deck(piece))
 	if context_actions.is_empty():
 		return []
 	if _context_menu == null:
@@ -3386,6 +3793,172 @@ func open_context_menu(screen: Vector2) -> Array:
 func run_context_action(id: int) -> void:
 	if context_actions.has(id):
 		(context_actions[id][1] as Callable).call()
+
+
+# ===================================================================================
+# Acciones de mazo (FASE 1)
+# ===================================================================================
+
+## Reparte N cartas del mazo a una zona (diálogo de cantidad y destino).
+func _deal_from_deck(deck_piece: PropEntity) -> void:
+	var deck := deck_piece.get_component("DeckComponent") as DeckComponent
+	if deck == null or deck.is_empty():
+		return
+	var dlg := ConfirmationDialog.new()
+	dlg.name = "DealDialog"
+	dlg.title = tr("Repartir cartas")
+	dlg.ok_button_text = tr("Repartir")
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	dlg.add_child(col)
+	col.add_child(_small(tr("Cuántas cartas repartir (máximo %d):") % deck.count()))
+	var count_spin := SpinBox.new()
+	count_spin.name = "Count"
+	count_spin.min_value = 1
+	count_spin.max_value = deck.count()
+	count_spin.value = 1
+	count_spin.select_all_on_focus = true
+	col.add_child(_labelled(tr("Cantidad"), count_spin))
+	col.add_child(_small(tr("Zona de destino:")))
+	var zone_opt := OptionButton.new()
+	zone_opt.name = "Zone"
+	var zones := _zone_options()
+	if zones.is_empty():
+		zone_opt.add_item(tr("Ninguna zona disponible"), -1)
+		zone_opt.disabled = true
+	else:
+		for z in zones:
+			zone_opt.add_item(str(z[1]), int(z[0]))
+	col.add_child(zone_opt)
+	dlg.confirmed.connect(func() -> void:
+		var n := int(count_spin.value)
+		var zone_id := str(zone_opt.get_item_id(zone_opt.selected))
+		if zone_id == "-1" or zone_id == "":
+			_say(tr("No hay zona de destino."))
+			return
+		_remember("deck_deal")
+		var dealt := deck.deal_to_zone(n, self, zone_id)
+		_refresh_piece_inspector()
+		_say(tr("Repartidas %d carta(s).") % dealt)
+	)
+	dlg.canceled.connect(dlg.queue_free)
+	add_child(dlg)
+	dlg.popup_centered(Vector2i(400, 0))
+
+## Baraja las cartas internas del mazo.
+func _shuffle_deck(deck_piece: PropEntity) -> void:
+	var deck := deck_piece.get_component("DeckComponent") as DeckComponent
+	if deck == null:
+		return
+	_remember("deck_shuffle")
+	deck.shuffle()
+	_refresh_piece_inspector()
+	_say(tr("Mazo barajado: %d carta(s).") % deck.count())
+
+## Busca una carta por nombre en el mazo y la saca a la mesa.
+func _search_deck(deck_piece: PropEntity) -> void:
+	var deck := deck_piece.get_component("DeckComponent") as DeckComponent
+	if deck == null or deck.is_empty():
+		return
+	var dlg := AcceptDialog.new()
+	dlg.name = "SearchDeckDialog"
+	dlg.title = tr("Buscar carta en el mazo")
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	dlg.add_child(col)
+	col.add_child(_small(tr("Escribe el nombre (o parte) de la carta:")))
+	var edit := LineEdit.new()
+	edit.name = "Name"
+	edit.select_all_on_focus = true
+	col.add_child(edit)
+	var result_label := Label.new()
+	result_label.name = "Result"
+	result_label.add_theme_font_size_override("font_size", 13)
+	result_label.visible = false
+	col.add_child(result_label)
+	edit.text_submitted.connect(func(text: String) -> void:
+		var found := deck.search(text)
+		if not found.is_empty():
+			_remember("deck_search")
+			var card_piece := {
+				"id": "", "name": str(found.get("name", "Carta")),
+				"shape": "carta", "color": Palette.PAPER.to_html(true),
+				"texture": str(found.get("texture", "")),
+				"back": str(found.get("back", "")),
+				"label": str(found.get("label", "")),
+				"pattern": "liso", "cells": 8, "finish": "brillo",
+				"notes": str(found.get("notes", "")), "shuffle": false,
+				"tags": [], "zkind": "normal", "player": 0,
+				"model": "", "msize": [0, 0, 0], "pos": [0, 0, 0],
+				"rot": [0, 0, 0], "scale": 1.0, "locked": false,
+				"mass": 0.2, "bounce": 0.05,
+			}
+			var spot := _free_spot()
+			card_piece["pos"] = Vector3(spot.x, 0, spot.z)
+			var card_entity := _make_piece(card_piece)
+			card_entity.position.y = _surface_height(card_entity.position, [card_entity])
+			_pop_in(card_entity)
+			select_pieces([card_entity])
+			_play("card")
+			result_label.text = tr("Encontrada: «%s».") % str(found.get("name", "Carta"))
+			result_label.visible = true
+			dlg.accept()
+		else:
+			result_label.text = tr("No se encontró ninguna carta con ese nombre.")
+			result_label.visible = true
+	)
+	dlg.canceled.connect(dlg.queue_free)
+	add_child(dlg)
+	dlg.popup_centered(Vector2i(380, 0))
+
+## Muestra las N cartas de arriba del mazo (sin sacarlas).
+func _peek_deck(deck_piece: PropEntity) -> void:
+	var deck := deck_piece.get_component("DeckComponent") as DeckComponent
+	if deck == null or deck.is_empty():
+		return
+	var top := deck.peek(deck.peek_count)
+	var names := []
+	for c in top:
+		names.append(str(c.get("name", "Carta")))
+	_say(tr("De arriba: %s.") % names.join(", "))
+
+## Da la vuelta al mazo (invierte el orden y cambia cara/dorso).
+func _flip_deck(deck_piece: PropEntity) -> void:
+	var deck := deck_piece.get_component("DeckComponent") as DeckComponent
+	if deck == null:
+		return
+	_remember("deck_flip")
+	deck.flip_deck()
+	_refresh_piece_inspector()
+	_say(tr("Mazo volteado. Ahora %s.") % (tr("boca arriba") if deck.face_up else tr("boca abajo")))
+
+## Coloca una carta (diccionario) en una zona, en el siguiente hueco libre.
+func _place_card_in_zone(piece: Dictionary, zone: PropEntity, slot: int) -> void:
+	_remember("deck_place")
+	var entity := _make_piece(piece)
+	var zone_visual := zone.get_component("VisualComponent") as VisualComponent
+	var zone_size := PieceShapes.piece_size(zone_visual) if zone_visual != null else Vector3(1, 0.006, 0.7)
+	var visual := entity.get_component("VisualComponent") as VisualComponent
+	var size := PieceShapes.piece_size(visual)
+	var step := size.x + 0.04
+	var count := logic_pieces(zone.entity_id, "").size()
+	if count > 1 and step * (count - 1) + size.x > zone_size.x:
+		step = maxf((zone_size.x - size.x) / float(count), size.x * 0.18)
+	var local := Vector3(-step * count * 0.5 + step * (slot + 0.5), 0, 0)
+	var target := zone.global_transform * local
+	var body := entity.get_node_or_null("Body") as RigidBody3D
+	if body != null and not _build_mode:
+		body.global_transform = Transform3D(Basis(Vector3.UP, zone.rotation.y), target + Vector3.UP * 0.004)
+		body.linear_velocity = Vector3.ZERO
+		body.angular_velocity = Vector3.ZERO
+		body.freeze = true
+		body.sleeping = false
+	else:
+		entity.position = target
+		entity.rotation = Vector3(0, zone.rotation.y, 0)
+	entity.position.y = maxf(entity.position.y, 0.0)
+	_pop_in(entity)
+	select_pieces([entity])
 
 
 func _begin_move(screen: Vector2, piece: PropEntity, clone: bool) -> void:
@@ -3706,6 +4279,33 @@ func _grab_in_play(screen: Vector2) -> void:
 	var piece := piece_at(screen)
 	if piece == null or not _movable_in_play(piece):
 		return
+	# FASE 1: mazo como objeto único — al hacer clic se toma la carta de arriba.
+	var deck := piece.get_component("DeckComponent") as DeckComponent
+	if deck != null and not deck.is_empty():
+		var top_data := deck.draw_top()
+		if not top_data.is_empty():
+			_remember("deck_draw")
+			var card_piece := {
+				"id": "", "name": str(top_data.get("name", "Carta")),
+				"shape": "carta", "color": Palette.PAPER.to_html(true),
+				"texture": str(top_data.get("texture", "")),
+				"back": str(top_data.get("back", "")),
+				"label": str(top_data.get("label", "")),
+				"pattern": "liso", "cells": 8, "finish": "brillo",
+				"notes": str(top_data.get("notes", "")), "shuffle": false,
+				"tags": [], "zkind": "normal", "player": 0,
+				"model": "", "msize": [0, 0, 0], "pos": [0, 0, 0],
+				"rot": [0, 0, 0], "scale": 1.0, "locked": false,
+				"mass": 0.2, "bounce": 0.05,
+			}
+			var spot := _free_spot()
+			card_piece["pos"] = Vector3(spot.x, 0, spot.z)
+			var card_entity := _make_piece(card_piece)
+			card_entity.position.y = _surface_height(card_entity.position, [card_entity])
+			_pop_in(card_entity)
+			select_pieces([card_entity])
+			_play("card")
+			piece = card_entity
 	var body := piece.get_node_or_null("Body") as RigidBody3D
 	if body == null:
 		return
@@ -4039,6 +4639,56 @@ func _process(delta: float) -> void:
 		_rescue_fallen()
 		if not _rolling.is_empty():
 			_check_rolling()
+	_update_zoom_panel()
+
+
+func _update_zoom_panel() -> void:
+	# Alt sobre una pieza muestra su imagen, texto y descripción (FASE 1).
+	var want_zoom := Input.is_key_pressed(KEY_ALT) and _drag.is_empty()
+	var under: PropEntity = null
+	if want_zoom:
+		var center := get_viewport().get_mouse_position()
+		under = piece_at(center)
+	if under != _zoom_entity or want_zoom != _zoom_panel.visible:
+		_zoom_entity = under
+		if want_zoom and under != null and _zoom_panel != null:
+			_show_zoom(under)
+		else:
+			_zoom_panel.visible = false
+			_zoom_entity = null
+
+
+func _show_zoom(entity: PropEntity) -> void:
+	if _zoom_panel == null or entity == null:
+		return
+	var visual := entity.get_component("VisualComponent") as VisualComponent
+	var deck := entity.get_component("DeckComponent") as DeckComponent
+	var texture: Texture2D = null
+	if visual != null and not visual.texture_path.is_empty():
+		texture = _image_importer.load_texture(visual.texture_path)
+	_zoom_image.texture = texture
+	_zoom_name.text = entity.entity_name
+	var desc := ""
+	if visual != null and visual.notes.strip_edges() != "":
+		desc = visual.notes
+	elif deck != null and not deck.cards.is_empty():
+		var top := deck.top_card()
+		desc = str(top.get("notes", ""))
+		if desc.strip_edges() == "":
+			desc = str(top.get("label", ""))
+	_zoom_desc.text = desc
+	if deck != null and deck.show_count:
+		_zoom_count.text = tr("Cartas en el mazo: %d") % deck.count()
+		_zoom_count.visible = true
+	else:
+		_zoom_count.visible = false
+	_zoom_panel.visible = true
+	var mouse := get_viewport().get_mouse_position()
+	var pos := mouse - ZOOM_PANEL_SIZE * 0.5
+	pos.x = clampf(pos.x, 0, size.x - ZOOM_PANEL_SIZE.x)
+	pos.y = clampf(pos.y, 0, size.y - ZOOM_PANEL_SIZE.y)
+	_zoom_panel.position = pos
+	_zoom_panel.size = ZOOM_PANEL_SIZE
 
 
 func _update_status(message := "") -> void:
@@ -4086,3 +4736,183 @@ func help_text() -> String:
 		"",
 		tr("Esc: soltar la selección y, sin selección, volver al menú · F1: esta ayuda."),
 	])
+
+
+# ===================================================================================
+# Paquetes de mods (.gmod) con manifiesto y validación de dependencias  (FASE 6)
+# ===================================================================================
+
+const MOD_FORMAT := "tablerama-mod"
+const MOD_VERSION := 1
+const MOD_EXPORT_FOLDER := "user://creador/mods/"
+
+## Abre el diálogo para exportar un paquete .gmod con manifiesto.
+func _open_export_mod_dialog() -> void:
+	DirAccess.make_dir_recursive_absolute(MOD_EXPORT_FOLDER)
+	if _mod_dialog != null:
+		_mod_dialog.queue_free()
+	_mod_dialog = FileDialog.new()
+	_mod_dialog.name = "ModExportDialog"
+	_mod_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_mod_dialog.use_native_dialog = true
+	_mod_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_mod_dialog.title = tr("Exportar mod…")
+	_mod_dialog.filters = PackedStringArray(["*.gmod ; Mod de Tablerama"])
+	_mod_dialog.current_dir = ProjectSettings.globalize_path(MOD_EXPORT_FOLDER)
+	_mod_dialog.current_file = "mi_mod.gmod"
+	_mod_dialog.file_selected.connect(func(path: String) -> void:
+		var manifest := ModManifest.new("mi_mod", tr("Mi Mod"))
+		var result := ModBundleExporter.new().export_mod(
+			manifest,
+			"res://scenes/game_creator/GameCreatorEditor.tscn",
+			MOD_EXPORT_FOLDER,
+			path,
+		)
+		if result.get("success", false):
+			_say(tr("Mod exportado: %s") % path.get_file())
+		else:
+			_say(result.get("error", "No se pudo exportar el mod."))
+		_mod_dialog.queue_free()
+	)
+	_mod_dialog.canceled.connect(_mod_dialog.queue_free)
+	add_child(_mod_dialog)
+	_mod_dialog.popup_centered_ratio(0.7)
+
+## Abre el diálogo para importar un paquete .gmod (valida dependencias antes de instalar).
+func _open_import_mod_dialog() -> void:
+	DirAccess.make_dir_recursive_absolute(MOD_EXPORT_FOLDER)
+	if _mod_dialog != null:
+		_mod_dialog.queue_free()
+	_mod_dialog = FileDialog.new()
+	_mod_dialog.name = "ModImportDialog"
+	_mod_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_mod_dialog.use_native_dialog = true
+	_mod_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_mod_dialog.title = tr("Importar mod…")
+	_mod_dialog.filters = PackedStringArray(["*.gmod ; Mod de Tablerama"])
+	_mod_dialog.current_dir = ProjectSettings.globalize_path(MOD_EXPORT_FOLDER)
+	_mod_dialog.file_selected.connect(func(path: String) -> void:
+		if import_mod(path):
+			_say(tr("Mod importado correctamente."))
+		else:
+			_say(tr("No se pudo importar el mod."))
+		_mod_dialog.queue_free()
+	)
+	_mod_dialog.canceled.connect(_mod_dialog.queue_free)
+	add_child(_mod_dialog)
+	_mod_dialog.popup_centered_ratio(0.7)
+
+## Exporta la mesa actual como un paquete .gmod con manifiesto.
+## Los mods se guardan en user://creador/mods/.
+func export_mod(manifest: ModManifest, output_path: String) -> bool:
+	if not output_path.ends_with(".gmod"):
+		output_path += ".gmod"
+	DirAccess.make_dir_recursive_absolute(output_path.get_base_dir())
+	var exporter := ModBundleExporter.new()
+	var result := exporter.export_mod(
+		manifest,
+		"res://scenes/game_creator/GameCreatorEditor.tscn",
+		MOD_EXPORT_FOLDER,
+		output_path,
+	)
+	if not result.get("success", false):
+		_say(result.get("error", "No se pudo exportar el mod."))
+		return false
+	_say(tr("Mod exportado: %s (%s v%s).") % [output_path.get_file(), manifest.name, manifest.version])
+	return true
+
+## Importa un paquete .gmod: valida el manifiesto y las dependencias antes de instalar.
+## Si falta alguna dependencia, se rechaza sin tocar nada.
+func import_mod(path: String) -> bool:
+	if not FileAccess.file_exists(path):
+		_say(tr("No se encuentra el archivo."))
+		return false
+	var zip := ZIPPacker.new()
+	var zip_error := zip.open(path, ZIPPacker.MODE_READ)
+	if zip_error != OK:
+		_say(tr("No se puede leer el paquete .gmod."))
+		return false
+	# Leer manifest.json del ZIP.
+	var manifest_text := ""
+	var files := zip.list_files()
+	for f in files:
+		if f == "manifest.json":
+			manifest_text = zip.get_file_as_text(f)
+			break
+	zip.close()
+	if manifest_text == "":
+		_say(tr("El paquete .gmod no tiene manifiesto válido."))
+		return false
+	# Parsear el manifiesto.
+	var parsed := JSON.parse_string(manifest_text)
+	if not parsed is Dictionary:
+		_say(tr("El manifiesto del mod no es válido."))
+		return false
+	var manifest := ModManifest.new()
+	manifest.mod_id = str(parsed.get("mod_id", ""))
+	manifest.name = str(parsed.get("name", ""))
+	manifest.author = str(parsed.get("author", ""))
+	manifest.version = str(parsed.get("version", "1.0.0"))
+	manifest.min_players = int(parsed.get("min_players", 2))
+	manifest.max_players = int(parsed.get("max_players", 4))
+	manifest.tags = parsed.get("tags", []) if parsed.get("tags") is Array else []
+	manifest.dependencies = parsed.get("dependencies", []) if parsed.get("dependencies") is Array else []
+	manifest.checksum = str(parsed.get("checksum", ""))
+	manifest.created_at = str(parsed.get("created_at", ""))
+	manifest.updated_at = str(parsed.get("updated_at", ""))
+	manifest.scene_path = str(parsed.get("scene_path", "res://scene.tscn"))
+	# Validar el manifiesto por sí mismo.
+	var manifest_error := manifest.validate()
+	if manifest_error != "":
+		_say(manifest_error)
+		return false
+	# Validar dependencias contra los mods ya instalados.
+	var installed := _installed_mod_ids()
+	var validation := ModDependencyValidator.validate(manifest, installed)
+	if not validation.get("ok", false):
+		_say(validation.get("error", "Error de validación."))
+		return false
+	# Extraer el paquete a la carpeta de mods.
+	var extract_dir := MOD_EXPORT_FOLDER.path_join(manifest.mod_id)
+	DirAccess.make_dir_recursive_absolute(extract_dir)
+	zip.open(path, ZIPPacker.MODE_READ)
+	for f in zip.list_files():
+		var dest := extract_dir.path_join(f)
+		DirAccess.make_dir_recursive_absolute(dest.get_base_dir())
+		var data := zip.get_file_as_bytes(f)
+		var out := FileAccess.open(dest, FileAccess.WRITE)
+		if out != null:
+			out.store_buffer(data)
+			out.close()
+	zip.close()
+	_say(tr("Mod importado: %s v%s (dependencias: %s).") % [manifest.name, manifest.version, manifest.dependencies_text()])
+	return true
+
+## Devuelve los mod_ids de los mods ya instalados en la carpeta de mods.
+func _installed_mod_ids() -> Array[String]:
+	var ids: Array[String] = []
+	if not DirAccess.dir_exists_absolute(MOD_EXPORT_FOLDER):
+		return ids
+	var dir := DirAccess.open(MOD_EXPORT_FOLDER)
+	if dir == null:
+		return ids
+	dir.list_dir_begin()
+	while true:
+		var name := dir.get_next()
+		if name == "":
+			break
+		if name == "." or name == "..":
+			continue
+		if dir.current_is_dir():
+			var manifest_path := MOD_EXPORT_FOLDER.path_join(name).path_join("manifest.json")
+			if FileAccess.file_exists(manifest_path):
+				var f := FileAccess.open(manifest_path, FileAccess.READ)
+				if f != null:
+					var parsed := JSON.parse_string(f.get_as_text())
+					f.close()
+					if parsed is Dictionary:
+						var mid := str(parsed.get("mod_id", ""))
+						if mid != "":
+							ids.append(mid)
+	dir.list_dir_end()
+	return ids

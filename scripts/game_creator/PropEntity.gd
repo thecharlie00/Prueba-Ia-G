@@ -114,6 +114,11 @@ func _instantiate_component(p_component_class: String) -> RefCounted:
 		"InteractiveComponent": return InteractiveComponent.new()
 		"NetworkedPropComponent": return NetworkedPropComponent.new()
 		"VisualComponent": return VisualComponent.new()
+		"DeckComponent": return DeckComponent.new()
+		"CounterComponent": return CounterComponent.new()
+		"BagComponent": return BagComponent.new()
+		"NoteComponent": return NoteComponent.new()
+		"TimerComponent": return TimerComponent.new()
 		_: return null
 
 # Agrega el componente como nodo hijo (si es Node) para mantenerlo en el árbol.
