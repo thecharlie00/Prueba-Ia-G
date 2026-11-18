@@ -36,7 +36,7 @@ func _run() -> void:
 	_check(mano != null, "se encontró la zona mano")
 
 	# Las cartas deben estar en la zona mazo (no sueltas).
-	var cartas_en_mazo := editor.logic_pieces(mazo.entity_id, "")
+	var cartas_en_mazo: Array = editor.logic_pieces(mazo.entity_id, "")
 	_check(cartas_en_mazo.size() > 0, "hay cartas en el mazo tras auto-setup (%d)" % cartas_en_mazo.size())
 
 	# 2. Deshacer y volver a cargar para verificar que el auto-setup es deshacible.
