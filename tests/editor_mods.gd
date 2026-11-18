@@ -25,7 +25,7 @@ func _run() -> void:
 	# 2. Crear una dependencia que no esté instalada.
 	var manifest_con_dep := ModManifest.new("mod_con_dep", "Mod con Dependencia")
 	manifest_con_dep.version = "1.0.0"
-	manifest_con_dep.dependencies = ["mod_inesistente"]
+	manifest_con_dep.dependencies.assign(["mod_inesistente"])
 	var validacion := ModDependencyValidator.validate(manifest_con_dep, [])
 	_check(not validacion.get("ok", true), "se rechaza mod con dependencia faltante")
 	_check("mod_inesistente" in validacion.get("missing", []), "la dependencia falta aparece en missing")
@@ -38,35 +38,38 @@ func _run() -> void:
 
 	# 4. Un mod no puede depender de sí mismo.
 	var manifest_auto := ModManifest.new("mod_auto", "Mod Auto")
-	manifest_auto.dependencies = ["mod_auto"]
+	manifest_auto.dependencies.assign(["mod_auto"])
 	var validacion3 := ModDependencyValidator.validate(manifest_auto, [])
 	_check(not validacion3.get("ok", true), "se rechaza mod que depende de sí mismo")
 
 	# 5. Validación en lote (batch): varios mods en orden de instalación.
-	var lote := [
+	var lote: Array[ModManifest] = [
 		ModManifest.new("mod_a", "Mod A"),
 		ModManifest.new("mod_b", "Mod B"),
 	]
-	lote[0].dependencies = []
-	lote[1].dependencies = ["mod_a"]
+	lote[0].dependencies.assign([])
+	lote[1].dependencies.assign(["mod_a"])
 	var validacion_lote := ModDependencyValidator.validate_batch(lote)
 	_check(validacion_lote.get("ok", false), "lote válido cuando las dependencias se respetan en orden")
 
 	# 6. Lote inválido: mod_b depende de mod_c que no está antes en el lote.
-	var lote_mal := [
+	var lote_mal: Array[ModManifest] = [
 		ModManifest.new("mod_b", "Mod B"),
 		ModManifest.new("mod_c", "Mod C"),
 	]
-	lote_mal[0].dependencies = ["mod_c"]
+	lote_mal[0].dependencies.assign(["mod_c"])
 	var validacion_lote_mal := ModDependencyValidator.validate_batch(lote_mal)
 	_check(not validacion_lote_mal.get("ok", true), "se rechaza lote con dependencia fuera de orden")
 
 	# 7. Manifiesto sin mod_id.
-	var manifest_sin_id := ModManifest.new("", "Sin ID")
+	var manifest_sin_id := ModManifest.new("x", "Sin ID")
+	# El constructor rellena un id por defecto; aquí se vacía a propósito.
+	manifest_sin_id.mod_id = ""
 	_check(manifest_sin_id.validate() != "", "se rechaza manifiesto sin mod_id")
 
 	# 8. Manifiesto sin nombre.
-	var manifest_sin_nombre := ModManifest.new("id1", "")
+	var manifest_sin_nombre := ModManifest.new("id1", "x")
+	manifest_sin_nombre.name = ""
 	_check(manifest_sin_nombre.validate() != "", "se rechaza manifiesto sin nombre")
 
 	# 9. Versión con formato inválido.
@@ -82,7 +85,7 @@ func _run() -> void:
 
 	# 11. dependencies_text() devuelve texto legible.
 	var manifest_con_tags := ModManifest.new("id4", "Con Deps")
-	manifest_con_tags.dependencies = ["dep1", "dep2"]
+	manifest_con_tags.dependencies.assign(["dep1", "dep2"])
 	var texto := manifest_con_tags.dependencies_text()
 	_check(texto == "dep1, dep2", "dependencies_text() lista las dependencias: «%s»" % texto)
 
@@ -92,9 +95,11 @@ func _run() -> void:
 
 	# 12. ModBundleExporter: rechaza manifiesto inválido.
 	var exporter := ModBundleExporter.new()
-	var manifest_mal := ModManifest.new("", "")
+	var manifest_mal := ModManifest.new("x", "x")
+	manifest_mal.mod_id = ""
 	var resultado := exporter.export_mod(manifest_mal, "res://scene.tscn", "user://", "user://test_bad.gmod")
 	_check(not resultado.get("success", true), "export_mod rechaza manifiesto inválido")
+	exporter.free()
 
 	# Limpieza de archivos temporales.
 	for fpath in ["user://test_bad.gmod"]:

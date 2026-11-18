@@ -203,7 +203,7 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 	visual.owner_player = piece.get("player", 0)
 	visual.tag_filter = str(piece.get("tag_filter", ""))
 	visual.mesh_path = piece.get("model", "")
-	visual.model_size = piece.get("msize", Vector3.ZERO)
+	visual.model_size = _as_vec3(piece.get("msize", Vector3.ZERO))
 	var physics := entity.get_component("PhysicsComponent") as PhysicsComponent
 	if physics == null:
 		physics = PhysicsComponent.new()
@@ -218,7 +218,7 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 		if entity.get_component("DeckComponent") == null:
 			entity.add_component(DeckComponent.new())
 		var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
-		deck.cards = deck_data.get("cards", []) if deck_data.get("cards") is Array else []
+		deck.cards.assign(DeckComponent._cards(deck_data.get("cards", [])))
 		deck.face_up = deck_data.get("face_up", true) == true
 		deck.show_count = deck_data.get("show_count", true) == true
 		deck.peek_count = clampi(int(deck_data.get("peek_count", 3)), 1, 10)
@@ -243,7 +243,7 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 		var bag: BagComponent = entity.get_component("BagComponent") as BagComponent
 		bag.label = str(bag_data.get("label", "Bolsa"))
 		bag.hidden = bag_data.get("hidden", true) == true
-		bag.contained_ids = bag_data.get("contained_ids", []) if bag_data.get("contained_ids") is Array else []
+		bag.contained_ids.assign(BagComponent._strings(bag_data.get("contained_ids", [])))
 	# NoteComponent (FASE 5).
 	var note_data: Dictionary = piece.get("note", {}) as Dictionary
 	if note_data is Dictionary and not note_data.is_empty():
@@ -263,8 +263,8 @@ static func apply_piece(entity: PropEntity, piece: Dictionary) -> void:
 		timer.running = timer_data.get("running", false) == true
 		timer.time_left = clampf(float(timer_data.get("time_left", timer.duration_seconds)), 0.0, timer.duration_seconds)
 		timer.on_finish_message = str(timer_data.get("on_finish_message", "¡Tiempo agotado!")).left(NoteComponent.MAX_NOTES)
-	entity.position = piece["pos"]
-	entity.rotation_degrees = piece["rot"]
+	entity.position = _as_vec3(piece["pos"])
+	entity.rotation_degrees = _as_vec3(piece["rot"])
 
 
 ## Registro del DeckComponent de una pieza (mazo), o un diccionario vacío si no hay.
@@ -341,6 +341,15 @@ static func _valid_path(path: String) -> bool:
 	return path.length() <= MAX_PATH and (path.begins_with("user://") or path.begins_with("res://")) and not ".." in path
 
 
+## Vector3 tanto si llega ya como vector como si llega como lista [x, y, z] (registros sin
+## pasar por valid_piece, como los que montan el mazo o las plantillas).
+static func _as_vec3(value: Variant) -> Vector3:
+	if value is Vector3:
+		return value
+	var parsed: Variant = _vec3(value)
+	return parsed if parsed != null else Vector3.ZERO
+
+
 static func _vec3(value: Variant) -> Variant:
 	if not value is Array or (value as Array).size() != 3:
 		return null
@@ -356,7 +365,8 @@ static func _number(value: Variant) -> bool:
 
 ## Limpia y valida los datos de un CounterComponent, o vacío si no hay.
 static func _clean_counter(raw: Variant) -> Dictionary:
-	if not raw is Dictionary:
+	# Sin datos, sin componente: una pieza normal no debe ganar un contador o un reloj vacíos.
+	if not raw is Dictionary or (raw as Dictionary).is_empty():
 		return {}
 	var value := int(raw.get("value", 0))
 	var min_v := int(raw.get("min_value", 0))
@@ -377,7 +387,8 @@ static func _clean_counter(raw: Variant) -> Dictionary:
 
 ## Limpia y valida los datos de un BagComponent, o vacío si no hay.
 static func _clean_bag(raw: Variant) -> Dictionary:
-	if not raw is Dictionary:
+	# Sin datos, sin componente: una pieza normal no debe ganar un contador o un reloj vacíos.
+	if not raw is Dictionary or (raw as Dictionary).is_empty():
 		return {}
 	var label := str(raw.get("label", "Bolsa")).left(MAX_NAME)
 	var hidden: bool = raw.get("hidden", true) == true
@@ -397,7 +408,8 @@ static func _clean_bag(raw: Variant) -> Dictionary:
 
 ## Limpia y valida los datos de un NoteComponent, o vacío si no hay.
 static func _clean_note(raw: Variant) -> Dictionary:
-	if not raw is Dictionary:
+	# Sin datos, sin componente: una pieza normal no debe ganar un contador o un reloj vacíos.
+	if not raw is Dictionary or (raw as Dictionary).is_empty():
 		return {}
 	return {
 		"text": str(raw.get("text", "")).left(MAX_NOTES),
@@ -406,7 +418,8 @@ static func _clean_note(raw: Variant) -> Dictionary:
 
 ## Limpia y valida los datos de un TimerComponent, o vacío si no hay.
 static func _clean_timer(raw: Variant) -> Dictionary:
-	if not raw is Dictionary:
+	# Sin datos, sin componente: una pieza normal no debe ganar un contador o un reloj vacíos.
+	if not raw is Dictionary or (raw as Dictionary).is_empty():
 		return {}
 	var duration := clampf(float(raw.get("duration_seconds", 60.0)), 0.0, 3600.0)
 	var running: bool = raw.get("running", false) == true

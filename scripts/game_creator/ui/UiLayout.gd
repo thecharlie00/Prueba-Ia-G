@@ -151,7 +151,7 @@ func select(id: int, multi: bool = false) -> Array[int]:
 		else:
 			selected.append(id)
 	else:
-		selected = [id] if id != 0 else []
+		selected.assign([id] if id != 0 else [])
 	return selected.duplicate()
 
 

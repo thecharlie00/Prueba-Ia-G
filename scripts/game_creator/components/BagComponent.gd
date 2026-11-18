@@ -18,7 +18,7 @@ func _serialize_extra(data: Dictionary) -> void:
 func _deserialize_extra(data: Dictionary) -> void:
 	label = str(data.get("label", label))
 	hidden = data.get("hidden", hidden) == true
-	contained_ids = data.get("contained_ids", []) if data.get("contained_ids") is Array else []
+	contained_ids.assign(_strings(data.get("contained_ids", [])))
 
 ## Devuelve cuántas piezas hay en la bolsa.
 func count() -> int:
@@ -55,3 +55,12 @@ func draw_first() -> String:
 ## Devuelve una copia de los IDs de las piezas dentro.
 func all_ids() -> Array:
 	return contained_ids.duplicate()
+
+
+## Sólo textos (ids), de una lista guardada que puede venir de cualquier sitio.
+static func _strings(raw: Variant) -> Array:
+	var result: Array = []
+	if raw is Array:
+		for item in raw:
+			result.append(str(item))
+	return result

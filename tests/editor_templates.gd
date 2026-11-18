@@ -14,7 +14,7 @@ func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
 	for i in range(10):
 		await process_frame
-	var editor: GameCreatorEditor = current_scene as GameCreatorEditor
+	var editor: Control = current_scene
 	editor.table_save_path = "user://test_editor_templates.json"
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
 
@@ -49,7 +49,7 @@ func _run() -> void:
 	var zona_tirada: PropEntity = null
 	for e in hierarchy.entities:
 		var v := e.get_component("VisualComponent") as VisualComponent
-		if v != null and v.shape == "zona" and e.entity_name == "TIRADA":
+		if v != null and v.shape == "zona" and v.label.to_upper() == tr("TIRADA").to_upper():
 			zona_tirada = e
 			break
 	_check(zona_tirada != null, "se encontró la zona de tirada")

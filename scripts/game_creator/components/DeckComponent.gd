@@ -34,7 +34,7 @@ func _serialize_extra(data: Dictionary) -> void:
 	data["default_deal_zone"] = default_deal_zone
 
 func _deserialize_extra(data: Dictionary) -> void:
-	cards = data.get("cards", []) if data.get("cards") is Array else []
+	cards.assign(_cards(data.get("cards", [])))
 	face_up = data.get("face_up", face_up) == true
 	show_count = data.get("show_count", show_count) == true
 	peek_count = clampi(int(data.get("peek_count", peek_count)), 1, 10)
@@ -87,9 +87,10 @@ func deal(count: int) -> Array:
 func search(name_or_id: String) -> Dictionary:
 	var wanted := name_or_id.strip_edges().to_lower()
 	for i in range(cards.size()):
-		var c := cards[i]
+		var c: Dictionary = cards[i]
 		if str(c.get("id", "")).to_lower() == wanted or str(c.get("name", "")).to_lower() == wanted:
-			return cards.remove_at(i)
+			cards.remove_at(i)
+			return c
 	return {}
 
 ## Devuelve una copia de las `n` cartas de arriba (para verlas sin sacarlas).
@@ -107,14 +108,13 @@ func deal_to_zone(count: int, editor: Object, to_zone_id: String) -> int:
 	var dealt := deal(count)
 	if dealt.is_empty() or editor == null:
 		return 0
-	var zone := editor._find_piece(to_zone_id) if editor.has_method("_find_piece") else null
+	var zone: Object = editor.call("_find_piece", to_zone_id) if editor.has_method("_find_piece") else null
 	if zone == null:
 		# Devolver las cartas al mazo si no hay zona destino.
 		for c in dealt:
 			add_card(c)
 		return 0
-	var v := zone.get_component("VisualComponent") if zone != null else null
-	var zone_size := PieceShapes.piece_size(v) if v != null else Vector3(1, 0.006, 0.7)
+	var v := zone.call("get_component", "VisualComponent") as VisualComponent
 	var slot := 0
 	for c in dealt:
 		var piece := {
@@ -138,6 +138,17 @@ func deal_to_zone(count: int, editor: Object, to_zone_id: String) -> int:
 func _play_sound(editor: Object, sound: String) -> void:
 	if editor == null:
 		return
-	var sfx := get_node_or_null("/root/Sfx")
+	var sfx: Node = (editor as Node).get_node_or_null("/root/Sfx") if editor is Node else null
 	if sfx != null and sfx.has_method("play"):
 		sfx.play(sound)
+
+
+
+## Sólo diccionarios (cartas), de una lista guardada que puede venir de cualquier sitio.
+static func _cards(raw: Variant) -> Array:
+	var result: Array = []
+	if raw is Array:
+		for item in raw:
+			if item is Dictionary:
+				result.append(item)
+	return result

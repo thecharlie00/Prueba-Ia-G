@@ -14,7 +14,7 @@ func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
 	for i in range(10):
 		await process_frame
-	var editor: GameCreatorEditor = current_scene as GameCreatorEditor
+	var editor: Control = current_scene
 	editor.table_save_path = "user://test_editor_components.json"
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
 
@@ -136,6 +136,7 @@ func _run() -> void:
 
 	# 6. Guardar y cargar verifica serialización de todos los componentes.
 	_check(editor.save_table(), "se guarda la mesa con todos los componentes")
+
 	editor.clear_table()
 	_check(hierarchy.entities.size() == 0, "mesa vaciada tras clear")
 	_check(editor.load_table(), "se carga la mesa con todos los componentes")
