@@ -83,6 +83,8 @@ func _view() -> void:
 	var node := view.node_for(int(plus["id"]))
 	_check(node != null and node.size == plus["size"], "cada elemento se dibuja con su tamaño")
 	var before: Vector2 = plus["pos"]
+	# Sin imán de rejilla, para comprobar el desplazamiento exacto.
+	view.grid_snap = false
 	view.begin_drag(int(plus["id"]), Vector2(10, 10), Vector2(600, 300))
 	view.drag_to(Vector2(400, 240))
 	view.end_drag()

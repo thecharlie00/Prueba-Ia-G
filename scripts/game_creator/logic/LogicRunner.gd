@@ -335,7 +335,7 @@ func _compute_inner(id: int, _out: String) -> Variant:
 			var n := clampi(int(_number(_value(id, "n"))), 0, 1000)
 			return range(n)
 		"da_color":
-			var c := _editor.logic_piece_color(str(_value(id, "pieza")))
+			var c: Color = _editor.logic_piece_color(str(_value(id, "pieza")))
 			return c.to_html(true)
 		"da_cartas_en_mazo":
 			return float(_editor.cartas_en_mazo(str(_value(id, "mazo"))))

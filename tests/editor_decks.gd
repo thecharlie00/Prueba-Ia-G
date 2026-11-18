@@ -14,7 +14,7 @@ func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
 	for i in range(10):
 		await process_frame
-	var editor: GameCreatorEditor = current_scene as GameCreatorEditor
+	var editor: Control = current_scene
 	editor.table_save_path = "user://test_editor_decks.json"
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
 
@@ -55,6 +55,8 @@ func _run() -> void:
 	mazo.position.y = editor._surface_height(mazo.position, [mazo])
 	editor._pop_in(mazo)
 	select_pieces_in_test(editor, [mazo])
+	# Pasos de deshacer que había con el mazo ya puesto: se vuelve exactamente hasta aquí.
+	var history_with_deck: int = editor.history._undo.size()
 
 	# 2. El mazo es UNA entidad.
 	var deck: DeckComponent = mazo.get_component("DeckComponent") as DeckComponent
@@ -132,13 +134,8 @@ func _run() -> void:
 	_check(deck.face_up, "dar la vuelta otra vez lo pone boca arriba")
 
 	# 10. Deshacer todo (Ctrl+Z varias veces).
-	editor.undo()
-	editor.undo()
-	editor.undo()
-	editor.undo()
-	editor.undo()
-	editor.undo()
-	editor.undo()
+	while editor.history._undo.size() > history_with_deck:
+		editor.undo()
 	_check(hierarchy.entities.size() == 1, "tras deshacer todo vuelve a ser 1 entidad (el mazo) (%d)" % hierarchy.entities.size())
 	deck = hierarchy.entities[0].get_component("DeckComponent") as DeckComponent
 	var cartas_despues: int = deck.count() if deck != null else -1
@@ -168,7 +165,7 @@ func _run() -> void:
 		quit(0)
 
 
-func select_pieces_in_test(editor: GameCreatorEditor, entities: Array) -> void:
+func select_pieces_in_test(editor: Control, entities: Array) -> void:
 	editor.select_pieces(entities)
 
 

@@ -15,7 +15,7 @@ func _run() -> void:
 	change_scene_to_file("res://scenes/game_creator/GameCreatorEditor.tscn")
 	for i in range(10):
 		await process_frame
-	var editor: GameCreatorEditor = current_scene as GameCreatorEditor
+	var editor: Control = current_scene
 	editor.table_save_path = "user://test_editor_export_import.json"
 	var hierarchy: SceneHierarchy = editor._scene_hierarchy
 
@@ -181,12 +181,12 @@ func _run() -> void:
 		"table": {
 			"pieces": [],
 			"logic": {
-				"nodes": {
-					"1": {
+				"nodes": [
+					{
 						"id": 1, "type": "gd_bloque", "pos": [0, 0],
 						"params": {"codigo": code_ok},
 					},
-				},
+				],
 				"links": [],
 			},
 		},
@@ -200,7 +200,8 @@ func _run() -> void:
 	gd_ok_file.store_string(gd_ok_text)
 	gd_ok_file.close()
 	_check(editor.import_game(gd_ok_path), "se acepta código GDScript válido en sandbox")
-	_check(hierarchy.entities.size() == 2, "la mesa sigue con 2 entidades tras importar código válido (%d)" % hierarchy.entities.size())
+	# Importar un juego sustituye la mesa por la suya (este no trae piezas) y trae su lógica.
+	_check(hierarchy.entities.size() == 0 and editor.logic.nodes.size() == 1, "el juego importado pone su mesa y su bloque GDScript (%d piezas, %d bloques)" % [hierarchy.entities.size(), editor.logic.nodes.size()])
 
 	# Limpieza de archivos temporales.
 	for fpath in [export_path, bad_path, gd_bad_path, gd_ok_path,

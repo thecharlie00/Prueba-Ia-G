@@ -32,7 +32,7 @@ func _deserialize_extra(data: Dictionary) -> void:
 	max_capacity = data.get("max_capacity", max_capacity)
 	slot_spacing = data.get("slot_spacing", slot_spacing)
 	slot_arc_angle = data.get("slot_arc_angle", slot_arc_angle)
-	contained_ids = data.get("contained_ids", [])
+	contained_ids.assign(Array(data.get("contained_ids", [])).map(func(item: Variant) -> String: return str(item)) if data.get("contained_ids") is Array else [])
 
 # Calcula la posición de un slot dentro del contenedor según su índice.
 func get_slot_position(index: int, total: int) -> Vector3:
