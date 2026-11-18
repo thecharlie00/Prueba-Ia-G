@@ -391,8 +391,8 @@ func drag_to(at: Vector2) -> void:
 			if element.is_empty():
 				continue
 			var pos := element["pos"] as Vector2
-			var offset := _drag_offsets[eid]
-			var new_pos := (at - offset) / scale
+			var offset: Vector2 = _drag_offsets[eid]
+			var new_pos: Vector2 = (at - offset) / scale
 			if grid_snap:
 				new_pos = Vector2(
 					round(new_pos.x / UiLayout.GRID_STEP) * UiLayout.GRID_STEP,

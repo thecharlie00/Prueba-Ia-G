@@ -175,64 +175,64 @@ func _exec(id: int) -> void:
 			var e := _editor
 			if e != null:
 				var entity: PropEntity = e._find_piece(str(_value(id, "pieza"))) as PropEntity
-				var counter := entity.get_component("CounterComponent") if entity != null else null
+				var counter: CounterComponent = entity.get_component("CounterComponent") if entity != null else null
 				if counter != null:
 					counter.add(int(_number(_value(id, "cantidad"))))
 		"ac_contador_poner":
 			var e := _editor
 			if e != null:
 				var entity: PropEntity = e._find_piece(str(_value(id, "pieza"))) as PropEntity
-				var counter := entity.get_component("CounterComponent") if entity != null else null
+				var counter: CounterComponent = entity.get_component("CounterComponent") if entity != null else null
 				if counter != null:
 					counter.set_value(int(_number(_value(id, "valor"))))
 		"ac_contador_resetear":
 			var e := _editor
 			if e != null:
 				var entity: PropEntity = e._find_piece(str(_value(id, "pieza"))) as PropEntity
-				var counter := entity.get_component("CounterComponent") if entity != null else null
+				var counter: CounterComponent = entity.get_component("CounterComponent") if entity != null else null
 				if counter != null:
 					counter.reset()
 		"ac_bolsa_sacar_azar":
 			var e := _editor
 			if e != null:
 				var entity: PropEntity = e._find_piece(str(_value(id, "bolsa"))) as PropEntity
-				var bag := entity.get_component("BagComponent") if entity != null else null
-				var id_sacado := bag.draw_random() if bag != null else ""
+				var bag: BagComponent = entity.get_component("BagComponent") if entity != null else null
+				var id_sacado: String = bag.draw_random() if bag != null else ""
 				_outputs[id] = {"pieza": id_sacado}
 		"ac_bolsa_agregar":
 			var e := _editor
 			if e != null:
 				var bag_entity: PropEntity = e._find_piece(str(_value(id, "bolsa"))) as PropEntity
 				var piece_entity: PropEntity = e._find_piece(str(_value(id, "pieza"))) as PropEntity
-				var bag := bag_entity.get_component("BagComponent") if bag_entity != null else null
+				var bag: BagComponent = bag_entity.get_component("BagComponent") if bag_entity != null else null
 				if bag != null and piece_entity != null:
 					bag.add(piece_entity.entity_id)
 		"ac_nota_escribir":
 			var e := _editor
 			if e != null:
 				var entity: PropEntity = e._find_piece(str(_value(id, "pieza"))) as PropEntity
-				var note := entity.get_component("NoteComponent") if entity != null else null
+				var note: NoteComponent = entity.get_component("NoteComponent") if entity != null else null
 				if note != null:
 					note.set_text(str(_value(id, "texto")))
 		"ac_reloj_iniciar":
 			var e := _editor
 			if e != null:
 				var entity: PropEntity = e._find_piece(str(_value(id, "reloj"))) as PropEntity
-				var timer := entity.get_component("TimerComponent") if entity != null else null
+				var timer: TimerComponent = entity.get_component("TimerComponent") if entity != null else null
 				if timer != null:
 					timer.start()
 		"ac_reloj_parar":
 			var e := _editor
 			if e != null:
 				var entity: PropEntity = e._find_piece(str(_value(id, "reloj"))) as PropEntity
-				var timer := entity.get_component("TimerComponent") if entity != null else null
+				var timer: TimerComponent = entity.get_component("TimerComponent") if entity != null else null
 				if timer != null:
 					timer.stop()
 		"ac_reloj_reiniciar":
 			var e := _editor
 			if e != null:
 				var entity: PropEntity = e._find_piece(str(_value(id, "reloj"))) as PropEntity
-				var timer := entity.get_component("TimerComponent") if entity != null else null
+				var timer: TimerComponent = entity.get_component("TimerComponent") if entity != null else null
 				if timer != null:
 					timer.reset()
 		"gd_bloque":

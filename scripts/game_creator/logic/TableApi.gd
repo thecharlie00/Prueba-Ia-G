@@ -230,7 +230,7 @@ func cartas_en_mazo(pieza: String) -> int:
 	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0
-	var deck := entity.get_component("DeckComponent") as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	return deck.count() if deck != null else 0
 
 
@@ -242,7 +242,7 @@ func carta_arriba(pieza: String) -> String:
 	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return ""
-	var deck := entity.get_component("DeckComponent") as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck == null or deck.is_empty():
 		return ""
 	return str(deck.top_card().get("name", ""))
@@ -256,7 +256,7 @@ func repartir_mazo(pieza: String, cantidad: int, zona: String) -> int:
 	var entity: PropEntity = e._find_piece(pieza) as PropEntity
 	if entity == null:
 		return 0
-	var deck := entity.get_component("DeckComponent") as DeckComponent
+	var deck: DeckComponent = entity.get_component("DeckComponent") as DeckComponent
 	if deck == null:
 		return 0
 	return deck.deal_to_zone(int(cantidad), e, zona)

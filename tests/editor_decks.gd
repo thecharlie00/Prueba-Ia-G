@@ -93,7 +93,7 @@ func _run() -> void:
 		"pos": [0, 0, 0], "rot": [0, 0, 0], "scale": 1.0, "locked": false,
 		"mass": 0.2, "bounce": 0.05,
 	}
-	var carta_ent := editor._make_piece(carta_piece)
+	var carta_ent: PropEntity = editor._make_piece(carta_piece) as PropEntity
 	carta_ent.position.y = editor._surface_height(carta_ent.position, [carta_ent])
 	editor._pop_in(carta_ent)
 	_check(hierarchy.entities.size() == 2, "ahora hay 2 entidades: mazo + carta suelta (%d)" % hierarchy.entities.size())
@@ -151,7 +151,7 @@ func _run() -> void:
 	_check(hierarchy.entities.size() == 0, "mesa vaciada tras clear")
 	_check(editor.load_table(), "se carga la mesa con el mazo")
 	_check(hierarchy.entities.size() == 1, "tras cargar hay 1 entidad (el mazo) (%d)" % hierarchy.entities.size())
-	var loaded_mazo := hierarchy.entities[0]
+	var loaded_mazo: PropEntity = hierarchy.entities[0] as PropEntity
 	var loaded_deck: DeckComponent = loaded_mazo.get_component("DeckComponent") as DeckComponent
 	var cartas_cargadas: int = loaded_deck.count() if loaded_deck != null else -1
 	_check(loaded_deck != null and cartas_cargadas == 52, "el mazo cargado tiene %d cartas" % cartas_cargadas)

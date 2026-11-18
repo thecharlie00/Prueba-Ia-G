@@ -79,7 +79,7 @@ func add_card(card: Dictionary) -> bool:
 func deal(count: int) -> Array:
 	var n := clampi(count, 0, cards.size())
 	var dealt: Array = []
-	for _ in range(n):
+	for i in range(n):
 		dealt.append(draw_top())
 	return dealt
 

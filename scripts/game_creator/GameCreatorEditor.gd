@@ -3761,7 +3761,7 @@ func open_context_menu(screen: Vector2) -> Array:
 			add.call(tr("Mezclar lo de dentro"), func() -> void: _shuffle_zone(piece))
 		elif _movable_in_play(piece):
 			add.call(tr("Voltear") + "  ·  F", func() -> void: logic_flip(piece.entity_id))
-		entity.get_component("VisualComponent") as VisualComponent).notes
+		var notes: String = (entity.get_component("VisualComponent") as VisualComponent).notes
 		if notes.strip_edges() != "":
 			add.call("ℹ  " + notes.left(60), func() -> void: logic_message(notes))
 		if players > 1:
