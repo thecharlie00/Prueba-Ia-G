@@ -57,6 +57,10 @@ var settings_path := UserFiles.SETTINGS
 
 var _outline_by_mode := {}
 var _grain: ColorRect
+const OUTLINE_META := &"toon_outline"
+## Materiales con contorno (referencias débiles), para encenderlos o apagarlos todos.
+var _outlined: Array = []
+var _grain_enabled := true
 
 
 func _ready() -> void:
@@ -93,6 +97,7 @@ func _add_grain() -> void:
 	material.shader = GRAIN_SHADER
 	material.set_shader_parameter("animate", 0.0 if reduce_motion else 1.0)
 	_grain.material = material
+	_grain.visible = _grain_enabled
 	layer.add_child(_grain)
 
 
@@ -124,6 +129,30 @@ func _style_later(node: Variant) -> void:
 		_style_sun(node)
 	elif node is Control:
 		_style_control(node)
+
+
+## Enciende o apaga los contornos de todas las piezas (calidad gráfica).
+func set_outlines(enabled: bool) -> void:
+	outlines_enabled = enabled
+	var alive: Array = []
+	for ref in _outlined:
+		var material := (ref as WeakRef).get_ref() as StandardMaterial3D
+		if material == null:
+			continue
+		alive.append(ref)
+		var outline: Variant = material.get_meta(OUTLINE_META, null)
+		if enabled and material.next_pass == null and outline is Material:
+			material.next_pass = outline
+		elif not enabled and material.next_pass == outline:
+			material.next_pass = null
+	_outlined = alive
+
+
+## Grano y viñeta de pantalla completa: en equipos justos se quita (es una pasada más).
+func set_grain_enabled(enabled: bool) -> void:
+	_grain_enabled = enabled
+	if _grain != null:
+		_grain.visible = enabled
 
 
 func set_reduce_motion(enabled: bool) -> void:
@@ -219,12 +248,18 @@ func _style_material(material: StandardMaterial3D, mode: int, width: float) -> v
 	material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 	material.roughness = 1.0
 	material.metallic = 0.0
-	if outlines_enabled and width > 0.0 and material.next_pass == null:
+	if width > 0.0 and material.next_pass == null:
 		var tint := OUTLINE_TEXTURED
 		if material.albedo_texture == null:
 			tint = material.albedo_color.darkened(OUTLINE_DARKEN).lerp(INK, 0.18)
 			tint.a = 1.0
-		material.next_pass = _outline_material(mode, width, tint)
+		# El contorno se recuerda siempre; sólo se dibuja si está activo (en calidad Baja no:
+		# cada contorno es una segunda pasada de la pieza).
+		var outline := _outline_material(mode, width, tint)
+		material.set_meta(OUTLINE_META, outline)
+		_outlined.append(weakref(material))
+		if outlines_enabled:
+			material.next_pass = outline
 
 
 func _outline_material(mode: int, width: float, tint: Color = INK) -> ShaderMaterial:

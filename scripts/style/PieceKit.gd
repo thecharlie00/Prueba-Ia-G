@@ -7,9 +7,20 @@ extends RefCounted
 static var _cache: Dictionary = {}
 
 
+## Lados y pasos según la calidad gráfica (autoload Graphics): en equipos justos, las piezas
+## redondas se hacen con menos caras. Nunca menos de `floor`.
+static func scaled(count: int, floor := 8) -> int:
+	var loop := Engine.get_main_loop() as SceneTree
+	var graphics := loop.root.get_node_or_null("Graphics") if loop != null else null
+	if graphics == null:
+		return count
+	return maxi(int(round(count * float(graphics.detail()))), mini(floor, count))
+
+
 ## Sólido de revolución. `profile` va de abajo arriba en (radio, altura); si empieza o acaba
 ## con radio > 0 se cierra con una tapa plana.
 static func lathe(profile: PackedVector2Array, segments := 32, caps := true) -> ArrayMesh:
+	segments = scaled(segments, 12)
 	var key := "lathe:%d:%s:%s" % [segments, caps, str(profile)]
 	if _cache.has(key):
 		return _cache[key]
@@ -96,6 +107,7 @@ static func rounded_slab(size: Vector3, corner: float, edge: float, steps := 7) 
 
 ## Caja redondeada con un radio por eje (esquinas elipsoidales).
 static func rounded_box_xyz(size: Vector3, radii: Vector3, steps := 6) -> ArrayMesh:
+	steps = scaled(steps, 2)
 	var key := "rbox:%s:%s:%d" % [str(size), str(radii), steps]
 	if _cache.has(key):
 		return _cache[key]
@@ -165,6 +177,7 @@ static func torus(ring: float, tube: float, segments := 32) -> ArrayMesh:
 
 ## Perfil suave a partir de puntos de control (radio, altura), con una curva Catmull-Rom.
 static func smooth_profile(points: PackedVector2Array, subdivisions := 4) -> PackedVector2Array:
+	subdivisions = scaled(subdivisions, 2)
 	var out := PackedVector2Array()
 	for i in points.size() - 1:
 		var p0 := points[maxi(i - 1, 0)]
