@@ -10,7 +10,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	_check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/Home.tscn", "la habitación es la escena de inicio")
+	_check(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/Intro.tscn", "el juego arranca en la intro")
 	HomePrefs.path = "user://prueba_home_room.cfg"
 	DirAccess.remove_absolute(HomePrefs.path)
 	HomePrefs.set_classic_menu(false)

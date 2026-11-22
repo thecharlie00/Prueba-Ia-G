@@ -4,11 +4,11 @@ extends RefCounted
 ## estática para que los scripts con class_name compilen también sin autoloads (tests).
 
 
-static func go(path: String) -> void:
+static func go(path: String, plain := false) -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	var loader := tree.root.get_node_or_null("SceneLoader")
 	if loader != null:
-		loader.call("go", path)
+		loader.call("go", path, plain)
 	else:
 		tree.change_scene_to_file(path)
 

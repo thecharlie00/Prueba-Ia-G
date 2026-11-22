@@ -8,6 +8,7 @@ const HOME_PATH := "res://scenes/Home.tscn"
 ## Pantallas de menú (no son mesas): en ellas no aparecen los botones de
 ## sesión ni la pausa. La salida desde una mesa siempre vuelve al menú principal.
 const MENU_SCENES := [
+	"res://scenes/Intro.tscn",
 	"res://scenes/Home.tscn",
 	"res://scenes/BotMenu.tscn",
 	"res://scenes/ModeSelect.tscn",
