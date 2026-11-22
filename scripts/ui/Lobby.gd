@@ -1138,7 +1138,7 @@ func _on_player_left(_player_id: int) -> void:
 
 
 func _on_start_announced(scene: String, _seats: int) -> void:
-	get_tree().change_scene_to_file(scene)
+	Scenes.go(scene)
 
 #endregion
 
@@ -1250,9 +1250,9 @@ func _start() -> void:
 func _enter_running() -> void:
 	var entry := _game_entry()
 	if not entry.is_empty():
-		get_tree().change_scene_to_file(str(entry["scene"]))
+		Scenes.go(str(entry["scene"]))
 	elif not Net.start_scene.is_empty():
-		get_tree().change_scene_to_file(Net.start_scene)
+		Scenes.go(Net.start_scene)
 
 
 func _send_chat() -> void:
@@ -1286,7 +1286,7 @@ func _leave() -> void:
 	Net.room_game = ""
 	Net.room_started = false
 	Net.start_scene = ""
-	get_tree().change_scene_to_file(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
+	Scenes.go(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
 
 #endregion
 

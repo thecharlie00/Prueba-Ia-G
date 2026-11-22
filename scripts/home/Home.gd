@@ -996,12 +996,12 @@ func _go(path: String) -> void:
 	pawn.input_enabled = false
 	pawn.stop()
 	if _reduce_motion() or DisplayServer.get_name() == "headless":
-		get_tree().change_scene_to_file.call_deferred(path)
+		Scenes.go.call_deferred(path)
 		return
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(camera, "fov", 30.0, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	tween.tween_property(_fade, "color:a", 1.0, 0.4)
-	tween.chain().tween_callback(func() -> void: get_tree().change_scene_to_file(path))
+	tween.chain().tween_callback(func() -> void: Scenes.go(path))
 
 
 # --- Tienda, armario y paquetes ------------------------------------------------

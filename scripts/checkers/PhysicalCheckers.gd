@@ -88,19 +88,19 @@ func _on_placement_message(message: String) -> void:
 
 
 func _reset() -> void:
-	get_tree().reload_current_scene()
+	Scenes.reload()
 
 
 func _open_rules() -> void:
-	get_tree().change_scene_to_file("res://scenes/Checkers.tscn")
+	Scenes.go("res://scenes/Checkers.tscn")
 
 
 func _open_sandbox() -> void:
-	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+	Scenes.go("res://scenes/Main.tscn")
 
 
 func _open_guided() -> void:
-	get_tree().change_scene_to_file("res://scenes/GuidedPhysicalCheckers.tscn")
+	Scenes.go("res://scenes/GuidedPhysicalCheckers.tscn")
 
 
 func _can_leave_table() -> bool:

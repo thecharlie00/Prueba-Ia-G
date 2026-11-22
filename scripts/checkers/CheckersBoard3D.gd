@@ -242,11 +242,11 @@ func _load_game() -> void:
 
 
 func _open_sandbox() -> void:
-	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+	Scenes.go("res://scenes/Main.tscn")
 
 
 func _open_physical() -> void:
-	get_tree().change_scene_to_file("res://scenes/PhysicalCheckers.tscn")
+	Scenes.go("res://scenes/PhysicalCheckers.tscn")
 
 
 # --- Interfaz integrada en la mesa (TableHud) ---

@@ -196,7 +196,7 @@ func _open_card_sandbox() -> void:
 		var net := _net()
 		if net != null and net.has_method("leave_room"):
 			net.leave_room()
-	get_tree().change_scene_to_file("res://scenes/CardTable.tscn")
+	Scenes.go("res://scenes/CardTable.tscn")
 
 
 func _make_hand() -> void:

@@ -20,7 +20,7 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
-		get_tree().change_scene_to_file(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
+		Scenes.go(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
 
 
 func _build() -> void:
@@ -54,7 +54,7 @@ func _build() -> void:
 	back_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	MenuStyle.style_secondary(back_btn, 12, 6)
 	back_btn.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
+		func() -> void: Scenes.go(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
 	)
 	header.add_child(back_btn)
 
@@ -89,7 +89,7 @@ func _build() -> void:
 	bots.custom_minimum_size = Vector2(158, 44)
 	MenuStyle.style_primary(bots, 12, 6)
 	bots.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/BotSelect.tscn")
+		func() -> void: Scenes.go("res://scenes/BotSelect.tscn")
 	)
 	quick_actions.add_child(bots)
 
@@ -99,7 +99,7 @@ func _build() -> void:
 	online.custom_minimum_size = Vector2(138, 44)
 	MenuStyle.style_secondary(online, 12, 6)
 	online.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/Lobby.tscn")
+		func() -> void: Scenes.go("res://scenes/Lobby.tscn")
 	)
 	quick_actions.add_child(online)
 	var edition_node := get_node_or_null("/root/Edition")
@@ -807,4 +807,4 @@ func _demo_banner(column: VBoxContainer) -> void:
 func _open(path: String) -> void:
 	if path.contains("Island") and not TableBots.solo:
 		IslandView.local_pass_privacy = true
-	get_tree().change_scene_to_file(path)
+	Scenes.go(path)

@@ -699,7 +699,7 @@ func _open_free() -> void:
 		var net := _net()
 		if net != null and net.has_method("leave_room"):
 			net.leave_room()
-	get_tree().change_scene_to_file("res://scenes/PhysicalChess.tscn")
+	Scenes.go("res://scenes/PhysicalChess.tscn")
 
 
 func _open_sandbox() -> void:
