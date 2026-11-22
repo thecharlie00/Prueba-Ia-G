@@ -86,6 +86,8 @@ Nunca se llama directamente a `get_tree().change_scene_to_file()`. El autoload `
 - carga la escena en un hilo aparte (`ResourceLoader.load_threaded_request`), así que la
   ventana sigue respondiendo y el dado se anima;
 - deja de procesar la escena que se va y bloquea el ratón mientras carga;
+- se ve entera al menos 1,1 s, aunque la escena cargue al instante (menús), para que siempre
+  se perciba y el consejo se pueda leer; el fundido a negro desde el título no espera;
 - mantiene la pantalla 5 fotogramas sobre la escena nueva, para que los estilos diferidos de
   ToonStyle y Graphics y la compilación de sombreadores no se vean como un tirón.
 
