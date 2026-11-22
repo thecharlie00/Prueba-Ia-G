@@ -102,7 +102,9 @@ func _run() -> void:
 
 	# 7. Buscar una carta en el mazo y sacarla.
 	editor._remember("test_search")
-	var buscada: Dictionary = deck.search("As de Espadas") as Dictionary
+	# Tras barajar, la carta robada en el paso 5 puede ser justo el As de Espadas.
+	var objetivo := "As de Corazones" if str(arriba.get("name", "")) == "As de Espadas" else "As de Espadas"
+	var buscada: Dictionary = deck.search(objetivo) as Dictionary
 	_check(not buscada.is_empty(), "se buscó y encontró «%s»" % buscada.get("name", "?"))
 	_check(deck.count() == 50, "tras buscar quedan %d cartas" % deck.count())
 	var buscada_ent: PropEntity = editor._make_piece({
