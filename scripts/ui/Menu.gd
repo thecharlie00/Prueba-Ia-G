@@ -598,6 +598,9 @@ func _build_settings_sidebar(parent: HBoxContainer) -> void:
 	if style != null and style.has_method("set_fullscreen"):
 		fullscreen.toggled.connect(style.set_fullscreen)
 	toggles_col.add_child(fullscreen)
+	var graphics := get_node_or_null("/root/Graphics")
+	if graphics != null:
+		toggles_col.add_child(graphics.make_quality_row(Palette.PAPER))
 
 	var locale := get_node_or_null("/root/Locale")
 	if locale != null:

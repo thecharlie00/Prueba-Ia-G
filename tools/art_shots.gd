@@ -36,6 +36,14 @@ func _run() -> void:
 	var args := OS.get_cmdline_user_args()
 	var out: String = args[0]
 	var filter: String = args[1] if args.size() > 1 and not args[1].begins_with("--") else ""
+	# --calidad=bajo|medio|alto: capturas con esa calidad gráfica (y sufijo en el nombre).
+	var quality_suffix := ""
+	for arg in args:
+		if str(arg).begins_with("--calidad="):
+			var graphics := root.get_node_or_null("Graphics")
+			if graphics != null:
+				graphics.set_quality(str(arg).get_slice("=", 1), false)
+				quality_suffix = "_" + str(arg).get_slice("=", 1)
 	# --en: capturas en inglés. --demo: la edición demo (la lee el autoload Edition).
 	if "--en" in args:
 		root.get_node("Locale").set_language("en", false)
@@ -209,5 +217,5 @@ func _run() -> void:
 			for i in 20:
 				await process_frame
 		await RenderingServer.frame_post_draw
-		root.get_viewport().get_texture().get_image().save_png(out.path_join(key + ".png"))
+		root.get_viewport().get_texture().get_image().save_png(out.path_join(key + quality_suffix + ".png"))
 	quit()
