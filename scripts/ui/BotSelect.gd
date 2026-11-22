@@ -128,7 +128,7 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
-		get_tree().change_scene_to_file(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
+		Scenes.go(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
 
 
 func _build() -> void:
@@ -163,7 +163,7 @@ func _build() -> void:
 	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	MenuStyle.style_secondary(back, 12, 6)
 	back.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
+		func() -> void: Scenes.go(SessionNavigation.back_target("res://scenes/ModeSelect.tscn"))
 	)
 	header.add_child(back)
 
@@ -191,7 +191,7 @@ func _build() -> void:
 	local_shortcut.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	MenuStyle.style_secondary(local_shortcut, 12, 6)
 	local_shortcut.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/Menu.tscn")
+		func() -> void: Scenes.go("res://scenes/Menu.tscn")
 	)
 	header.add_child(local_shortcut)
 
@@ -357,7 +357,7 @@ func _select_difficulty(index: int) -> void:
 func _start(game: Dictionary) -> void:
 	TableBots.difficulty = _level
 	TableBots.solo = true
-	get_tree().change_scene_to_file(str(game["scene"]))
+	Scenes.go(str(game["scene"]))
 
 
 func _add_bot_game(parent: Control, game: Dictionary) -> void:

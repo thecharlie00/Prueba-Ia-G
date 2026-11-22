@@ -75,3 +75,28 @@ xvfb-run -a godot --path . --rendering-driver opengl3 --script res://tools/art_s
 ```
 
 Test: `tests/graphics_quality.gd`.
+
+## Pantallas de carga
+
+Para cambiar de escena se usa `Scenes.go(ruta)`, y para reiniciar la actual, `Scenes.reload()`.
+Nunca se llama directamente a `get_tree().change_scene_to_file()`. El autoload `SceneLoader`
+(`scripts/core/SceneLoader.gd`):
+
+- tapa la pantalla con un dado que rueda, una barra de progreso y un consejo traducido;
+- carga la escena en un hilo aparte (`ResourceLoader.load_threaded_request`), así que la
+  ventana sigue respondiendo y el dado se anima;
+- deja de procesar la escena que se va y bloquea el ratón mientras carga;
+- mantiene la pantalla 5 fotogramas sobre la escena nueva, para que los estilos diferidos de
+  ToonStyle y Graphics y la compilación de sombreadores no se vean como un tirón.
+
+Hay tres excepciones:
+
+- **En una sala online**, la carga va en el hilo principal: así no se procesan mensajes de red
+  dirigidos a una mesa que aún no existe.
+- **En headless** (tests) y en la **prueba de arranque**, cambia de escena directamente.
+- **Al arrancar el juego**, se muestra `assets/splash.png` sobre el color tinta de la paleta.
+
+Lo que sigue en el hilo principal es el `_ready` de cada escena, que construye las piezas, y
+la primera compilación de sombreadores. Esos parones ocurren bajo la pantalla de carga.
+
+Test: `tests/scene_loader.gd`.

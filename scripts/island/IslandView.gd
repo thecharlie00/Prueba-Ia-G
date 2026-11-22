@@ -2347,7 +2347,7 @@ func _confirm_new_game() -> void:
 	if online:
 		return
 	if _can_replace_game():
-		get_tree().change_scene_to_file(scene_file_path)
+		Scenes.go(scene_file_path)
 
 
 func _placement_message(message: String) -> void:

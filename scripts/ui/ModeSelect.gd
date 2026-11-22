@@ -166,7 +166,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _go_back() -> void:
-	get_tree().change_scene_to_file(SessionNavigation.home_scene())
+	Scenes.go(SessionNavigation.home_scene())
 
 
 func _add_mode_card(
@@ -236,7 +236,7 @@ func _add_mode_card(
 	btn.add_theme_font_override("font", MenuStyle.DISPLAY_FONT)
 	btn.add_theme_font_size_override("font_size", 17)
 	MenuStyle.style_primary(btn, 14, 6)
-	btn.pressed.connect(func() -> void: get_tree().change_scene_to_file(scene_path))
+	btn.pressed.connect(func() -> void: Scenes.go(scene_path))
 	if locked:
 		btn.disabled = true
 		btn.text = "Bloqueado"

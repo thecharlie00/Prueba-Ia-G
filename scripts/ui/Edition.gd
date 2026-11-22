@@ -59,4 +59,4 @@ func _on_scene_changed() -> void:
 		return
 	notice = "Esa mesa está en el juego completo. La demo incluye la mesa libre, la brisca y el parchís."
 	get_tree().paused = false
-	get_tree().change_scene_to_file.call_deferred(MENU)
+	Scenes.go.call_deferred(MENU)

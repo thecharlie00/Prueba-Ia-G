@@ -577,7 +577,7 @@ func _return_to_menu() -> void:
 		var net := get_node_or_null("/root/Net")
 		if net != null and net.has_method("leave_room"):
 			net.leave_room()
-	get_tree().change_scene_to_file(home_scene())
+	Scenes.go(home_scene())
 
 
 func _request_return_to_menu() -> void:

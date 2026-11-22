@@ -66,7 +66,7 @@ func _ready() -> void:
 	MenuStyle.style_secondary(home_btn, 12, 5)
 	home_btn.pressed.connect(func() -> void:
 		HomePrefs.set_classic_menu(false)
-		get_tree().change_scene_to_file(SessionNavigation.HOME_PATH)
+		Scenes.go(SessionNavigation.HOME_PATH)
 	)
 	top_bar.add_child(home_btn)
 
@@ -150,7 +150,7 @@ func _ready() -> void:
 	play_btn.add_theme_font_size_override("font_size", 28)
 	MenuStyle.style_primary(play_btn, 18, 7)
 	play_btn.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/ModeSelect.tscn")
+		func() -> void: Scenes.go("res://scenes/ModeSelect.tscn")
 	)
 	hero_col.add_child(play_btn)
 
@@ -200,7 +200,7 @@ func _ready() -> void:
 	credits_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	MenuStyle.style_subtle(credits_btn, 10)
 	credits_btn.pressed.connect(
-		func() -> void: get_tree().change_scene_to_file("res://scenes/Credits.tscn")
+		func() -> void: Scenes.go("res://scenes/Credits.tscn")
 	)
 	footer_row.add_child(credits_btn)
 
@@ -230,7 +230,7 @@ func _report_bug() -> void:
 
 func _open_tutorial() -> void:
 	Tutorial.requested = true
-	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+	Scenes.go("res://scenes/Main.tscn")
 
 
 func _toggle_sound() -> void:

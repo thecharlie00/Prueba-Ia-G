@@ -373,7 +373,7 @@ func _play_ai_turn(request_id: int) -> void:
 
 
 func _open_sandbox() -> void:
-	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+	Scenes.go("res://scenes/Main.tscn")
 
 
 # --- Interfaz integrada en la mesa (TableHud) ---

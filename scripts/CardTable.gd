@@ -498,8 +498,8 @@ func _on_shuffle(deck: Deck3D) -> void:
 
 
 func _reset() -> void:
-	get_tree().reload_current_scene()
+	Scenes.reload()
 
 
 func _open_sandbox() -> void:
-	get_tree().change_scene_to_file("res://scenes/Main.tscn")
+	Scenes.go("res://scenes/Main.tscn")

@@ -19,12 +19,15 @@ config/version="0.2.0"
 run/main_scene="res://scenes/Home.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
+boot_splash/bg_color=Color(0.11372549, 0.101960786, 0.22745098, 1)
+boot_splash/image="res://assets/splash.png"
 
 [autoload]
 
 Locale="*res://scripts/i18n/Locale.gd"
 ToonStyle="*res://scripts/style/ToonStyle.gd"
 Graphics="*res://scripts/core/Graphics.gd"
+SceneLoader="*res://scripts/core/SceneLoader.gd"
 Sfx="*res://scripts/audio/Sfx.gd"
 Edition="*res://scripts/ui/Edition.gd"
 SessionNavigation="*res://scripts/ui/SessionNavigation.gd"

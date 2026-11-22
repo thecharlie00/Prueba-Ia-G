@@ -323,7 +323,7 @@ func _on_placement_message(message: String) -> void:
 
 
 func _on_reset_pressed() -> void:
-	get_tree().reload_current_scene()
+	Scenes.reload()
 
 
 func _on_deck_shuffled(deck: Deck3D) -> void:
@@ -331,23 +331,23 @@ func _on_deck_shuffled(deck: Deck3D) -> void:
 
 
 func _on_chess_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/Chess.tscn")
+	Scenes.go("res://scenes/Chess.tscn")
 
 
 func _on_checkers_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/Checkers.tscn")
+	Scenes.go("res://scenes/Checkers.tscn")
 
 
 func _on_physical_checkers_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/PhysicalCheckers.tscn")
+	Scenes.go("res://scenes/PhysicalCheckers.tscn")
 
 
 func _on_guided_checkers_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/GuidedPhysicalCheckers.tscn")
+	Scenes.go("res://scenes/GuidedPhysicalCheckers.tscn")
 
 
 func _on_physical_domino_pressed() -> void:
-	get_tree().change_scene_to_file("res://scenes/PhysicalDomino.tscn")
+	Scenes.go("res://scenes/PhysicalDomino.tscn")
 
 
 func _can_store() -> bool:
