@@ -16,8 +16,9 @@ const FADE_OUT := 0.3
 const PLAIN_FADE := 0.7
 ## Fotogramas que la escena nueva se dibuja bajo la pantalla antes de destaparla.
 const HOLD_FRAMES := 5
-## Tiempo mínimo visible, para que una carga rápida no parezca un parpadeo.
-const MIN_VISIBLE := 0.4
+## Tiempo mínimo con la pantalla entera a la vista (sin contar los fundidos): aunque la
+## escena cargue al instante (los menús), la pantalla de carga se ve y el consejo se lee.
+const MIN_VISIBLE := 1.1
 const DISPLAY_FONT := preload("res://assets/fonts/LilitaOne-Regular.ttf")
 const BODY_FONT := preload("res://assets/fonts/Nunito.ttf")
 const TIPS := [
@@ -85,7 +86,9 @@ func go(path: String, plain := false) -> void:
 	await get_tree().scene_changed
 	for i in HOLD_FRAMES:
 		await get_tree().process_frame
-	while (Time.get_ticks_msec() - _started_ms) / 1000.0 < MIN_VISIBLE:
+	# El fundido a negro desde el título no es una pantalla de carga: no espera.
+	while not _plain and (Time.get_ticks_msec() - _started_ms) / 1000.0 < MIN_VISIBLE:
+		_target = 1.0
 		await get_tree().process_frame
 	await _hide()
 	busy = false
@@ -152,18 +155,18 @@ func _load(path: String) -> PackedScene:
 func _show() -> void:
 	_progress = 0.0
 	_target = 0.05
-	_started_ms = Time.get_ticks_msec()
 	_tip.text = str(TIPS.pick_random())
 	_column.visible = not _plain
 	visible = true
 	if _reduce_motion():
 		_root.modulate.a = 1.0
 		await get_tree().process_frame
-		return
-	_root.modulate.a = 0.0
-	var tween := create_tween()
-	tween.tween_property(_root, "modulate:a", 1.0, PLAIN_FADE if _plain else FADE_IN)
-	await tween.finished
+	else:
+		_root.modulate.a = 0.0
+		var tween := create_tween()
+		tween.tween_property(_root, "modulate:a", 1.0, PLAIN_FADE if _plain else FADE_IN)
+		await tween.finished
+	_started_ms = Time.get_ticks_msec()
 
 
 func _hide() -> void:
@@ -185,7 +188,7 @@ func _process(delta: float) -> void:
 	_time += delta
 	# La barra avanza sola un poco aunque la carga no informe, para que nunca parezca parada.
 	_target = minf(maxf(_target, _target + delta * 0.02), 1.0)
-	_progress = move_toward(_progress, _target, delta * 1.8)
+	_progress = move_toward(_progress, _target, delta * 1.0)
 	_bar_fill.size = Vector2(maxf(_bar_back.size.x * _progress, _bar_back.size.y), _bar_back.size.y)
 	_die.queue_redraw()
 
