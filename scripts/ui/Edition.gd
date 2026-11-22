@@ -12,6 +12,7 @@ extends Node
 
 ## Mesas que se pueden abrir en la demo.
 const DEMO_SCENES := [
+	"res://scenes/Intro.tscn",
 	"res://scenes/Menu.tscn",
 	"res://scenes/Home.tscn",
 	"res://scenes/BotMenu.tscn",

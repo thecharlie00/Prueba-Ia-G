@@ -297,6 +297,7 @@ const ROWS := [
 	["Pantalla completa", "Fullscreen", "Pantalla completa"],
 	["Ventana", "Windowed", "Finestra"],
 	["Cargando…", "Loading…", "Carregant…"],
+	["Pulsa cualquier botón para empezar", "Press any button to start", "Prem qualsevol botó per començar"],
 	["Pulsa Esc en cualquier mesa para abrir el menú.", "Press Esc at any table to open the menu.", "Prem Esc a qualsevol taula per obrir el menú."],
 	["F1 muestra los controles de la mesa en la que estás.", "F1 shows the controls for the table you are at.", "F1 mostra els controls de la taula on ets."],
 	["Ctrl+Z devuelve la última pieza que has movido.", "Ctrl+Z puts back the last piece you moved.", "Ctrl+Z torna l'última peça que has mogut."],

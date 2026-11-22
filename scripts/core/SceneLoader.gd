@@ -12,6 +12,8 @@ signal finished(path: String)
 
 const FADE_IN := 0.15
 const FADE_OUT := 0.3
+## Fundido más lento de la entrada desde el título.
+const PLAIN_FADE := 0.7
 ## Fotogramas que la escena nueva se dibuja bajo la pantalla antes de destaparla.
 const HOLD_FRAMES := 5
 ## Tiempo mínimo visible, para que una carga rápida no parezca un parpadeo.
@@ -31,6 +33,9 @@ const TIPS := [
 
 var busy := false
 var _path := ""
+var _plain := false
+var _prefetched := {}
+var _column: Control
 var _root: Control
 var _die: Control
 var _bar_back: Panel
@@ -50,8 +55,9 @@ func _ready() -> void:
 	_build()
 
 
-## Cambia a la escena `path` mostrando la pantalla de carga.
-func go(path: String) -> void:
+## Cambia a la escena `path` mostrando la pantalla de carga. Con `plain` solo funde a negro
+## y vuelve a abrir sobre la escena nueva, sin dado ni consejo (entrada desde el título).
+func go(path: String, plain := false) -> void:
 	if busy:
 		return
 	if not _wants_screen():
@@ -59,6 +65,7 @@ func go(path: String) -> void:
 		return
 	busy = true
 	_path = path
+	_plain = plain
 	await _show()
 	var old := get_tree().current_scene
 	if old != null:
@@ -94,6 +101,14 @@ func reload() -> void:
 	go(scene.scene_file_path)
 
 
+## Empieza a cargar `path` en segundo plano para que el futuro go(path) sea inmediato.
+func prefetch(path: String) -> void:
+	if not _wants_screen() or _prefetched.has(path) or ResourceLoader.has_cached(path):
+		return
+	if ResourceLoader.load_threaded_request(path, "PackedScene") == OK:
+		_prefetched[path] = true
+
+
 func _wants_screen() -> bool:
 	if DisplayServer.get_name() == "headless":
 		return false
@@ -110,13 +125,15 @@ func _main_thread_only() -> bool:
 
 
 func _load(path: String) -> PackedScene:
-	if ResourceLoader.has_cached(path) or _main_thread_only():
+	var requested := _prefetched.has(path)
+	_prefetched.erase(path)
+	if not requested and (ResourceLoader.has_cached(path) or _main_thread_only()):
 		_target = 0.7
 		# Dos fotogramas para que la pantalla se vea entera antes del parón de la carga.
 		await get_tree().process_frame
 		await get_tree().process_frame
 		return load(path) as PackedScene
-	if ResourceLoader.load_threaded_request(path, "PackedScene") != OK:
+	if not requested and ResourceLoader.load_threaded_request(path, "PackedScene") != OK:
 		return load(path) as PackedScene
 	var progress := []
 	while true:
@@ -137,6 +154,7 @@ func _show() -> void:
 	_target = 0.05
 	_started_ms = Time.get_ticks_msec()
 	_tip.text = str(TIPS.pick_random())
+	_column.visible = not _plain
 	visible = true
 	if _reduce_motion():
 		_root.modulate.a = 1.0
@@ -144,14 +162,14 @@ func _show() -> void:
 		return
 	_root.modulate.a = 0.0
 	var tween := create_tween()
-	tween.tween_property(_root, "modulate:a", 1.0, FADE_IN)
+	tween.tween_property(_root, "modulate:a", 1.0, PLAIN_FADE if _plain else FADE_IN)
 	await tween.finished
 
 
 func _hide() -> void:
 	if not _reduce_motion():
 		var tween := create_tween()
-		tween.tween_property(_root, "modulate:a", 0.0, FADE_OUT)
+		tween.tween_property(_root, "modulate:a", 0.0, PLAIN_FADE if _plain else FADE_OUT)
 		await tween.finished
 	visible = false
 
@@ -197,6 +215,7 @@ func _build() -> void:
 	column.add_theme_constant_override("separation", 18)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(column)
+	_column = column
 
 	_die = Control.new()
 	_die.name = "Die"

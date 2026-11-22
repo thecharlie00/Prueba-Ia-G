@@ -94,7 +94,7 @@ Hay tres excepciones:
 - **En una sala online**, la carga va en el hilo principal: así no se procesan mensajes de red
   dirigidos a una mesa que aún no existe.
 - **En headless** (tests) y en la **prueba de arranque**, cambia de escena directamente.
-- **Al arrancar el juego**, se muestra `assets/splash.png` sobre el color tinta de la paleta.
+- **Al arrancar el juego**, la ventana del motor se pinta del color tinta y la escena inicial es la intro (`scenes/Intro.tscn`), que es ligera; la habitación se precarga mientras se ve la animación y se entra con un fundido (`Scenes.go(ruta, true)`).
 
 Lo que sigue en el hilo principal es el `_ready` de cada escena, que construye las piezas, y
 la primera compilación de sombreadores. Esos parones ocurren bajo la pantalla de carga.
