@@ -17,6 +17,8 @@ static var difficulty := Difficulty.NORMAL
 ## Marcado por el menú de bots: la siguiente mesa que se abre empieza en solitario
 ## contra bots. Lo consume el juego al abrirse.
 static var solo := false
+## La partida en solitario sienta al chat de Twitch en el último asiento en vez de un bot.
+static var chat_plays := false
 
 ## Pausa antes de cada acción del bot, para que se vea lo que hace.
 const THINK_TIME := 0.8

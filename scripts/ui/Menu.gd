@@ -601,6 +601,9 @@ func _build_settings_sidebar(parent: HBoxContainer) -> void:
 	var graphics := get_node_or_null("/root/Graphics")
 	if graphics != null:
 		toggles_col.add_child(graphics.make_quality_row(Palette.PAPER))
+	var twitch := get_node_or_null("/root/Twitch")
+	if twitch != null:
+		toggles_col.add_child(twitch.make_settings_row(Palette.PAPER))
 
 	var locale := get_node_or_null("/root/Locale")
 	if locale != null:

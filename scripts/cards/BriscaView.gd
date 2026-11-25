@@ -28,6 +28,8 @@ var viewer := 0
 var showing: Dictionary = {}
 var _show_time := 0.0
 var _bot_wait := 0.0
+## Asiento del chat de Twitch (null si no juega).
+var chat_seat: ChatSeat
 var _table_cards: Array[Card3D] = []
 
 @onready var objects: Node3D = $Objects
@@ -161,6 +163,10 @@ func _make_ui() -> void:
 		# Menú de bots: la mesa empieza en solitario contra el bot.
 		TableBots.solo = false
 		set_vs_bot(true)
+		if TableBots.chat_plays:
+			TableBots.chat_plays = false
+			chat_seat = ChatSeat.new(1)
+			add_child(chat_seat)
 	var save_row := HBoxContainer.new()
 	save_row.name = "SaveRow"
 	var save := Button.new()
@@ -298,6 +304,10 @@ func _process(delta: float) -> void:
 		if _show_time <= 0.0:
 			finish_showing()
 		return
+	if is_bot_turn() and chat_seat != null and chat_seat.controls(rules.turn):
+		if not chat_seat.busy:
+			chat_step()
+		return
 	if is_bot_turn():
 		_bot_wait += delta
 		if _bot_wait >= TableBots.think_time(TableBots.difficulty):
@@ -308,6 +318,34 @@ func _process(delta: float) -> void:
 				submit_change({"type": "play", "card": chosen}, bot_seat)
 			else:
 				play(chosen)
+
+
+## Turno del chat: vota qué carta de su mano jugar.
+func chat_step() -> void:
+	var seat := rules.turn
+	var cards: Array[String] = []
+	for card: Variant in rules.hands[seat]:
+		if rules.can_play(str(card)):
+			cards.append(str(card))
+	if cards.is_empty():
+		return
+	var labels: Array[String] = []
+	for card in cards:
+		labels.append(BriscaRules.card_name(card))
+	chat_seat.ask(tr("¿Qué carta juega el chat?"), labels, [], func(winner: int) -> void:
+		if rules.turn != seat or rules.phase != BriscaRules.PLAYING or not showing.is_empty():
+			return
+		var card := cards[winner] if winner >= 0 and winner < cards.size() else TableBots.brisca_choice(rules, TableBots.difficulty)
+		if not rules.can_play(card):
+			card = TableBots.brisca_choice(rules, TableBots.difficulty)
+		play(card)
+	)
+
+
+func _rival_name() -> String:
+	if chat_seat != null:
+		return tr("Chat de Twitch")
+	return tr("Bot") if vs_bot else NAMES[1]
 
 
 func refresh() -> void:
@@ -337,7 +375,7 @@ func refresh() -> void:
 	_sync_table()
 	var trump: String = tr(BriscaRules.SUIT_NAMES[rules.trump_suit])
 	result_label.text = tr("J1 %d · %s %d · triunfo: %s") % [
-		rules.points[0], "Bot" if vs_bot else "J2", rules.points[1], trump
+		rules.points[0], _rival_name() if vs_bot else "J2", rules.points[1], trump
 	]
 	if rules.phase == BriscaRules.FINISHED:
 		if rules.result == BriscaRules.DRAW:
@@ -348,10 +386,10 @@ func refresh() -> void:
 	elif not showing.is_empty():
 		status_label.text = tr("Baza para %s (+%d)") % [_name(int(showing["winner"])), int(showing["points"])]
 	else:
-		status_label.text = tr("Turno del bot") if is_bot_turn() else tr("Turno de %s") % _name(rules.turn)
+		status_label.text = (tr("Turno del chat") if chat_seat != null and chat_seat.controls(rules.turn) else tr("Turno del bot")) if is_bot_turn() else tr("Turno de %s") % _name(rules.turn)
 		var on_table := rules.card_to_beat()
 		if is_bot_turn():
-			help_label.text = "El bot está pensando…"
+			help_label.text = "El chat está votando…" if chat_seat != null and chat_seat.controls(rules.turn) else "El bot está pensando…"
 		elif online and not is_local_turn():
 			help_label.text = tr("Esperando a %s…") % _name(rules.turn)
 		elif on_table.is_empty():
@@ -482,7 +520,7 @@ static func _decode_save(record: Variant) -> Variant:
 func hud_seats() -> Array:
 	return [
 		{"name": NAMES[0], "color": Palette.PLAYER_RED, "bot": false, "side": "south"},
-		{"name": "Bot" if vs_bot else NAMES[1], "color": Palette.PLAYER_BLUE, "bot": vs_bot, "side": "north"},
+		{"name": _rival_name(), "color": Palette.PLAYER_BLUE, "bot": vs_bot, "side": "north"},
 	]
 
 

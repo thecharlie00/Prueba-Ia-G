@@ -35,6 +35,7 @@ Gamepad="*res://scripts/ui/Gamepad.gd"
 PerfMeter="*res://scripts/ui/PerfMeter.gd"
 SmokeTest="*res://scripts/ui/SmokeTest.gd"
 Net="*res://scripts/net/NetManager.gd"
+Twitch="*res://scripts/twitch/TwitchLink.gd"
 GameCreatorCore="*res://scripts/game_creator/GameCreatorCore.gd"
 
 [debug]
@@ -77,3 +78,7 @@ common/physics_ticks_per_second=90
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
+
+[tablerama]
+
+twitch/client_id=""

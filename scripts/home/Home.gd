@@ -695,6 +695,9 @@ func _build_settings() -> Control:
 	var graphics := get_node_or_null("/root/Graphics")
 	if graphics != null:
 		col.add_child(graphics.make_quality_row(Palette.PAPER))
+	var twitch := get_node_or_null("/root/Twitch")
+	if twitch != null:
+		col.add_child(twitch.make_settings_row(Palette.PAPER))
 
 	_classic_check = CheckButton.new()
 	_classic_check.name = "ClassicCheck"

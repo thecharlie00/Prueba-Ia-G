@@ -119,6 +119,9 @@ const DIFFICULTIES := [
 var _level := TableBots.Difficulty.NORMAL
 var _diff_buttons: Array[Button] = []
 var _diff_note: Label
+## Casilla «El chat de Twitch juega» (solo en las mesas que lo admiten).
+var _chat_toggle: CheckBox
+const CHAT_SCENES := ["res://scenes/Parchis.tscn", "res://scenes/Parchis2.tscn", "res://scenes/Ludo.tscn", "res://scenes/Brisca.tscn"]
 
 
 func _ready() -> void:
@@ -314,6 +317,7 @@ func _build() -> void:
 	)
 	group_desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	group_head.add_child(group_desc)
+	tables_col.add_child(_make_chat_row())
 
 	var scroll := ScrollContainer.new()
 	scroll.name = "BotGamesScroll"
@@ -339,6 +343,31 @@ func _build() -> void:
 	_diff_buttons[initial].grab_focus.call_deferred()
 
 
+## «El chat de Twitch juega»: el chat ocupa el último asiento de Parchís, Ludo o Brisca.
+func _make_chat_row() -> Control:
+	var row := HBoxContainer.new()
+	row.name = "ChatRow"
+	row.add_theme_constant_override("separation", 12)
+	_chat_toggle = CheckBox.new()
+	_chat_toggle.name = "ChatPlays"
+	_chat_toggle.text = "El chat de Twitch juega"
+	_chat_toggle.add_theme_color_override("font_color", Palette.PAPER)
+	row.add_child(_chat_toggle)
+	var note := MenuStyle.make_muted("", 13)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(note)
+	var twitch := get_node_or_null("/root/Twitch")
+	var available: bool = twitch != null and bool(twitch.call("is_available"))
+	_chat_toggle.disabled = not available
+	if not available:
+		note.text = "Conecta Twitch o activa el chat simulado en Ajustes."
+	elif twitch != null and bool(twitch.call("is_connected_to_chat")):
+		note.text = tr("Parchís y Brisca · el chat de %s vota cada jugada") % str(twitch.get("login"))
+	else:
+		note.text = "Parchís y Brisca · con el chat simulado"
+	return row
+
+
 func _select_difficulty(index: int) -> void:
 	if index < 0 or index >= DIFFICULTIES.size():
 		return
@@ -357,6 +386,7 @@ func _select_difficulty(index: int) -> void:
 func _start(game: Dictionary) -> void:
 	TableBots.difficulty = _level
 	TableBots.solo = true
+	TableBots.chat_plays = _chat_toggle != null and _chat_toggle.button_pressed and str(game["scene"]) in CHAT_SCENES
 	Scenes.go(str(game["scene"]))
 
 
