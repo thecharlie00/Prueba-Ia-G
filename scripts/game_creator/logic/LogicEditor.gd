@@ -431,7 +431,7 @@ func _param_control(id: int, param: Array) -> Control:
 			control = code
 		_:
 			if kind.begins_with("choice:"):
-				var options: Array = LogicNodes.choice_options(kind).map(func(o: String) -> Array: return [o, o])
+				var options: Array = LogicNodes.choice_options(kind).map(func(o: String) -> Array: return [o, tr(o)])
 				control = _options(options, str(value), func(v: Variant) -> void: _set_param(id, name, str(v)))
 			else:
 				control = Label.new()

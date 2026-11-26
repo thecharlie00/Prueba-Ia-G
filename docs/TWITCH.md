@@ -57,3 +57,31 @@ botón Conectar queda desactivado y solo funciona el chat simulado.
 
 Test: `tests/twitch_chat.gd`. Diseño completo, con las entregas siguientes (resto de juegos, salas
 online y bloques del creador), en el artefacto «El chat juega · Tablerama».
+
+## Bloques «Twitch» del creador de juegos
+
+Los juegos de la comunidad tienen una categoría **Twitch** (morada) en el editor de lógica, con
+32 bloques. Cuando un juego usa alguno, al probar la mesa se conecta el chat y aparece el
+**chat de prueba** (abajo a la izquierda): escribe como cualquier espectador, con su rol, y lanza
+bits, subs, follows, raids, canjes, Hype Train o anuncios sin estar en directo.
+
+| Tipo | Bloques |
+|---|---|
+| Eventos | Al escribir en el chat · Al usar un comando · Al cerrar una votación · Al animar con bits · Al suscribirse · Al seguir el canal · Al llegar una raid · Al canjear una recompensa · Hype Train · Al empezar un anuncio · Al conectarse el chat |
+| Acciones | Abrir votación · Cerrar la votación ya · Mostrar el chat (6 estilos) · Ocultar el chat · Mostrar alerta · Barra de meta · Dar monedas · Asignar a un equipo · Dar ficha · Crear recompensa · Escribir en el chat · Si el espectador es… |
+| Datos | Monedas de · Equipo de · Monedas del equipo · Ranking · Espectador al azar · Espectadores activos · Votos de una opción · Ficha de · ¿Hay chat? |
+
+**Comandos.** Cada bloque «Al usar un comando» define uno: nombre, alias, argumento con tipo
+(número con mínimo y máximo, opción de una lista, casilla tipo `B4`, `@jugador`), quién puede
+usarlo y la espera por persona. Lo que no cumple se ignora. `!ayuda` enseña la lista sola.
+
+**Estilos del chat en pantalla:** panel lateral, marquesina, pizarra, cartas que caen (las de
+suscriptores, doradas), bocadillos sobre las fichas de cada espectador y solo reacciones. Todos
+respetan los mensajes borrados por los moderadores y el filtro de palabras del streamer.
+
+**Límites:** una votación a la vez y 6 por minuto; el juego escribe en el chat como mucho cada
+3 s y el streamer puede apagarlo; las recompensas se borran al acabar la partida; los permisos
+que faltan (bits, subs, canjes…) se avisan al probar.
+
+Desde un bloque GDScript: `mesa.twitch_conectado()`, `mesa.monedas("ana")`,
+`mesa.dar_monedas("ana", 5)`, `mesa.equipo("ana")`, `mesa.espectadores()`, `mesa.ranking(3)`.

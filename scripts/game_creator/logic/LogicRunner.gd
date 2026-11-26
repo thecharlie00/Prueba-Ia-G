@@ -27,6 +27,8 @@ var _depth := 0
 var _chain := 0
 var _stopped_warned := false
 var _timers: Array = []
+## Conexión con el chat de Twitch, si el juego usa bloques «Twitch».
+var twitch: TwitchBridge
 
 
 func _init(logic: LogicGraph, editor: Node) -> void:
@@ -53,11 +55,19 @@ func start() -> void:
 		timer.timeout.connect(_on_timer.bind(int(node["id"])))
 		_editor.add_child(timer)
 		_timers.append(timer)
+	for node in graph.nodes.values():
+		if str(node["type"]).begins_with("tw_"):
+			twitch = TwitchBridge.new(self, _editor)
+			_editor.add_child(twitch)
+			break
 	fire("ev_inicio")
 
 
 func stop() -> void:
 	active = false
+	if twitch != null and is_instance_valid(twitch):
+		twitch.queue_free()
+	twitch = null
 	for timer in _timers:
 		if is_instance_valid(timer):
 			timer.queue_free()
@@ -109,6 +119,12 @@ func _exec(id: int) -> void:
 	var node: Dictionary = graph.nodes[id]
 	var type: String = node["type"]
 	trace.append(type)
+	if type.begins_with("tw_"):
+		var result: Dictionary = twitch.exec(id, node) if twitch != null else {"out": "out"}
+		if result.has("values"):
+			_outputs[id] = result["values"]
+		_follow(id, str(result.get("out", "out")))
+		return
 	match type:
 		"fl_si":
 			_follow(id, "si" if _truthy(_value(id, "condicion")) else "no")
@@ -160,7 +176,7 @@ func _exec(id: int) -> void:
 		"ac_poner":
 			_editor.logic_set_counter(int(node["params"]["contador"]), int(_number(_value(id, "valor"))))
 		"ac_mensaje":
-			_editor.logic_message(str(_value(id, "texto")))
+			_editor.logic_message(_text(_value(id, "texto")))
 		"ac_interfaz":
 			_editor.logic_show_element(int(node["params"]["elemento"]), _truthy(_value(id, "visible")))
 		"ac_variable":
@@ -268,6 +284,8 @@ func _compute(id: int, out: String) -> Variant:
 func _compute_inner(id: int, _out: String) -> Variant:
 	var node: Dictionary = graph.nodes[id]
 	var p: Dictionary = node["params"]
+	if str(node["type"]).begins_with("tw_"):
+		return twitch.compute(id, node) if twitch != null else null
 	match str(node["type"]):
 		"da_numero":
 			return float(p["valor"])
