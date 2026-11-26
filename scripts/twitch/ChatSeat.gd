@@ -274,7 +274,7 @@ func _build_panel() -> void:
 	_intro.anchor_top = 0.0
 	_intro.offset_left = -330.0
 	_intro.offset_right = 330.0
-	_intro.offset_top = 24.0
+	_intro.offset_top = 96.0
 	_intro.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_intro.add_theme_stylebox_override("panel", _box(Palette.SUN, 18, 4))
 	_intro.visible = false

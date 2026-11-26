@@ -121,7 +121,7 @@ var _diff_buttons: Array[Button] = []
 var _diff_note: Label
 ## Casilla «El chat de Twitch juega» (solo en las mesas que lo admiten).
 var _chat_toggle: CheckBox
-const CHAT_SCENES := ["res://scenes/Parchis.tscn", "res://scenes/Parchis2.tscn", "res://scenes/Ludo.tscn", "res://scenes/Brisca.tscn"]
+const CHAT_SCENES := ["res://scenes/Parchis.tscn", "res://scenes/Parchis2.tscn", "res://scenes/Ludo.tscn", "res://scenes/Brisca.tscn", "res://scenes/GuidedPhysicalCheckers.tscn", "res://scenes/GuidedDomino.tscn", "res://scenes/IslandTwo.tscn", "res://scenes/Island.tscn", "res://scenes/IslandFour.tscn"]
 
 
 func _ready() -> void:
@@ -362,9 +362,9 @@ func _make_chat_row() -> Control:
 	if not available:
 		note.text = "Conecta Twitch o activa el chat simulado en Ajustes."
 	elif twitch != null and bool(twitch.call("is_connected_to_chat")):
-		note.text = tr("Parchís y Brisca · el chat de %s vota cada jugada") % str(twitch.get("login"))
+		note.text = tr("En todas las mesas · el chat de %s vota cada jugada") % str(twitch.get("login"))
 	else:
-		note.text = "Parchís y Brisca · con el chat simulado"
+		note.text = "En todas las mesas · con el chat simulado"
 	return row
 
 

@@ -121,6 +121,44 @@ func _run() -> void:
 		_check(int(plays["count"]) >= 3, "el chat juega cartas en Brisca (%d)" % int(plays["count"]))
 	twitch.set_simulated(false, false)
 
+
+	# Damas, dominó e isla: el chat decide; el otro asiento lo mueve el bot desde el test.
+	for case in [
+		["res://scenes/GuidedPhysicalCheckers.tscn", "damas"],
+		["res://scenes/GuidedDomino.tscn", "dominó"],
+		["res://scenes/IslandTwo.tscn", "isla"],
+	]:
+		twitch.set_simulated(true, false)
+		TableBots.solo = true
+		TableBots.chat_plays = true
+		change_scene_to_file(str(case[0]))
+		for i in 5:
+			await process_frame
+		var view: Node = current_scene
+		var chat: ChatSeat = view.get("chat_seat")
+		_check(chat != null, "el chat se sienta en %s" % case[1])
+		if chat == null:
+			continue
+		if view.has_method("set_bot"):
+			view.call("set_bot", true, 0)
+		var done := {"count": 0}
+		chat.finished.connect(func(_w: int) -> void: done["count"] += 1)
+		for i in 9000:
+			await physics_frame
+			if not view.has_method("set_bot"):
+				var rules: Variant = view.get("rules")
+				var my_turn := false
+				if rules is CheckersRules:
+					my_turn = (rules as CheckersRules).turn == CheckersRules.WHITE and (rules as CheckersRules).status() == "playing"
+				elif rules is DominoRules:
+					my_turn = (rules as DominoRules).turn == 0 and (rules as DominoRules).result == DominoRules.PLAYING
+				if my_turn and i % 20 == 0:
+					view.call("bot_step")
+			if int(done["count"]) >= 4:
+				break
+		_check(int(done["count"]) >= 4, "el chat decide en %s (%d)" % [case[1], int(done["count"])])
+		twitch.set_simulated(false, false)
+
 	if _failures > 0:
 		push_error("twitch_chat: %d fallos" % _failures)
 		quit(1)

@@ -31,6 +31,8 @@ var _zone_materials: Dictionary = {}
 ## El jugador 2 lo juega un bot (TableBots).
 var bot_enabled := false
 var _bot_wait := 0.0
+## Asiento del chat de Twitch (jugador 2), null si no juega.
+var chat_seat: ChatSeat
 var _bot_toggle: CheckBox
 var online := false
 var net_table: DominoNetTable
@@ -87,6 +89,10 @@ func _ready() -> void:
 		# Menú de bots: la mesa empieza en solitario contra el bot del jugador 2.
 		TableBots.solo = false
 		set_bot_enabled(true)
+		if TableBots.chat_plays:
+			TableBots.chat_plays = false
+			chat_seat = ChatSeat.new(1)
+			add_child(chat_seat)
 	_sync_homes(true)
 	_start_online()
 	_refresh()
@@ -241,10 +247,65 @@ func _process(delta: float) -> void:
 	if not is_bot_turn() or is_instance_valid(grabber.held):
 		_bot_wait = 0.0
 		return
+	if chat_seat != null and not online and chat_seat.controls(rules.turn):
+		if not chat_seat.busy:
+			chat_step()
+		return
 	_bot_wait += delta
 	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 		_bot_wait = 0.0
 		bot_step()
+
+
+## Turno del chat: qué ficha jugar y, si encaja en los dos lados, en cuál. Sin fichas que
+## encajen, roba o pasa solo.
+func chat_step() -> void:
+	var seat := rules.turn
+	var playable: Array[int] = []
+	for id in rules.hands[seat]:
+		if not rules.legal_ends(id).is_empty() and playable.size() < 9:
+			playable.append(id)
+	if playable.is_empty():
+		var only: Array[String] = [tr("Robar") if not rules.stock.is_empty() else tr("Pasar")]
+		chat_seat.ask(only[0], only, [], func(_w: int) -> void:
+			if rules.turn == seat and rules.result == DominoRules.PLAYING:
+				bot_step()
+		)
+		return
+	var labels: Array[String] = []
+	var targets: Array = []
+	for id in playable:
+		var tile: Vector2i = rules.values[id]
+		labels.append("[%d|%d]" % [tile.x, tile.y])
+		targets.append(tiles[id] if id < tiles.size() else null)
+	chat_seat.ask(tr("¿Qué ficha juega el chat?"), labels, targets, func(winner: int) -> void:
+		if rules.turn != seat or rules.result != DominoRules.PLAYING:
+			return
+		if winner < 0:
+			bot_step()
+			return
+		_chat_end(seat, playable[winner])
+	)
+
+
+func _chat_end(seat: int, id: int) -> void:
+	var ends := rules.legal_ends(id)
+	if ends.is_empty():
+		bot_step()
+		return
+	var labels: Array[String] = []
+	for end in ends:
+		labels.append(tr("A la izquierda") if end == "left" else tr("A la derecha"))
+	chat_seat.ask(tr("¿En qué lado?"), labels, [], func(winner: int) -> void:
+		if rules.turn != seat or rules.result != DominoRules.PLAYING:
+			return
+		var end := ends[winner] if winner >= 0 and winner < ends.size() else ends[0]
+		if rules.play(id, end):
+			_sync_homes(false)
+			_refresh()
+			var tile: Vector2i = rules.values[id]
+			_help(tr("El chat juega [%d|%d] a la %s.") % [tile.x, tile.y, tr("izquierda" if end == "left" else "derecha")])
+	)
 
 
 ## Una acción del bot: jugar una ficha, robar o pasar.

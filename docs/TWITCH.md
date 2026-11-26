@@ -1,14 +1,21 @@
 # El chat juega (Twitch)
 
-El chat de Twitch de un streamer puede ocupar un asiento en Parchís, Ludo y Brisca. En su turno,
+El chat de Twitch de un streamer puede ocupar un asiento en todas las mesas con bot. En su turno,
 los espectadores votan con `!1`, `!2`… entre las jugadas legales; si nadie vota, juega el bot.
+
+| Mesa | Qué vota el chat |
+|---|---|
+| Parchís y Ludo | Qué ficha mover (tirar el dado lo hace solo) |
+| Brisca | Qué carta jugar |
+| Damas | Qué pieza y, si hay varios destinos, adónde (coordenadas del tablero) |
+| Dominó | Qué ficha y, si encaja en los dos lados, en cuál; robar y pasar van solos |
+| Isla de recursos | Qué hacer (camino, pueblo, ciudad, cambiar con la banca o terminar) y dónde construir; la colocación inicial, el ladrón y los descartes los resuelve el bot |
 
 ## Para el streamer
 
 1. **Ajustes › Twitch › Conectar.** El juego abre twitch.tv/activate y enseña un código; se escribe
    allí y se acepta. La conexión queda guardada en este ordenador (`user://twitch.cfg`).
-2. **Mesas con bot › «El chat de Twitch juega»** y elegir Parchís, Ludo o Brisca. El chat ocupa el
-   último asiento.
+2. **Mesas con bot › «El chat de Twitch juega»** y elegir mesa. El chat ocupa el último asiento.
 3. Para probar sin estar en directo: **Ajustes › Twitch › Chat simulado para probar**. Unos
    espectadores de mentira escriben y votan.
 
