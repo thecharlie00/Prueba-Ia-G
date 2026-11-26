@@ -73,6 +73,8 @@ var new_game_confirmation: ConfirmationDialog
 var bots: Array[bool] = [false, false, false, false]
 var bot_toggles: Array[CheckBox] = []
 var _bot_wait := 0.0
+## Asiento del chat de Twitch (null si no juega).
+var chat_seat: ChatSeat
 var online := false
 var net_table: LudoNetTable
 var _remote_roll_expected := 0
@@ -286,6 +288,12 @@ func _apply_solo_bots() -> void:
 	TableBots.solo = false
 	for player in range(1, rules.players):
 		set_bot(true, player)
+	if TableBots.chat_plays:
+		# El chat ocupa el último asiento: por dentro es un asiento «bot» cuyo turno decide el chat.
+		TableBots.chat_plays = false
+		chat_seat = ChatSeat.new(rules.players - 1)
+		add_child(chat_seat)
+		_refresh()
 
 
 func _is_parchis_board() -> bool:
@@ -306,6 +314,12 @@ func _player_color(player: int) -> Color:
 	if _is_parchis_board():
 		return PARCHIS_COLORS[_player_house(player)]
 	return COLORS[clampi(player, 0, 3)]
+
+
+func _seat_prefix(player: int) -> String:
+	if chat_seat != null and chat_seat.controls(player):
+		return tr("Chat de Twitch · ")
+	return tr("Bot · ") if bots[player] else ""
 
 
 func _player_name(player: int) -> String:
@@ -360,7 +374,7 @@ func _update_seats() -> void:
 			elif progress == LudoRules.YARD:
 				waiting += 1
 		seats.set_status(
-			player, tr("%sMeta %d/4 · casa %d") % [tr("Bot · ") if bots[player] else "", done, waiting]
+			player, tr("%sMeta %d/4 · casa %d") % [_seat_prefix(player), done, waiting]
 		)
 
 
@@ -1045,10 +1059,48 @@ func _process(delta: float) -> void:
 		if _bot_wait > 0.0:
 			_bot_wait = 0.0
 		return
+	if chat_seat != null and chat_seat.controls(rules.turn):
+		if not chat_seat.busy:
+			chat_step()
+		return
 	_bot_wait += delta
 	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 		_bot_wait = 0.0
 		bot_step()
+
+
+## Turno del chat: tira solo (no hay nada que elegir) o vota qué ficha mover.
+func chat_step() -> void:
+	var seat := rules.turn
+	if rules.phase == LudoRules.ROLL:
+		var roll_label: Array[String] = [tr("Tirar el dado")]
+		chat_seat.ask(tr("Tirar el dado"), roll_label, [], func(_winner: int) -> void:
+			if rules.turn == seat and rules.phase == LudoRules.ROLL and not waiting_roll:
+				_roll(seat)
+		)
+		return
+	if rules.phase != LudoRules.MOVE:
+		return
+	var legal := rules.legal_tokens()
+	if legal.is_empty():
+		bot_step()
+		return
+	var labels: Array[String] = []
+	var targets: Array = []
+	for token in legal:
+		labels.append(tr("Ficha %d") % (token + 1))
+		targets.append(tokens[seat][token] if seat < tokens.size() and token < tokens[seat].size() else null)
+	chat_seat.ask(tr("¿Qué ficha mueve el chat?"), labels, targets, func(winner: int) -> void:
+		if rules.turn != seat or rules.phase != LudoRules.MOVE:
+			return
+		var still_legal := rules.legal_tokens()
+		var token := legal[winner] if winner >= 0 and winner < legal.size() else TableBots.ludo_choice(rules, TableBots.difficulty)
+		if token not in still_legal:
+			token = TableBots.ludo_choice(rules, TableBots.difficulty)
+		if token >= 0:
+			_choose_token(token, seat)
+			help.text = (tr("El chat mueve la ficha %d.") if winner >= 0 else tr("Nadie ha votado: el bot mueve la ficha %d.")) % (token + 1)
+	)
 
 
 ## Una acción del bot: tirar el dado o mover la ficha que elige TableBots.
@@ -1076,7 +1128,7 @@ func _refresh() -> void:
 			rules.players,
 			shown_turn + 1,
 			_player_name(shown_turn),
-			tr(" · bot") if (shown_turn >= 0 and shown_turn < bots.size() and bots[shown_turn]) else "",
+			(tr(" · chat de Twitch") if chat_seat != null and chat_seat.controls(shown_turn) else tr(" · bot")) if (shown_turn >= 0 and shown_turn < bots.size() and bots[shown_turn]) else "",
 		]
 	)
 	if rules.phase == LudoRules.FINISHED and not waiting_roll:
