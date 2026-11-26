@@ -91,6 +91,8 @@ var privacy_ready: Button
 var bots: Array[bool] = [false, false, false, false]
 var bot_toggles: Array[CheckBox] = []
 var _bot_wait := 0.0
+## Asiento del chat de Twitch (último jugador), null si no juega.
+var chat_seat: ChatSeat
 var online := false
 var net_table: IslandNetTable
 
@@ -122,6 +124,12 @@ func _start_online() -> void:
 		for seat in range(mini(player_count, rbots.size())):
 			if bool(rbots[seat]):
 				set_bot(true, seat)
+	# Chat de Twitch: el anfitrión sigue llevando al bot en las fases sin decisión (colocación,
+	# dados, ladrón, descartes); la fase de acciones la decide el ordenador del dueño del chat.
+	var mine := ChatSeat.online_seat()
+	if mine >= 0 and mine < player_count:
+		chat_seat = ChatSeat.new(mine)
+		add_child(chat_seat)
 		_help("Eres el anfitrión: valida y difunde las acciones de la sala.")
 	else:
 		for toggle in bot_toggles:
@@ -136,6 +144,8 @@ func _start_online() -> void:
 func _on_net_player_left(player_id: int) -> void:
 	if online and net_table != null and net_table.is_host():
 		set_bot(true, player_id - 1)
+		for seat in ChatSeat.seats_of_owner(player_id):
+			set_bot(true, seat)
 
 
 ## El jugador local pide aplicar una acción (online). Devuelve false fuera de
@@ -469,14 +479,92 @@ func _process(delta: float) -> void:
 				if die.is_forced_rolling():
 					die._step_forced_roll(delta)
 		_check_forced_roll_done()
+	if (
+		chat_seat != null and rules.phase == IslandRules.ACTION and chat_seat.controls(rules.turn)
+		and not waiting_roll and not manual_roll and not is_instance_valid(grabber.held)
+		and not (online and net_table != null and not net_table.synced)
+	):
+		if not chat_seat.busy:
+			chat_step()
+		return
 	if not _bot_turn_active():
 		if _bot_wait > 0.0:
 			_bot_wait = 0.0
+		return
+	if online and rules.phase == IslandRules.ACTION and rules.turn in ChatSeat.remote_seats():
 		return
 	_bot_wait += delta
 	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 		_bot_wait = 0.0
 		_bot_step()
+
+
+## Turno del chat en la fase de acciones: qué hacer y, si es construir, dónde. El resto de
+## fases (colocación inicial, dados, ladrón, descartes) las resuelve el bot por el chat.
+func chat_step() -> void:
+	var seat := rules.turn
+	var kinds: Array[String] = []
+	var labels: Array[String] = []
+	var options := {
+		"road": [IslandRules.ROAD_COST, "Construir un camino"],
+		"settlement": [IslandRules.SETTLEMENT_COST, "Construir un pueblo"],
+		"city": [IslandRules.CITY_COST, "Mejorar a ciudad"],
+	}
+	for kind: String in options:
+		if rules._can_pay(seat, options[kind][0]) and not _chat_spots(kind).is_empty():
+			kinds.append(kind)
+			labels.append(tr(str(options[kind][1])))
+	var bot := TableBots.island_action(rules, TableBots.difficulty)
+	if str(bot.get("kind", "")) == "trade":
+		kinds.append("trade")
+		labels.append(tr("Cambiar con la banca"))
+	kinds.append("end")
+	labels.append(tr("Terminar el turno"))
+	chat_seat.ask(tr("¿Qué hace el chat?"), labels, [], func(winner: int) -> void:
+		if rules.turn != seat or rules.phase != IslandRules.ACTION:
+			return
+		if winner < 0:
+			_bot_step()
+			return
+		match kinds[winner]:
+			"trade":
+				_bot_action({"type": "bank", "give": int(bot["give"]), "take": int(bot["take"])}, seat)
+			"end":
+				_bot_action({"type": "end"}, seat)
+			_:
+				_chat_build(seat, kinds[winner])
+	)
+
+
+func _chat_spots(kind: String) -> Array[int]:
+	var spots: Array[int] = []
+	if kind == "road":
+		for id in rules.board.edges.size():
+			if rules.can_road(id):
+				spots.append(id)
+	else:
+		for id in rules.board.vertices.size():
+			if (kind == "settlement" and rules.can_settlement(id)) or (kind == "city" and rules.can_city(id)):
+				spots.append(id)
+	return spots
+
+
+func _chat_build(seat: int, kind: String) -> void:
+	var spots := _chat_spots(kind)
+	if spots.size() > 9:
+		spots = spots.slice(0, 9)
+	var labels: Array[String] = []
+	var targets: Array = []
+	for i in spots.size():
+		labels.append(tr("Sitio %d") % (i + 1))
+		targets.append(_edge_position(spots[i]) if kind == "road" else _vertex_position(spots[i]))
+	chat_seat.ask(tr("¿Dónde construye?"), labels, targets, func(winner: int) -> void:
+		if rules.turn != seat or rules.phase != IslandRules.ACTION:
+			return
+		var id := spots[winner] if winner >= 0 and winner < spots.size() else spots[0]
+		_set_mode(kind)
+		_select_board(_edge_position(id) if kind == "road" else _vertex_position(id), seat)
+	)
 
 
 func _apply_local_pass_privacy() -> void:
@@ -498,6 +586,10 @@ func _apply_solo_bots() -> void:
 	privacy_locked = false
 	for player in range(1, player_count):
 		set_bot(true, player)
+	if TableBots.chat_plays:
+		TableBots.chat_plays = false
+		chat_seat = ChatSeat.new(player_count - 1)
+		add_child(chat_seat)
 
 
 func set_bot(enabled: bool, player: int) -> void:

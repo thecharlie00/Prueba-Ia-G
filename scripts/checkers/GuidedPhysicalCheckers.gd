@@ -30,6 +30,8 @@ var _legal: Material
 ## Las oscuras las juega un bot (TableBots).
 var bot_enabled := false
 var _bot_wait := 0.0
+## Asiento del chat de Twitch (las oscuras), null si no juega.
+var chat_seat: ChatSeat
 var _bot_toggle: CheckBox
 var online := false
 var net_table: CheckersNetTable
@@ -92,6 +94,10 @@ func _ready() -> void:
 		# Menú de bots: la mesa empieza en solitario contra el bot de las oscuras.
 		TableBots.solo = false
 		set_bot_enabled(true)
+		if TableBots.chat_plays:
+			TableBots.chat_plays = false
+			chat_seat = ChatSeat.new(1)
+			add_child(chat_seat)
 	_start_online()
 	_refresh_guides()
 
@@ -114,6 +120,9 @@ func _start_online() -> void:
 		_online_bots[1] = rbots.size() > 1 and bool(rbots[1])
 		if _online_bots[1]:
 			set_bot_enabled(true)
+		if ChatSeat.online_seat() == 1:
+			chat_seat = ChatSeat.new(1)
+			add_child(chat_seat)
 	else:
 		if _bot_toggle != null:
 			_bot_toggle.disabled = true
@@ -204,10 +213,76 @@ func _process(delta: float) -> void:
 	if not is_bot_turn() or is_instance_valid(grabber.held) or is_instance_valid(_dragged):
 		_bot_wait = 0.0
 		return
+	if chat_seat != null and rules.turn == CheckersRules.BLACK and not _is_awaiting_sync():
+		if not chat_seat.busy:
+			chat_step()
+		return
 	_bot_wait += delta
 	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
 		_bot_wait = 0.0
 		bot_step()
+
+
+## Nombre de la casilla con las mismas coordenadas que se ven en el tablero (a–h, 8 arriba).
+static func square_name(square: int) -> String:
+	return "%s%d" % ["ABCDEFGH"[square % 8], 8 - square / 8]
+
+
+## Turno del chat: primero qué pieza (si hay varias) y luego adónde (si hay varios destinos).
+func chat_step() -> void:
+	var moves := TableBots._checkers_moves(rules)
+	if moves.is_empty():
+		return
+	var froms: Array[int] = []
+	for move in moves:
+		var from := int(move["from"])
+		if from not in froms and froms.size() < 9:
+			froms.append(from)
+	var labels: Array[String] = []
+	var targets: Array = []
+	for from in froms:
+		labels.append(tr("Pieza en %s") % square_name(from))
+		targets.append(_token_at_square(from))
+	chat_seat.ask(tr("¿Qué pieza mueve el chat?"), labels, targets, func(winner: int) -> void:
+		if rules.turn != CheckersRules.BLACK or rules.status() != "playing":
+			return
+		if winner < 0:
+			bot_step()
+			return
+		_chat_destination(froms[winner])
+	)
+
+
+func _chat_destination(from: int) -> void:
+	var dests: Array[int] = []
+	for move in rules.legal_moves_from(from):
+		if dests.size() < 9:
+			dests.append(int(move["to"]))
+	if dests.is_empty():
+		bot_step()
+		return
+	var labels: Array[String] = []
+	var targets: Array = []
+	for to in dests:
+		labels.append(tr("A %s") % square_name(to))
+		targets.append(_square_center(to))
+	chat_seat.ask(tr("¿Adónde la mueve?"), labels, targets, func(winner: int) -> void:
+		if rules.turn != CheckersRules.BLACK or rules.status() != "playing":
+			return
+		var to := dests[winner] if winner >= 0 and winner < dests.size() else dests[0]
+		var legal := false
+		for move in rules.legal_moves_from(from):
+			legal = legal or int(move["to"]) == to
+		if not legal:
+			bot_step()
+			return
+		if online:
+			submit_change({"type": "move", "from": from, "to": to}, 1)
+			return
+		if _apply_move(from, to, _token_at_square(from)):
+			$UI/Panel/Margin/Content/Help.text = tr("El chat mueve de %s a %s.") % [square_name(from), square_name(to)]
+			_refresh_guides()
+	)
 
 
 ## Una jugada del bot (un paso o un salto de la cadena).

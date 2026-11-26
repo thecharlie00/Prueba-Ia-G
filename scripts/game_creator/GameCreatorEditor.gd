@@ -495,6 +495,8 @@ func _build_editor_ui() -> void:
 		var start := _button(TableTemplates.TITLES[template], load_template.bind(template))
 		start.name = "Template_" + template
 		start.tooltip_text = TableTemplates.HINTS[template]
+		if template in TableTemplates.FOR_STREAMERS:
+			start.add_theme_color_override("font_color", Palette.LAVENDER)
 		start.add_theme_font_size_override("font_size", 14)
 		start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		templates.add_child(start)
@@ -2231,10 +2233,10 @@ func _fire_turn() -> void:
 
 # --- Nuevo juego (asistente) -----------------------------------------------------------
 
-const NEW_GAME_KINDS := ["vacio", "cartas", "damas", "recorrido", "dados"]
+const NEW_GAME_KINDS := ["vacio", "cartas", "damas", "recorrido", "dados", "directo"]
 const NEW_GAME_NAMES := {
 	"vacio": "Mesa vacía", "cartas": "Juego de cartas", "damas": "Juego de tablero (damas)",
-	"recorrido": "Carrera con dado", "dados": "Juego de dados",
+	"recorrido": "Carrera con dado", "dados": "Juego de dados", "directo": "Para streamers: el chat juega",
 }
 var new_game_dialog: ConfirmationDialog
 
@@ -4759,6 +4761,8 @@ func _open_export_mod_dialog() -> void:
 	_mod_dialog.current_file = "mi_mod.gmod"
 	_mod_dialog.file_selected.connect(func(path: String) -> void:
 		var manifest := ModManifest.new("mi_mod", tr("Mi Mod"))
+		if logic_uses_twitch():
+			manifest.tags.append(ModManifest.STREAMER_TAG)
 		var result := ModBundleExporter.new().export_mod(
 			manifest,
 			"res://scenes/game_creator/GameCreatorEditor.tscn",
@@ -4774,6 +4778,14 @@ func _open_export_mod_dialog() -> void:
 	_mod_dialog.canceled.connect(_mod_dialog.queue_free)
 	add_child(_mod_dialog)
 	_mod_dialog.popup_centered_ratio(0.7)
+
+## ¿La lógica del juego usa bloques de Twitch? (lleva la etiqueta «Para streamers»)
+func logic_uses_twitch() -> bool:
+	for node: Dictionary in logic.nodes.values():
+		if str(node["type"]).begins_with("tw_"):
+			return true
+	return false
+
 
 ## Abre el diálogo para importar un paquete .gmod (valida dependencias antes de instalar).
 func _open_import_mod_dialog() -> void:

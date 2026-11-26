@@ -141,17 +141,27 @@ func _start_online() -> void:
 		for seat in range(mini(rules.players, rbots.size())):
 			if bool(rbots[seat]):
 				set_bot(true, seat)
+		# El chat de otro streamer: decide su ordenador, el anfitrión solo espera su jugada.
+		for seat in ChatSeat.remote_seats():
+			if seat < rules.players:
+				set_bot(false, seat)
 	else:
 		for toggle in bot_toggles:
 			if is_instance_valid(toggle):
 				toggle.disabled = true
 		net_table.request_sync()
+	var mine := ChatSeat.online_seat()
+	if mine >= 0 and mine < rules.players:
+		chat_seat = ChatSeat.new(mine)
+		add_child(chat_seat)
 	net.player_left.connect(_on_net_player_left)
 
 
 func _on_net_player_left(player_id: int) -> void:
 	if online and net_table != null and net_table.is_host():
 		set_bot(true, player_id - 1)
+		for seat in ChatSeat.seats_of_owner(player_id):
+			set_bot(true, seat)
 
 
 func _is_awaiting_sync() -> bool:
@@ -317,7 +327,7 @@ func _player_color(player: int) -> Color:
 
 
 func _seat_prefix(player: int) -> String:
-	if chat_seat != null and chat_seat.controls(player):
+	if (chat_seat != null and chat_seat.controls(player)) or (online and ChatSeat.is_room_chat(player)):
 		return tr("Chat de Twitch · ")
 	return tr("Bot · ") if bots[player] else ""
 
@@ -1055,13 +1065,17 @@ func _process(delta: float) -> void:
 			die._step_forced_roll(delta)
 		if not die.is_forced_rolling():
 			_update_die(0.0)
+	if (
+		chat_seat != null and chat_seat.controls(rules.turn) and rules.phase != LudoRules.FINISHED
+		and not waiting_roll and not _awaiting_roll_ack and grabber.held == null
+		and in_transit.is_empty() and not _is_awaiting_sync()
+	):
+		if not chat_seat.busy:
+			chat_step()
+		return
 	if not is_bot_turn() or waiting_roll or grabber.held != null or not in_transit.is_empty():
 		if _bot_wait > 0.0:
 			_bot_wait = 0.0
-		return
-	if chat_seat != null and chat_seat.controls(rules.turn):
-		if not chat_seat.busy:
-			chat_step()
 		return
 	_bot_wait += delta
 	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
@@ -1128,7 +1142,7 @@ func _refresh() -> void:
 			rules.players,
 			shown_turn + 1,
 			_player_name(shown_turn),
-			(tr(" · chat de Twitch") if chat_seat != null and chat_seat.controls(shown_turn) else tr(" · bot")) if (shown_turn >= 0 and shown_turn < bots.size() and bots[shown_turn]) else "",
+			tr(" · chat de Twitch") if ((chat_seat != null and chat_seat.controls(shown_turn)) or (online and ChatSeat.is_room_chat(shown_turn))) else (tr(" · bot") if (shown_turn >= 0 and shown_turn < bots.size() and bots[shown_turn]) else ""),
 		]
 	)
 	if rules.phase == LudoRules.FINISHED and not waiting_roll:

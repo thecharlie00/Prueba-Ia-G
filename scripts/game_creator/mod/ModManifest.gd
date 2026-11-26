@@ -17,6 +17,8 @@ extends RefCounted
 @export var updated_at: String = ""
 @export var scene_path: String = "res://scene.tscn"
 
+## Etiqueta de los juegos que usan bloques de Twitch (se pone sola al exportar).
+const STREAMER_TAG := "para-streamers"
 ## Máximo tamaño permitido de un paquete .gmod (en MB).
 const MAX_MOD_SIZE_MB := 100
 ## Número máximo de dependencias permitidas por mod.

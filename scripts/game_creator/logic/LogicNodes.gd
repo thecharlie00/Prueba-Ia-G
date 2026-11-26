@@ -14,14 +14,14 @@ const TYPE_COLORS := {
 	PIECE: Color("5a8ae8"), LIST: Color("b58cf0"), ANY: Color("a8a4c8"),
 }
 
-const CATEGORIES := ["eventos", "flujo", "acciones", "jugadores", "datos", "codigo", "notas"]
+const CATEGORIES := ["eventos", "flujo", "acciones", "jugadores", "datos", "twitch", "codigo", "notas"]
 const CATEGORY_NAMES := {
 	"eventos": "Eventos", "flujo": "Flujo", "acciones": "Acciones", "jugadores": "Jugadores y turnos",
-	"datos": "Datos", "codigo": "GDScript", "notas": "Notas",
+	"datos": "Datos", "twitch": "Twitch", "codigo": "GDScript", "notas": "Notas",
 }
 const CATEGORY_COLORS := {
 	"eventos": Color("ee6f60"), "flujo": Color("8b87b3"), "acciones": Color("5a8ae8"),
-	"jugadores": Color("d98ad6"), "datos": Color("58c08f"), "codigo": Color("f09a50"), "notas": Color("6e6a92"),
+	"jugadores": Color("d98ad6"), "datos": Color("58c08f"), "twitch": Color("a78bff"), "codigo": Color("f09a50"), "notas": Color("6e6a92"),
 }
 
 const COMPARE_OPS := ["==", "!=", "<", ">", "<=", ">="]
@@ -36,6 +36,7 @@ const EXPR_EXAMPLE := "return a * 2 + b"
 ## [nombre, tipo, etiqueta]
 ## Parámetros: [nombre, clase, etiqueta, valor por defecto]. Clases: zone, button, counter,
 ## element, number, text, bool, key, choice:<lista>, code, tag.
+## «event»: true marca como evento un bloque de otra categoría (los de Twitch).
 const DEFS := {
 	# ---------------------------------------------------------------- Eventos
 	"ev_inicio": {
@@ -394,6 +395,308 @@ const DEFS := {
 		"in": [["in", EXEC, ""], ["reloj", PIECE, "reloj"]], "out": [["out", EXEC, ""]],
 		"params": [],
 	},
+	# ---------------------------------------------------------------- Twitch
+	# Eventos del chat y del canal. «event» los marca como eventos aunque estén en su categoría.
+	"tw_ev_mensaje": {
+		"cat": "twitch", "event": true, "title": "Al escribir en el chat",
+		"help": "Cualquier mensaje del chat que pase el filtro. Da el nombre, nunca el texto.",
+		"in": [], "out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"], ["emotes", NUM, "emotes"]],
+		"params": [["filtro", "choice:todos,empieza por,contiene,solo emotes", "Filtro", "todos"], ["texto", "text", "Texto del filtro", ""], ["quien", "choice:todos,suscriptores,VIP,moderadores", "Quién", "todos"]],
+	},
+	"tw_ev_comando": {
+		"cat": "twitch", "event": true, "title": "Al usar un comando",
+		"help": "Define un comando del chat: nombre, alias, argumento con tipo, quién puede y espera. Aparece solo en !ayuda.",
+		"in": [], "out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"], ["valor", ANY, "valor"]],
+		"params": [
+			["comando", "text", "Comando", "!ataque"], ["alias", "text", "Alias (separados por comas)", ""],
+			["argumento", "choice:ninguno,número,opción,casilla,jugador", "Argumento", "ninguno"],
+			["minimo", "number", "Mínimo", 1], ["maximo", "number", "Máximo", 6], ["opciones", "text", "Opciones (rojo,azul…)", ""],
+			["quien", "choice:todos,suscriptores,VIP,moderadores", "Quién puede", "todos"], ["espera", "number", "Espera por persona (s)", 5],
+			["ayuda", "text", "Explicación para !ayuda", ""],
+		],
+	},
+	"tw_ev_votacion": {
+		"cat": "twitch", "event": true, "title": "Al cerrar una votación",
+		"help": "Cuando termina la votación con ese nombre. Ganadora 0 = nadie votó.",
+		"in": [], "out": [["out", EXEC, ""], ["ganadora", NUM, "ganadora"], ["opcion", TEXT, "opción"], ["votos", NUM, "votos"], ["total", NUM, "votantes"]],
+		"params": [["nombre", "text", "Votación", "votación"]],
+	},
+	"tw_ev_bits": {
+		"cat": "twitch", "event": true, "title": "Al animar con bits",
+		"help": "Necesita el permiso de bits.", "in": [],
+		"out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"], ["cantidad", NUM, "cantidad"]],
+		"params": [["minimo", "number", "Desde (bits)", 1]],
+	},
+	"tw_ev_sub": {
+		"cat": "twitch", "event": true, "title": "Al suscribirse",
+		"help": "Nueva suscripción, renovación o regalo.", "in": [],
+		"out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"], ["meses", NUM, "meses"], ["regalo", BOOL, "regalo"]],
+		"params": [],
+	},
+	"tw_ev_follow": {
+		"cat": "twitch", "event": true, "title": "Al seguir el canal",
+		"help": "Un espectador nuevo sigue el canal.", "in": [],
+		"out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"]], "params": [],
+	},
+	"tw_ev_raid": {
+		"cat": "twitch", "event": true, "title": "Al llegar una raid",
+		"help": "Otro canal llega con sus espectadores.", "in": [],
+		"out": [["out", EXEC, ""], ["canal", TEXT, "canal"], ["espectadores", NUM, "espectadores"]],
+		"params": [["minimo", "number", "Desde (espectadores)", 1]],
+	},
+	"tw_ev_canje": {
+		"cat": "twitch", "event": true, "title": "Al canjear una recompensa",
+		"help": "Puntos de canal: la recompensa la crea el bloque «Crear recompensa». Solo Afiliados y Partners.",
+		"in": [], "out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"], ["canje", TEXT, "canje"]],
+		"params": [["recompensa", "text", "Recompensa", "Girar la ruleta"]],
+	},
+	"tw_ev_hype": {
+		"cat": "twitch", "event": true, "title": "Hype Train",
+		"help": "Empieza, sube de nivel o termina el Hype Train del canal.", "in": [],
+		"out": [["out", EXEC, ""], ["nivel", NUM, "nivel"]],
+		"params": [["fase", "choice:empieza,sube de nivel,termina", "Cuándo", "empieza"]],
+	},
+	"tw_ev_anuncio": {
+		"cat": "twitch", "event": true, "title": "Al empezar un anuncio",
+		"help": "Ideal para pausar o lanzar una votación mientras pasan los anuncios.", "in": [],
+		"out": [["out", EXEC, ""], ["segundos", NUM, "segundos"]], "params": [],
+	},
+	"tw_ev_conexion": {
+		"cat": "twitch", "event": true, "title": "Al conectarse el chat",
+		"help": "Cuando el chat (real o de prueba) empieza a llegar.", "in": [],
+		"out": [["out", EXEC, ""]], "params": [],
+	},
+	"tw_ev_moderacion": {
+		"cat": "twitch", "event": true, "title": "Al borrar un mensaje o banear",
+		"help": "Un moderador borra un mensaje o expulsa a alguien. Ideal para retirar su ficha de la mesa.",
+		"in": [], "out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"]], "params": [],
+	},
+	"tw_ev_sorteo": {
+		"cat": "twitch", "event": true, "title": "Al terminar un sorteo",
+		"help": "Cuando acaba el sorteo con ese nombre. Ganador vacío = nadie participó.",
+		"in": [], "out": [["out", EXEC, ""], ["ganador", TEXT, "ganador"], ["participantes", NUM, "participantes"]],
+		"params": [["nombre", "text", "Sorteo", "sorteo"]],
+	},
+	"tw_ev_temporizador": {
+		"cat": "twitch", "event": true, "title": "Al acabar la cuenta atrás",
+		"help": "Cuando llega a cero la cuenta atrás visible con ese nombre.",
+		"in": [], "out": [["out", EXEC, ""]],
+		"params": [["nombre", "text", "Cuenta atrás", "ronda"]],
+	},
+	"tw_ev_apuesta": {
+		"cat": "twitch", "event": true, "title": "Al cerrar las apuestas",
+		"help": "Se acaba el tiempo para apostar; el bote queda guardado hasta «Pagar la apuesta».",
+		"in": [], "out": [["out", EXEC, ""], ["bote", NUM, "bote"], ["apostantes", NUM, "apostantes"]],
+		"params": [["nombre", "text", "Apuesta", "apuesta"]],
+	},
+	# Acciones
+	"tw_votacion": {
+		"cat": "twitch", "title": "Abrir votación",
+		"help": "El chat vota con !1, !2… Si le das piezas, cada opción lleva su número encima. Con peso, cada 100 bits o 10 monedas valen un voto más.",
+		"in": [["in", EXEC, ""], ["piezas", LIST, "piezas"]], "out": [["out", EXEC, ""]],
+		"params": [["nombre", "text", "Votación", "votación"], ["pregunta", "text", "Pregunta", "¿Qué hace el dragón?"], ["opciones", "text", "Opciones (separadas por comas)", "Atacar,Defender,Huir"], ["segundos", "number", "Segundos", 20], ["peso", "choice:uno por persona,bits,monedas", "Peso del voto", "uno por persona"]],
+	},
+	"tw_cerrar_votacion": {
+		"cat": "twitch", "title": "Cerrar la votación ya",
+		"help": "Cierra la votación abierta sin esperar al tiempo.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]], "params": [],
+	},
+	"tw_mostrar_chat": {
+		"cat": "twitch", "title": "Mostrar el chat",
+		"help": "El chat dentro del juego. Respeta la moderación y el filtro de palabras del streamer.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["estilo", "choice:panel lateral,marquesina,pizarra,cartas que caen,bocadillos sobre fichas,solo reacciones", "Estilo", "panel lateral"], ["lado", "choice:derecha,izquierda", "Lado", "derecha"], ["mensajes", "choice:sin comandos,todo,solo comandos", "Mensajes", "sin comandos"]],
+	},
+	"tw_ocultar_chat": {
+		"cat": "twitch", "title": "Ocultar el chat",
+		"help": "Quita el chat de la pantalla.", "in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]], "params": [],
+	},
+	"tw_alerta": {
+		"cat": "twitch", "title": "Mostrar alerta",
+		"help": "Aviso grande en pantalla. Usa {usuario} y {cantidad} en el texto.",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["cantidad", NUM, "cantidad"]], "out": [["out", EXEC, ""]],
+		"params": [["texto", "text", "Texto", "¡{usuario} anima con {cantidad} bits!"], ["segundos", "number", "Segundos", 4], ["sonido", "choice:fanfarria,pop,ninguno", "Sonido", "fanfarria"]],
+	},
+	"tw_meta": {
+		"cat": "twitch", "title": "Barra de meta",
+		"help": "Una barra de progreso en pantalla. «Sumar» va acumulando (bits, subs…); «al llenarse» sigue una vez al llegar al máximo.",
+		"in": [["in", EXEC, ""], ["valor", NUM, "valor"]], "out": [["out", EXEC, ""], ["llena", EXEC, "al llenarse"]],
+		"params": [["nombre", "text", "Meta", "Despertar al dragón"], ["maximo", "number", "Máximo", 500], ["modo", "choice:poner,sumar", "El valor", "poner"]],
+	},
+	"tw_monedas": {
+		"cat": "twitch", "title": "Dar monedas al espectador",
+		"help": "Monedas del juego (no de Twitch). Una cantidad negativa las quita.",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["cantidad", NUM, "cantidad"]], "out": [["out", EXEC, ""]],
+		"params": [["cantidad", "number", "Cantidad", 1]],
+	},
+	"tw_equipo": {
+		"cat": "twitch", "title": "Asignar a un equipo",
+		"help": "El espectador pasa a ese equipo.",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["equipo", TEXT, "equipo"]], "out": [["out", EXEC, ""]],
+		"params": [["equipo", "text", "Equipo", "rojo"]],
+	},
+	"tw_ficha": {
+		"cat": "twitch", "title": "Dar ficha al espectador",
+		"help": "Le asigna una pieza libre con esa etiqueta y escribe su nombre encima.",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["etiqueta", TEXT, "etiqueta"]], "out": [["out", EXEC, ""], ["pieza", PIECE, "pieza"]],
+		"params": [["etiqueta", "tag", "Etiqueta de las fichas", "espectador"]],
+	},
+	"tw_recompensa": {
+		"cat": "twitch", "title": "Crear recompensa",
+		"help": "Recompensa de puntos de canal mientras dura la partida. Solo Afiliados y Partners.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["titulo", "text", "Título", "Girar la ruleta"], ["coste", "number", "Coste (puntos)", 500]],
+	},
+	"tw_escribir": {
+		"cat": "twitch", "title": "Escribir en el chat",
+		"help": "El juego escribe en el chat del canal (un mensaje cada 3 s como mucho). El streamer puede desactivarlo.",
+		"in": [["in", EXEC, ""], ["texto", TEXT, "texto"]], "out": [["out", EXEC, ""]], "params": [],
+	},
+	"tw_si_rol": {
+		"cat": "twitch", "title": "Si el espectador es…",
+		"help": "Elige un camino según el rol del espectador en el chat.",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"]], "out": [["si", EXEC, "sí"], ["no", EXEC, "no"]],
+		"params": [["rol", "choice:suscriptor,VIP,moderador,streamer", "Rol", "suscriptor"]],
+	},
+	"tw_comando_activo": {
+		"cat": "twitch", "title": "Activar o desactivar comando",
+		"help": "Un comando solo funciona en ciertas fases: !atacar solo en combate.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["comando", "text", "Comando", "!ataque"], ["activo", "bool", "Activo", true]],
+	},
+	"tw_sorteo": {
+		"cat": "twitch", "title": "Hacer un sorteo",
+		"help": "Participa quien escribe la palabra; al acabar sale uno al azar (evento «Al terminar un sorteo»).",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["nombre", "text", "Sorteo", "sorteo"], ["palabra", "text", "Palabra", "!participo"], ["segundos", "number", "Segundos", 30], ["quien", "choice:todos,suscriptores,VIP,moderadores", "Quién puede", "todos"]],
+	},
+	"tw_marcador": {
+		"cat": "twitch", "title": "Marcador de equipos",
+		"help": "Monedas de cada equipo del chat, siempre visibles y al día.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["equipos", "text", "Equipos (separados por comas)", "rojo,azul"], ["visible", "bool", "Visible", true]],
+	},
+	"tw_destacar": {
+		"cat": "twitch", "title": "Destacar mensaje",
+		"help": "Enseña en grande el último mensaje de ese espectador unos segundos.",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"]], "out": [["out", EXEC, ""]],
+		"params": [["segundos", "number", "Segundos", 5]],
+	},
+	"tw_temporizador": {
+		"cat": "twitch", "title": "Cuenta atrás visible",
+		"help": "Un reloj en pantalla. Al llegar a cero dispara «Al acabar la cuenta atrás».",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["nombre", "text", "Cuenta atrás", "ronda"], ["texto", "text", "Texto", "Ronda"], ["segundos", "number", "Segundos", 60]],
+	},
+	"tw_responder": {
+		"cat": "twitch", "title": "Responder al espectador",
+		"help": "Escribe en el chat mencionando al espectador (@nombre). Mismos límites que «Escribir en el chat».",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["texto", TEXT, "texto"]], "out": [["out", EXEC, ""]], "params": [],
+	},
+	"tw_canje_resultado": {
+		"cat": "twitch", "title": "Completar o devolver canje",
+		"help": "Si el juego no puede aplicar el canje, devuelve los puntos al espectador. Sin este bloque se completan solos.",
+		"in": [["in", EXEC, ""], ["canje", TEXT, "canje"]], "out": [["out", EXEC, ""]],
+		"params": [["accion", "choice:completar,devolver", "Qué hacer", "completar"]],
+	},
+	"tw_limite": {
+		"cat": "twitch", "title": "Límite por minuto",
+		"help": "Deja pasar la cadena como mucho estas veces por minuto; las demás van por «no».",
+		"in": [["in", EXEC, ""]], "out": [["si", EXEC, "sí"], ["no", EXEC, "no"]],
+		"params": [["veces", "number", "Veces por minuto", 10]],
+	},
+	"tw_enfriamiento": {
+		"cat": "twitch", "title": "Enfriamiento",
+		"help": "Deja pasar la cadena y luego la bloquea estos segundos (para todo el chat o por espectador).",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"]], "out": [["si", EXEC, "sí"], ["no", EXEC, "no"]],
+		"params": [["segundos", "number", "Segundos", 30], ["por", "choice:todo el chat,espectador", "Para", "todo el chat"]],
+	},
+	"tw_apuesta": {
+		"cat": "twitch", "title": "Abrir apuestas",
+		"help": "El chat apuesta monedas del juego con !apuesta <opción> <monedas>. Se pagan con «Pagar la apuesta».",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["nombre", "text", "Apuesta", "apuesta"], ["pregunta", "text", "Pregunta", "¿Quién gana la ronda?"], ["opciones", "text", "Opciones (separadas por comas)", "Rojo,Azul"], ["segundos", "number", "Segundos", 60]],
+	},
+	"tw_pagar_apuesta": {
+		"cat": "twitch", "title": "Pagar la apuesta",
+		"help": "Reparte el bote entre quienes acertaron, según lo que apostó cada uno. Si nadie acertó, se devuelve todo.",
+		"in": [["in", EXEC, ""], ["ganadora", NUM, "ganadora"]], "out": [["out", EXEC, ""], ["ganadores", NUM, "ganadores"]],
+		"params": [["nombre", "text", "Apuesta", "apuesta"], ["ganadora", "number", "Opción ganadora", 1]],
+	},
+	"tw_lluvia_emotes": {
+		"cat": "twitch", "title": "Lluvia de emotes",
+		"help": "Los emotes del chat caen por la pantalla con su imagen de Twitch.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["activo", "bool", "Activa", true], ["maximo", "number", "Emotes por minuto", 60]],
+	},
+	"tw_bocadillo": {
+		"cat": "twitch", "title": "Bocadillo sobre una pieza",
+		"help": "Un texto corto encima de cualquier pieza unos segundos, como en un cómic.",
+		"in": [["in", EXEC, ""], ["pieza", PIECE, "pieza"], ["texto", TEXT, "texto"]], "out": [["out", EXEC, ""]],
+		"params": [["segundos", "number", "Segundos", 4]],
+	},
+	"tw_ayuda": {
+		"cat": "twitch", "title": "Mostrar los comandos",
+		"help": "Enseña la tarjeta de comandos del juego, la misma que sale con !ayuda.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]], "params": [],
+	},
+	"tw_pausar_recompensa": {
+		"cat": "twitch", "title": "Pausar recompensa",
+		"help": "Pausa o reanuda una recompensa de puntos de canal creada por el juego. Solo Afiliados y Partners.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["titulo", "text", "Recompensa", "Girar la ruleta"], ["pausada", "bool", "Pausada", true]],
+	},
+	# Datos
+	"tw_da_monedas": {
+		"cat": "twitch", "title": "Monedas de",
+		"help": "Monedas del juego de un espectador.",
+		"in": [["usuario", TEXT, "usuario"]], "out": [["monedas", NUM, "monedas"]], "params": [],
+	},
+	"tw_da_equipo": {
+		"cat": "twitch", "title": "Equipo de",
+		"help": "Equipo de un espectador (vacío si no tiene).",
+		"in": [["usuario", TEXT, "usuario"]], "out": [["equipo", TEXT, "equipo"]], "params": [],
+	},
+	"tw_da_puntos_equipo": {
+		"cat": "twitch", "title": "Monedas del equipo",
+		"help": "Suma de las monedas de todo un equipo.",
+		"in": [], "out": [["monedas", NUM, "monedas"]], "params": [["equipo", "text", "Equipo", "rojo"]],
+	},
+	"tw_da_ranking": {
+		"cat": "twitch", "title": "Ranking de espectadores",
+		"help": "Los que más monedas tienen, listos para escribir en una nota o una alerta.",
+		"in": [], "out": [["texto", TEXT, "ranking"]], "params": [["cuantos", "number", "Cuántos", 3]],
+	},
+	"tw_da_azar": {
+		"cat": "twitch", "title": "Espectador al azar",
+		"help": "Uno de los que han escrito en los últimos 10 minutos (de un equipo, si lo pones).",
+		"in": [], "out": [["usuario", TEXT, "usuario"]], "params": [["equipo", "text", "Equipo (opcional)", ""]],
+	},
+	"tw_da_activos": {
+		"cat": "twitch", "title": "Espectadores activos",
+		"help": "Cuántos han escrito en los últimos 10 minutos.",
+		"in": [], "out": [["cantidad", NUM, "activos"]], "params": [],
+	},
+	"tw_da_votos": {
+		"cat": "twitch", "title": "Votos de una opción",
+		"help": "Recuento en directo de la votación abierta.",
+		"in": [], "out": [["votos", NUM, "votos"]], "params": [["opcion", "number", "Opción", 1]],
+	},
+	"tw_da_ficha": {
+		"cat": "twitch", "title": "Ficha de",
+		"help": "La pieza que se dio a ese espectador.",
+		"in": [["usuario", TEXT, "usuario"]], "out": [["pieza", PIECE, "pieza"]], "params": [],
+	},
+	"tw_da_prueba": {
+		"cat": "twitch", "title": "¿Modo de prueba?",
+		"help": "Sí si no hay un directo de Twitch de verdad (chat de prueba o simulado).",
+		"in": [], "out": [["valor", BOOL, "sí/no"]], "params": [],
+	},
+	"tw_da_conectado": {
+		"cat": "twitch", "title": "¿Hay chat?",
+		"help": "Sí si llega el chat de Twitch o el chat de prueba. Para que el juego funcione también sin directo.",
+		"in": [], "out": [["si", BOOL, "sí/no"]], "params": [],
+	},
 	# ---------------------------------------------------------------- GDScript
 	"gd_bloque": {
 		"cat": "codigo", "title": "Bloque GDScript",
@@ -428,7 +731,7 @@ static func params(type: String) -> Array:
 
 
 static func is_event(type: String) -> bool:
-	return DEFS.has(type) and DEFS[type]["cat"] == "eventos"
+	return DEFS.has(type) and (DEFS[type]["cat"] == "eventos" or bool(DEFS[type].get("event", false)))
 
 
 ## Bloques que se calculan cuando se les pide un valor (sin flujo).

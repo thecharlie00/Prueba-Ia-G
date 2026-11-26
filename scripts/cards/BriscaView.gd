@@ -85,6 +85,9 @@ func _start_online() -> void:
 		_online_bots[0] = rbots.size() > 0 and bool(rbots[0])
 		_online_bots[1] = rbots.size() > 1 and bool(rbots[1])
 		set_vs_bot(_online_bots[1])
+		if ChatSeat.online_seat() == 1:
+			chat_seat = ChatSeat.new(1)
+			add_child(chat_seat)
 	else:
 		set_vs_bot(false)
 		if bot_toggle != null:
@@ -304,7 +307,7 @@ func _process(delta: float) -> void:
 		if _show_time <= 0.0:
 			finish_showing()
 		return
-	if is_bot_turn() and chat_seat != null and chat_seat.controls(rules.turn):
+	if is_bot_turn() and chat_seat != null and chat_seat.controls(rules.turn) and not _is_awaiting_sync():
 		if not chat_seat.busy:
 			chat_step()
 		return
@@ -338,7 +341,10 @@ func chat_step() -> void:
 		var card := cards[winner] if winner >= 0 and winner < cards.size() else TableBots.brisca_choice(rules, TableBots.difficulty)
 		if not rules.can_play(card):
 			card = TableBots.brisca_choice(rules, TableBots.difficulty)
-		play(card)
+		if online:
+			submit_change({"type": "play", "card": card}, seat)
+		else:
+			play(card)
 	)
 
 

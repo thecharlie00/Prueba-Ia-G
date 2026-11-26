@@ -121,6 +121,65 @@ func _run() -> void:
 		_check(int(plays["count"]) >= 3, "el chat juega cartas en Brisca (%d)" % int(plays["count"]))
 	twitch.set_simulated(false, false)
 
+
+	# Damas, dominó e isla: el chat decide; el otro asiento lo mueve el bot desde el test.
+	for case in [
+		["res://scenes/GuidedPhysicalCheckers.tscn", "damas"],
+		["res://scenes/GuidedDomino.tscn", "dominó"],
+		["res://scenes/IslandTwo.tscn", "isla"],
+	]:
+		twitch.set_simulated(true, false)
+		TableBots.solo = true
+		TableBots.chat_plays = true
+		change_scene_to_file(str(case[0]))
+		for i in 5:
+			await process_frame
+		var view: Node = current_scene
+		var chat: ChatSeat = view.get("chat_seat")
+		_check(chat != null, "el chat se sienta en %s" % case[1])
+		if chat == null:
+			continue
+		if view.has_method("set_bot"):
+			view.call("set_bot", true, 0)
+		var done := {"count": 0}
+		chat.finished.connect(func(_w: int) -> void: done["count"] += 1)
+		for i in 9000:
+			await physics_frame
+			if not view.has_method("set_bot"):
+				var rules: Variant = view.get("rules")
+				var my_turn := false
+				if rules is CheckersRules:
+					my_turn = (rules as CheckersRules).turn == CheckersRules.WHITE and (rules as CheckersRules).status() == "playing"
+				elif rules is DominoRules:
+					my_turn = (rules as DominoRules).turn == 0 and (rules as DominoRules).result == DominoRules.PLAYING
+				if my_turn and i % 20 == 0:
+					view.call("bot_step")
+			if int(done["count"]) >= 4:
+				break
+		_check(int(done["count"]) >= 4, "el chat decide en %s (%d)" % [case[1], int(done["count"])])
+		twitch.set_simulated(false, false)
+
+	# Salas online: «Añadir mi chat» ocupa un asiento libre y se retira.
+	var net: Node = root.get_node("Net")
+	var saved_players: Dictionary = (net.get("players") as Dictionary).duplicate()
+	var saved_seats := int(net.get("room_seats"))
+	net.call("reset_room_bots")
+	net.set("players", {1: "Ana"})
+	net.set("room_seats", 4)
+	net.call("_host_set_chat", 0, true)
+	_check(int(net.call("chat_owner", 1)) == 0, "el chat de J1 ocupa el primer asiento libre")
+	_check(bool((net.get("room_bots") as Array)[1]), "el asiento del chat cuenta como listo")
+	_check(int(net.call("chat_seat_of", 0)) == 1, "el streamer sabe dónde juega su chat")
+	(net.get("room_chats") as Array)[2] = 3
+	_check(2 in ChatSeat.remote_seats(), "los chats de otros streamers se ven como remotos")
+	_check(ChatSeat.seats_of_owner(4) == [2], "si se va J4, su chat pasa a bot")
+	_check(ChatSeat.is_room_chat(2) and not ChatSeat.is_room_chat(3), "asientos de chat de la sala")
+	net.call("_host_set_chat", 0, false)
+	_check(int(net.call("chat_owner", 1)) == -1 and not bool((net.get("room_bots") as Array)[1]), "quitar el chat libera el asiento")
+	net.call("reset_room_bots")
+	net.set("players", saved_players)
+	net.set("room_seats", saved_seats)
+
 	if _failures > 0:
 		push_error("twitch_chat: %d fallos" % _failures)
 		quit(1)

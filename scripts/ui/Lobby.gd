@@ -48,6 +48,8 @@ var _create_button: Button
 var _enter_button: Button
 var _enter_running_button: Button
 var _ready_button: Button
+## «Añadir mi chat de Twitch»: el chat del jugador ocupa un asiento libre de la sala.
+var _chat_button: Button
 var _start_button: Button
 var _leave_button: Button
 var _copy_code_button: Button
@@ -479,6 +481,10 @@ func _build() -> void:
 	_ready_button.custom_minimum_size = Vector2(200, 50)
 	_ready_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	MenuStyle.style_primary(_ready_button, 13, 6)
+	_chat_button = _button(room_actions, "Añadir mi chat de Twitch", "ChatToggle", _toggle_chat)
+	_chat_button.custom_minimum_size = Vector2(200, 50)
+	_chat_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	MenuStyle.style_secondary(_chat_button, 13, 6)
 
 	_start_button = _button(room_actions, "Empezar partida", "Start", _start)
 	_start_button.custom_minimum_size = Vector2(220, 52)
@@ -896,6 +902,11 @@ func _show_lobby() -> void:
 	else:
 		MenuStyle.style_primary(_ready_button, 13, 6)
 
+	var twitch := get_node_or_null("/root/Twitch")
+	var my_chat := Net.chat_seat_of(my_seat)
+	_chat_button.visible = twitch != null and bool(twitch.call("is_available")) and not in_room_started()
+	_chat_button.text = "Quitar mi chat de Twitch" if my_chat >= 0 else "Añadir mi chat de Twitch"
+
 	var all_ready := Net.are_all_guests_ready()
 	_start_button.visible = is_host and not in_room_started()
 	_start_button.disabled = _start_button.visible and (not _can_start() or not all_ready)
@@ -1037,6 +1048,12 @@ func _refresh_seats() -> void:
 				)
 				kick_btn.custom_minimum_size = Vector2(90, 34)
 				MenuStyle.style_secondary(kick_btn, 10, 4)
+		elif Net.chat_owner(seat) >= 0:
+			var owner := Net.chat_owner(seat)
+			seat_label.text = tr("Chat de Twitch de %s") % str(Net.players.get(owner + 1, "J%d" % (owner + 1)))
+			seat_label.add_theme_color_override("font_color", Palette.LAVENDER)
+			row.add_child(seat_label)
+			row.add_child(MenuStyle.make_pill("✓ Chat listo", READY_COLOR, Palette.INK, 11, 9, 2))
 		else:
 			var is_bot: bool = seat < Net.room_bots.size() and Net.room_bots[seat]
 			seat_label.text = "Bot automático" if is_bot else "Asiento libre"
@@ -1057,6 +1074,10 @@ func _refresh_seats() -> void:
 				bot_check.toggled.connect(_on_seat_bot_toggled.bind(seat))
 				row.add_child(bot_check)
 		_seats.add_child(seat_card)
+
+
+func _toggle_chat() -> void:
+	Net.request_chat(Net.chat_seat_of(Net.local_seat()) < 0)
 
 
 func _on_seat_bot_toggled(enabled: bool, seat: int) -> void:

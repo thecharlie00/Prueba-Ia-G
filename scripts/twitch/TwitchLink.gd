@@ -17,6 +17,9 @@ signal chat_message(message: Dictionary)
 signal moderation(message_id: String, user_id: String)
 ## Código para escribir en twitch.tv/activate mientras se espera la autorización.
 signal device_code(user_code: String, uri: String)
+## Evento del canal para los bloques de los juegos de la comunidad: «bits», «sub», «follow»,
+## «raid», «canje», «hype» o «anuncio», con sus datos ya normalizados.
+signal channel_event(kind: String, data: Dictionary)
 
 enum { OFFLINE, WAITING_CODE, CONNECTING, CONNECTED, ERROR }
 const STATE_NAMES := ["offline", "waiting_code", "connecting", "connected", "error"]
@@ -30,6 +33,28 @@ const VALIDATE_URL := "https://id.twitch.tv/oauth2/validate"
 const HELIX := "https://api.twitch.tv/helix"
 const EVENTSUB_URL := "wss://eventsub.wss.twitch.tv/ws"
 const SUBSCRIPTIONS := ["channel.chat.message", "channel.chat.message_delete", "channel.chat.clear_user_messages", "channel.chat.clear"]
+## Eventos del canal: [tipo, versión, permiso necesario ("" si ninguno), campo de la condición].
+const CHANNEL_SUBSCRIPTIONS := [
+	["channel.cheer", "1", "bits:read", "broadcaster_user_id"],
+	["channel.subscribe", "1", "channel:read:subscriptions", "broadcaster_user_id"],
+	["channel.subscription.message", "1", "channel:read:subscriptions", "broadcaster_user_id"],
+	["channel.subscription.gift", "1", "channel:read:subscriptions", "broadcaster_user_id"],
+	["channel.follow", "2", "moderator:read:followers", "broadcaster_user_id"],
+	["channel.raid", "1", "", "to_broadcaster_user_id"],
+	["channel.channel_points_custom_reward_redemption.add", "1", "channel:manage:redemptions", "broadcaster_user_id"],
+	["channel.hype_train.begin", "1", "channel:read:hype_train", "broadcaster_user_id"],
+	["channel.hype_train.progress", "1", "channel:read:hype_train", "broadcaster_user_id"],
+	["channel.hype_train.end", "1", "channel:read:hype_train", "broadcaster_user_id"],
+	["channel.ad_break.begin", "1", "channel:read:ads", "broadcaster_user_id"],
+]
+## Permiso que pide cada evento o acción de los bloques.
+const SCOPE_FOR := {
+	"bits": "bits:read", "sub": "channel:read:subscriptions", "follow": "moderator:read:followers",
+	"canje": "channel:manage:redemptions", "recompensa": "channel:manage:redemptions",
+	"hype": "channel:read:hype_train", "anuncio": "channel:read:ads", "escribir": "user:write:chat",
+}
+## Un mensaje del juego en el chat cada 3 segundos como mucho.
+const SEND_INTERVAL := 3.0
 ## Mensajes recordados para no procesar dos veces el mismo id.
 const SEEN_LIMIT := 400
 
@@ -43,6 +68,30 @@ var simulated := false
 var simulated_vote_options := 0
 ## Segundos de cada votación del chat (ajuste del streamer).
 var vote_seconds := 20
+## Permisos extra que han pedido los juegos (se piden al volver a conectar).
+var wanted_scopes: Array[String] = []
+## Permisos que Twitch ha concedido de verdad.
+var granted_scopes: Array[String] = []
+## Palabras que el chat nunca enseña en pantalla (ajuste del streamer).
+var blocked_words: Array[String] = []
+## Los juegos de la comunidad pueden escribir en el chat (ajuste del streamer).
+var allow_game_messages := false
+## Cómo decide el chat en su turno: «democracia» (gana la más votada al acabar el tiempo) o
+## «anarquía» (el primer voto válido juega al momento). Ajuste del streamer.
+var decision_mode := "democracia"
+## El chat de prueba del creador está abierto (cuenta como chat disponible).
+var test_chat := false
+## Quién puede votar en las votaciones del chat: todos, suscriptores, VIP o moderadores (ajuste del streamer).
+var vote_who := "todos"
+## Enseñar los nombres del chat en pantalla; si no, sale «Espectador» (ajuste del streamer).
+var show_names := true
+## Los juegos de la comunidad reciben bits, subs, raids, canjes… (ajuste del streamer).
+var allow_community_events := true
+## Los canjes se completan solos; un juego que decide completar o devolver lo apaga.
+var auto_fulfill := true
+## Recompensas de puntos de canal creadas en esta partida: título → id.
+var rewards := {}
+var _last_send := -1000.0
 
 var _access_token := ""
 var _refresh_token := ""
@@ -86,9 +135,9 @@ func is_connected_to_chat() -> bool:
 	return state == CONNECTED
 
 
-## Hay algún chat del que pueden llegar votos (real o simulado).
+## Hay algún chat del que pueden llegar votos (real, simulado o el chat de prueba del creador).
 func is_available() -> bool:
-	return state == CONNECTED or simulated
+	return state == CONNECTED or simulated or test_chat
 
 
 func state_name() -> String:
@@ -113,6 +162,13 @@ func _load() -> void:
 	user_id = str(config.get_value("auth", "user_id", ""))
 	simulated = bool(config.get_value("chat", "simulated", false))
 	vote_seconds = clampi(int(config.get_value("chat", "vote_seconds", 20)), 10, 60)
+	wanted_scopes.assign(config.get_value("auth", "extra_scopes", []))
+	blocked_words.assign(config.get_value("chat", "blocked_words", []))
+	allow_game_messages = bool(config.get_value("chat", "allow_game_messages", false))
+	vote_who = str(config.get_value("chat", "vote_who", "todos"))
+	decision_mode = str(config.get_value("chat", "decision_mode", "democracia"))
+	show_names = bool(config.get_value("chat", "show_names", true))
+	allow_community_events = bool(config.get_value("chat", "allow_community_events", true))
 
 
 func save() -> void:
@@ -123,6 +179,13 @@ func save() -> void:
 	config.set_value("auth", "user_id", user_id)
 	config.set_value("chat", "simulated", simulated)
 	config.set_value("chat", "vote_seconds", vote_seconds)
+	config.set_value("auth", "extra_scopes", wanted_scopes)
+	config.set_value("chat", "blocked_words", blocked_words)
+	config.set_value("chat", "allow_game_messages", allow_game_messages)
+	config.set_value("chat", "vote_who", vote_who)
+	config.set_value("chat", "decision_mode", decision_mode)
+	config.set_value("chat", "show_names", show_names)
+	config.set_value("chat", "allow_community_events", allow_community_events)
 	config.save(CONFIG_PATH)
 
 
@@ -150,7 +213,7 @@ func connect_account() -> void:
 		return
 	_cancel_device = false
 	_set_state(WAITING_CODE)
-	var response := await _post_form(DEVICE_URL, {"client_id": client_id(), "scopes": SCOPES})
+	var response := await _post_form(DEVICE_URL, {"client_id": client_id(), "scopes": _scope_string()})
 	if response["code"] != 200:
 		_set_state(ERROR, "Twitch no ha dado un código. Inténtalo de nuevo.")
 		return
@@ -169,7 +232,7 @@ func connect_account() -> void:
 		if _cancel_device:
 			break
 		var token := await _post_form(TOKEN_URL, {
-			"client_id": client_id(), "scopes": SCOPES, "device_code": device_code_value,
+			"client_id": client_id(), "scopes": _scope_string(), "device_code": device_code_value,
 			"grant_type": "urn:ietf:params:oauth:grant-type:device_code",
 		})
 		if token["code"] == 200:
@@ -243,6 +306,7 @@ func _validate_and_listen() -> void:
 		_set_state(ERROR, "La conexión con Twitch ha caducado. Vuelve a conectar.")
 		return
 	var body: Dictionary = check["json"]
+	granted_scopes.assign(body.get("scopes", []))
 	login = str(body.get("login", login))
 	user_id = str(body.get("user_id", user_id))
 	save()
@@ -339,6 +403,15 @@ func _subscribe_all() -> void:
 		var response := await _request(HELIX + "/eventsub/subscriptions", _helix_headers(), HTTPClient.METHOD_POST, JSON.stringify(body))
 		if response["code"] != 202 and type == "channel.chat.message":
 			ok = false
+	for entry: Array in CHANNEL_SUBSCRIPTIONS:
+		var scope := str(entry[2])
+		if not scope.is_empty() and scope not in granted_scopes:
+			continue
+		var condition := {str(entry[3]): user_id}
+		if str(entry[0]) == "channel.follow":
+			condition["moderator_user_id"] = user_id
+		var body := {"type": entry[0], "version": entry[1], "condition": condition, "transport": {"method": "websocket", "session_id": _session_id}}
+		await _request(HELIX + "/eventsub/subscriptions", _helix_headers(), HTTPClient.METHOD_POST, JSON.stringify(body))
 	if ok:
 		_set_state(CONNECTED)
 	else:
@@ -361,6 +434,12 @@ func _handle_event(type: String, event: Dictionary) -> void:
 			moderation.emit("", str(event.get("target_user_id", "")))
 		"channel.chat.clear":
 			moderation.emit("", "")
+		_:
+			var normalized := normalize_channel_event(type, event)
+			if not normalized.is_empty():
+				channel_event.emit(str(normalized["kind"]), normalized)
+				if str(normalized["kind"]) == "canje" and auto_fulfill:
+					_fulfill(str(event.get("id", "")), str((event.get("reward", {}) as Dictionary).get("id", "")))
 
 
 ## Convierte el evento de Twitch en un mensaje del juego.
@@ -393,6 +472,158 @@ static func normalize_message(event: Dictionary) -> Dictionary:
 	}
 
 
+## Convierte un evento del canal en datos para los bloques ({} si no es de los que se usan).
+static func normalize_channel_event(type: String, event: Dictionary) -> Dictionary:
+	var user := str(event.get("user_name", "")) if event.get("user_name") != null else ""
+	match type:
+		"channel.cheer":
+			return {"kind": "bits", "usuario": user if not user.is_empty() else "Anónimo", "cantidad": int(event.get("bits", 0))}
+		"channel.subscribe":
+			if bool(event.get("is_gift", false)):
+				return {}
+			return {"kind": "sub", "usuario": user, "meses": 1, "regalo": false}
+		"channel.subscription.message":
+			return {"kind": "sub", "usuario": user, "meses": int(event.get("cumulative_months", 1)), "regalo": false}
+		"channel.subscription.gift":
+			return {"kind": "sub", "usuario": user if not user.is_empty() else "Anónimo", "meses": int(event.get("total", 1)), "regalo": true}
+		"channel.follow":
+			return {"kind": "follow", "usuario": user}
+		"channel.raid":
+			return {"kind": "raid", "canal": str(event.get("from_broadcaster_user_name", "")), "espectadores": int(event.get("viewers", 0))}
+		"channel.channel_points_custom_reward_redemption.add":
+			var reward: Dictionary = event.get("reward", {})
+			return {"kind": "canje", "usuario": user, "recompensa": str(reward.get("title", "")), "id": str(event.get("id", "")), "reward_id": str(reward.get("id", ""))}
+		"channel.hype_train.begin":
+			return {"kind": "hype", "fase": "empieza", "nivel": int(event.get("level", 1))}
+		"channel.hype_train.progress":
+			return {"kind": "hype", "fase": "sube de nivel", "nivel": int(event.get("level", 1))}
+		"channel.hype_train.end":
+			return {"kind": "hype", "fase": "termina", "nivel": int(event.get("level", 1))}
+		"channel.ad_break.begin":
+			return {"kind": "anuncio", "segundos": int(event.get("duration_seconds", 0))}
+	return {}
+
+
+## Permisos que faltan para estos usos («bits», «canje»…). Los apunta para la próxima conexión.
+func request_scopes(uses: Array) -> Array[String]:
+	var missing: Array[String] = []
+	for use: Variant in uses:
+		var scope := str(SCOPE_FOR.get(str(use), ""))
+		if scope.is_empty():
+			continue
+		if scope not in wanted_scopes:
+			wanted_scopes.append(scope)
+		if state == CONNECTED and scope not in granted_scopes and scope not in missing:
+			missing.append(scope)
+	save()
+	return missing
+
+
+func _scope_string() -> String:
+	var scopes: Array[String] = [SCOPES]
+	for scope in wanted_scopes:
+		if scope not in scopes:
+			scopes.append(scope)
+	return " ".join(scopes)
+
+
+## ¿Lo enseñaría el chat en pantalla? (filtro de palabras del streamer)
+func is_blocked(text: String) -> bool:
+	var lower := text.to_lower()
+	for word in blocked_words:
+		if not word.is_empty() and lower.contains(word.to_lower()):
+			return true
+	return false
+
+
+## Evento del canal de mentira (chat de prueba y tests).
+func inject_event(kind: String, data: Dictionary) -> void:
+	var event := data.duplicate()
+	event["kind"] = kind
+	event["simulated"] = true
+	channel_event.emit(kind, event)
+
+
+## Crea una recompensa de puntos de canal para esta partida (solo canales Afiliados o Partners).
+func create_reward(title: String, cost: int) -> bool:
+	if rewards.has(title):
+		return true
+	if state != CONNECTED or "channel:manage:redemptions" not in granted_scopes:
+		rewards[title] = ""
+		return false
+	var body := {"title": title.left(45), "cost": maxi(cost, 1), "is_enabled": true}
+	var response := await _request(HELIX + "/channel_points/custom_rewards?broadcaster_id=" + user_id, _helix_headers(), HTTPClient.METHOD_POST, JSON.stringify(body))
+	if response["code"] != 200:
+		return false
+	var data: Array = (response["json"] as Dictionary).get("data", [])
+	rewards[title] = str((data[0] as Dictionary).get("id", "")) if not data.is_empty() else ""
+	return true
+
+
+## Pausa o reanuda una recompensa creada por la partida.
+func pause_reward(title: String, paused: bool) -> void:
+	var id := str(rewards.get(title, ""))
+	if id.is_empty() or state != CONNECTED:
+		return
+	_request(HELIX + "/channel_points/custom_rewards?broadcaster_id=%s&id=%s" % [user_id, id], _helix_headers(), HTTPClient.METHOD_PATCH, JSON.stringify({"is_paused": paused}))
+
+
+## Borra las recompensas creadas por la partida (al terminar de jugar).
+func clear_rewards() -> void:
+	for title: Variant in rewards.keys():
+		var id := str(rewards[title])
+		if not id.is_empty() and state == CONNECTED:
+			_request(HELIX + "/channel_points/custom_rewards?broadcaster_id=%s&id=%s" % [user_id, id], _helix_headers(), HTTPClient.METHOD_DELETE)
+	rewards.clear()
+
+
+func _fulfill(redemption_id: String, reward_id: String, refund := false) -> void:
+	if redemption_id.is_empty() or reward_id.is_empty() or reward_id not in rewards.values() or state != CONNECTED:
+		return
+	var url := HELIX + "/channel_points/custom_rewards/redemptions?broadcaster_id=%s&reward_id=%s&id=%s" % [user_id, reward_id, redemption_id]
+	_request(url, _helix_headers(), HTTPClient.METHOD_PATCH, JSON.stringify({"status": "CANCELED" if refund else "FULFILLED"}))
+
+
+## Completa o devuelve un canje. `token` es «id|reward_id», como lo da el bloque «Al canjear».
+func resolve_redemption(token: String, refund: bool) -> void:
+	var parts := token.split("|")
+	if parts.size() == 2:
+		_fulfill(parts[0], parts[1], refund)
+
+
+## Quién puede votar según los ajustes del streamer.
+func can_vote(badges: Array) -> bool:
+	match vote_who:
+		"suscriptores":
+			return "subscriber" in badges or "founder" in badges or "broadcaster" in badges
+		"VIP":
+			return "vip" in badges or "subscriber" in badges or "founder" in badges or "moderator" in badges or "broadcaster" in badges
+		"moderadores":
+			return "moderator" in badges or "broadcaster" in badges
+	return true
+
+
+## Nombre que se enseña en pantalla (o «Espectador» si el streamer lo oculta).
+func display_name(name: String) -> String:
+	return name if show_names else tr("Espectador")
+
+
+## Escribe en el chat del canal (si el streamer lo permite). Un mensaje cada 3 s como mucho.
+func send_chat(text: String) -> bool:
+	var now := Time.get_ticks_msec() / 1000.0
+	if not allow_game_messages or text.strip_edges().is_empty() or now - _last_send < SEND_INTERVAL:
+		return false
+	_last_send = now
+	if simulated and state != CONNECTED:
+		inject("Tablerama", text.left(300), ["broadcaster"])
+		return true
+	if state != CONNECTED or "user:write:chat" not in granted_scopes:
+		return false
+	var body := {"broadcaster_id": user_id, "sender_id": user_id, "message": text.left(500)}
+	_request(HELIX + "/chat/messages", _helix_headers(), HTTPClient.METHOD_POST, JSON.stringify(body))
+	return true
+
+
 func _deliver(message: Dictionary) -> void:
 	var id := str(message.get("id", ""))
 	if id in _seen:
@@ -406,6 +637,18 @@ func _deliver(message: Dictionary) -> void:
 # --- Chat simulado ----------------------------------------------------------------
 
 ## Mete un mensaje como si viniera del chat (chat simulado y tests).
+## Emotes globales de Twitch que el chat de prueba reconoce en el texto (código → id).
+const SIM_EMOTES := {"Kappa": "25", "<3": "9", "LUL": "425618", "PogChamp": "305954156", "HeyGuys": "30259", "BibleThump": "86"}
+
+
+static func sim_emotes(text: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for word in text.split(" ", false):
+		if SIM_EMOTES.has(word):
+			result.append({"id": str(SIM_EMOTES[word]), "code": word})
+	return result
+
+
 func inject(name: String, text: String, badges: Array[String] = []) -> Dictionary:
 	_sim_count += 1
 	var message := {
@@ -416,7 +659,7 @@ func inject(name: String, text: String, badges: Array[String] = []) -> Dictionar
 		"color": SIM_COLORS[absi(name.hash()) % SIM_COLORS.size()],
 		"badges": badges,
 		"text": text,
-		"emotes": [],
+		"emotes": sim_emotes(text),
 		"simulated": true,
 	}
 	_deliver(message)
@@ -498,6 +741,11 @@ func make_settings_row(label_color: Color) -> Control:
 	sim.add_theme_color_override("font_color", label_color)
 	sim.toggled.connect(func(on: bool) -> void: set_simulated(on))
 	box.add_child(sim)
+	var options := Button.new()
+	options.name = "TwitchLiveOptions"
+	options.text = "Opciones del directo…"
+	options.pressed.connect(func() -> void: open_live_options(box))
+	box.add_child(options)
 	var code := {"text": ""}
 	var refresh := func() -> void:
 		match state:
@@ -540,3 +788,129 @@ func make_settings_row(label_color: Color) -> Control:
 	)
 	refresh.call()
 	return box
+
+
+# --- Opciones del directo ----------------------------------------------------------
+
+const VOTE_TIMES := [10, 15, 20, 30, 45, 60]
+const VOTE_WHO := ["todos", "suscriptores", "VIP", "moderadores"]
+const DECISION_MODES := ["democracia", "anarquía"]
+
+
+## Ventana con los ajustes del directo: votaciones, nombres, filtro de palabras y qué
+## pueden hacer los juegos de la comunidad con el canal.
+func open_live_options(from: Node) -> CanvasLayer:
+	var layer := CanvasLayer.new()
+	layer.name = "TwitchLiveOptionsLayer"
+	layer.layer = 90
+	from.get_tree().root.add_child(layer)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(dim)
+	var panel := PanelContainer.new()
+	panel.name = "LiveOptions"
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	panel.custom_minimum_size = Vector2(520, 0)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Palette.PANEL
+	style.set_corner_radius_all(18)
+	style.set_border_width_all(4)
+	style.border_color = Palette.INK
+	style.set_content_margin_all(22)
+	panel.add_theme_stylebox_override("panel", style)
+	layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 10)
+	panel.add_child(column)
+	var title := Label.new()
+	title.text = "Opciones del directo"
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", Palette.LAVENDER)
+	column.add_child(title)
+	var add_row := func(text: String, control: Control) -> void:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		var label := Label.new()
+		label.text = text
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.add_theme_color_override("font_color", Palette.PAPER)
+		row.add_child(label)
+		control.custom_minimum_size.x = 200
+		row.add_child(control)
+		column.add_child(row)
+	var seconds := OptionButton.new()
+	seconds.name = "VoteSeconds"
+	for value: int in VOTE_TIMES:
+		seconds.add_item("%d s" % value)
+		if value == vote_seconds:
+			seconds.select(seconds.item_count - 1)
+	seconds.item_selected.connect(func(i: int) -> void: set_vote_seconds(VOTE_TIMES[i]))
+	add_row.call("Tiempo de votación", seconds)
+	var who := OptionButton.new()
+	who.name = "VoteWho"
+	for value: String in VOTE_WHO:
+		who.add_item(value)
+		if value == vote_who:
+			who.select(who.item_count - 1)
+	who.item_selected.connect(func(i: int) -> void:
+		vote_who = VOTE_WHO[i]
+		save()
+	)
+	add_row.call("Quién puede votar", who)
+	var mode := OptionButton.new()
+	mode.name = "DecisionMode"
+	for value: String in DECISION_MODES:
+		mode.add_item(value)
+		if value == decision_mode:
+			mode.select(mode.item_count - 1)
+	mode.tooltip_text = "Democracia: gana la jugada más votada. Anarquía: el primer voto juega al momento."
+	mode.item_selected.connect(func(i: int) -> void:
+		decision_mode = DECISION_MODES[i]
+		save()
+	)
+	add_row.call("Cómo decide el chat", mode)
+	var words := LineEdit.new()
+	words.name = "BlockedWords"
+	words.text = ", ".join(blocked_words)
+	words.placeholder_text = "palabra, otra palabra"
+	words.text_changed.connect(func(text: String) -> void:
+		var list: Array[String] = []
+		for word in text.split(",", false):
+			if not word.strip_edges().is_empty():
+				list.append(word.strip_edges())
+		blocked_words = list
+		save()
+	)
+	add_row.call("Palabras que nunca salen en pantalla", words)
+	var checks := [
+		["ShowNames", "Enseñar los nombres del chat en pantalla", show_names, func(on: bool) -> void: show_names = on],
+		["AllowEvents", "Los juegos de la comunidad reciben bits, subs, raids y canjes", allow_community_events, func(on: bool) -> void: allow_community_events = on],
+		["AllowMessages", "Los juegos de la comunidad pueden escribir en mi chat", allow_game_messages, func(on: bool) -> void: allow_game_messages = on],
+	]
+	for entry: Array in checks:
+		var check := CheckBox.new()
+		check.name = str(entry[0])
+		check.text = str(entry[1])
+		check.button_pressed = bool(entry[2])
+		check.add_theme_color_override("font_color", Palette.PAPER)
+		var setter: Callable = entry[3]
+		check.toggled.connect(func(on: bool) -> void:
+			setter.call(on)
+			save()
+		)
+		column.add_child(check)
+	var close := Button.new()
+	close.name = "Close"
+	close.text = "Listo"
+	close.size_flags_horizontal = Control.SIZE_SHRINK_END
+	close.pressed.connect(layer.queue_free)
+	column.add_child(close)
+	dim.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+			layer.queue_free()
+	)
+	close.grab_focus.call_deferred()
+	return layer

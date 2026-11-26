@@ -15,6 +15,7 @@ const METHODS := [
 	"bolsa_contar", "bolsa_sacar_azar", "bolsa_agregar",
 	"nota_leer", "nota_escribir",
 	"reloj_iniciar", "reloj_parar", "reloj_reiniciar", "reloj_tiempo",
+	"twitch_conectado", "monedas", "dar_monedas", "equipo", "espectadores", "ranking",
 ]
 
 const HELP := """mesa.piezas() → todas las piezas (ids)
@@ -30,7 +31,9 @@ mesa.mostrar("Reglas", true) · mesa.mensaje("¡Tu turno!")
 mesa.variable("turno") · mesa.guardar("turno", 2)
 mesa.jugador() → número del jugador del turno (1, 2…) · mesa.jugadores() · mesa.nombre_jugador(n)
 mesa.pasar_turno() · mesa.dar_turno(2) · mesa.mano() → zona de la mano del turno (o mesa.mano(n))
-mesa.rango(10) → [0..9] para «for» · mesa.azar(1, 6)"""
+mesa.rango(10) → [0..9] para «for» · mesa.azar(1, 6)
+mesa.twitch_conectado() · mesa.monedas("ana") · mesa.dar_monedas("ana", 5) · mesa.equipo("ana")
+mesa.espectadores() → quién ha escrito hace poco · mesa.ranking(3) → los que más monedas tienen"""
 
 
 func _editor() -> Node:
@@ -420,3 +423,46 @@ func reloj_tiempo(pieza: String) -> float:
 
 func azar(desde: int, hasta: int) -> int:
 	return randi_range(mini(desde, hasta), maxi(desde, hasta))
+
+
+# --- Twitch (solo si el juego usa bloques «Twitch») ---------------------------------
+
+func _twitch() -> TwitchBridge:
+	var e := _editor()
+	if e == null:
+		return null
+	var runner: Variant = e.get("_logic_runner")
+	return (runner as LogicRunner).twitch if runner is LogicRunner else null
+
+
+func twitch_conectado() -> bool:
+	var bridge := _twitch()
+	return bridge != null and bool(bridge.compute(0, {"type": "tw_da_conectado", "params": {}}))
+
+
+func monedas(usuario: String) -> int:
+	var bridge := _twitch()
+	return bridge.coins(usuario) if bridge != null else 0
+
+
+func dar_monedas(usuario: String, cantidad: int) -> int:
+	var bridge := _twitch()
+	if bridge == null or usuario.is_empty():
+		return 0
+	bridge._viewer(usuario)["coins"] = bridge.coins(usuario) + cantidad
+	return bridge.coins(usuario)
+
+
+func equipo(usuario: String) -> String:
+	var bridge := _twitch()
+	return str(bridge._viewer(usuario)["team"]) if bridge != null and not usuario.is_empty() else ""
+
+
+func espectadores() -> Array:
+	var bridge := _twitch()
+	return Array(bridge.active_viewers()) if bridge != null else []
+
+
+func ranking(cuantos := 3) -> String:
+	var bridge := _twitch()
+	return bridge.ranking(clampi(cuantos, 1, 20)) if bridge != null else ""

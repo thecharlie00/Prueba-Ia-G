@@ -18,6 +18,10 @@ const INTRO_TIME := 4.0
 var seat := -1
 var busy := false
 var vote: VoteRound
+## Respeta el modo «anarquía» del streamer (las votaciones de los juegos de la comunidad no).
+var allow_anarchy := true
+## La última votación terminada (para leer su recuento al acabar).
+var last_vote: VoteRound
 var _on_done: Callable
 var _targets: Array = []
 var _labels: Array[Label3D] = []
@@ -49,8 +53,53 @@ func _ready() -> void:
 		twitch.moderation.connect(_on_moderation)
 
 
+static func _net() -> Node:
+	var tree := Engine.get_main_loop() as SceneTree
+	return tree.root.get_node_or_null("Net") if tree != null else null
+
+
+## En una sala online: asiento donde juega el chat de este jugador, o -1.
+static func online_seat() -> int:
+	var net := _net()
+	if net == null:
+		return -1
+	return int(net.call("chat_seat_of", int(net.call("local_seat"))))
+
+
+## En una sala online: asientos del chat de otros streamers (los decide su ordenador).
+static func remote_seats() -> Array[int]:
+	var seats: Array[int] = []
+	var net := _net()
+	if net == null:
+		return seats
+	var mine := int(net.call("local_seat"))
+	for seat in 4:
+		var owner := int(net.call("chat_owner", seat))
+		if owner >= 0 and owner != mine:
+			seats.append(seat)
+	return seats
+
+
+## El asiento lo juega el chat de algún streamer de la sala.
+static func is_room_chat(seat: int) -> bool:
+	var net := _net()
+	return net != null and int(net.call("chat_owner", seat)) >= 0
+
+
+## Asientos de chat cuyo dueño es el jugador que se ha ido (para pasarlos a bot).
+static func seats_of_owner(player_id: int) -> Array[int]:
+	var seats: Array[int] = []
+	var net := _net()
+	if net == null:
+		return seats
+	for seat in 4:
+		if int(net.call("chat_owner", seat)) == player_id - 1:
+			seats.append(seat)
+	return seats
+
+
 func _twitch() -> Node:
-	return get_node_or_null("/root/Twitch")
+	return get_node_or_null("/root/Twitch") if is_inside_tree() else null
 
 
 func controls(player: int) -> bool:
@@ -75,6 +124,11 @@ func ask(question: String, labels: Array[String], targets: Array, on_done: Calla
 	vote = VoteRound.new(labels, seconds)
 	vote.tally_changed.connect(_refresh_panel)
 	vote.closed.connect(_on_closed)
+	if allow_anarchy and twitch != null and str(twitch.get("decision_mode")) == "anarquía":
+		vote.tally_changed.connect(func() -> void:
+			if vote != null and vote.is_open and vote.total() > 0:
+				vote.close()
+		)
 	vote.open()
 	twitch.set("simulated_vote_options", labels.size())
 	_targets = targets
@@ -119,7 +173,13 @@ func _process(delta: float) -> void:
 
 
 func _on_message(message: Dictionary) -> void:
+	var twitch := _twitch()
+	if twitch != null and not bool(twitch.call("can_vote", message.get("badges", []))):
+		return
 	if vote != null and vote.is_open:
+		if twitch != null and not bool(twitch.get("show_names")):
+			message = message.duplicate()
+			message["name"] = twitch.call("display_name", str(message.get("name", "")))
 		vote.feed(message)
 
 
@@ -148,6 +208,7 @@ func _finish(winner: int) -> void:
 	_hide()
 	var callback := _on_done
 	_on_done = Callable()
+	last_vote = vote
 	vote = null
 	finished.emit(winner)
 	if callback.is_valid():
@@ -274,7 +335,7 @@ func _build_panel() -> void:
 	_intro.anchor_top = 0.0
 	_intro.offset_left = -330.0
 	_intro.offset_right = 330.0
-	_intro.offset_top = 24.0
+	_intro.offset_top = 96.0
 	_intro.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_intro.add_theme_stylebox_override("panel", _box(Palette.SUN, 18, 4))
 	_intro.visible = false
