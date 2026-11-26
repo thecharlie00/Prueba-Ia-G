@@ -18,6 +18,8 @@ const INTRO_TIME := 4.0
 var seat := -1
 var busy := false
 var vote: VoteRound
+## La última votación terminada (para leer su recuento al acabar).
+var last_vote: VoteRound
 var _on_done: Callable
 var _targets: Array = []
 var _labels: Array[Label3D] = []
@@ -193,6 +195,7 @@ func _finish(winner: int) -> void:
 	_hide()
 	var callback := _on_done
 	_on_done = Callable()
+	last_vote = vote
 	vote = null
 	finished.emit(winner)
 	if callback.is_valid():
