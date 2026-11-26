@@ -120,6 +120,9 @@ func _start_online() -> void:
 		_online_bots[1] = rbots.size() > 1 and bool(rbots[1])
 		if _online_bots[1]:
 			set_bot_enabled(true)
+		if ChatSeat.online_seat() == 1:
+			chat_seat = ChatSeat.new(1)
+			add_child(chat_seat)
 	else:
 		if _bot_toggle != null:
 			_bot_toggle.disabled = true
@@ -210,7 +213,7 @@ func _process(delta: float) -> void:
 	if not is_bot_turn() or is_instance_valid(grabber.held) or is_instance_valid(_dragged):
 		_bot_wait = 0.0
 		return
-	if chat_seat != null and not online and rules.turn == CheckersRules.BLACK:
+	if chat_seat != null and rules.turn == CheckersRules.BLACK and not _is_awaiting_sync():
 		if not chat_seat.busy:
 			chat_step()
 		return
@@ -272,6 +275,9 @@ func _chat_destination(from: int) -> void:
 			legal = legal or int(move["to"]) == to
 		if not legal:
 			bot_step()
+			return
+		if online:
+			submit_change({"type": "move", "from": from, "to": to}, 1)
 			return
 		if _apply_move(from, to, _token_at_square(from)):
 			$UI/Panel/Margin/Content/Help.text = tr("El chat mueve de %s a %s.") % [square_name(from), square_name(to)]

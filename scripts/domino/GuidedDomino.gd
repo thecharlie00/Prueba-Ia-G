@@ -116,6 +116,9 @@ func _start_online() -> void:
 		_online_bots[1] = rbots.size() > 1 and bool(rbots[1])
 		if _online_bots[1]:
 			set_bot_enabled(true)
+		if ChatSeat.online_seat() == 1:
+			chat_seat = ChatSeat.new(1)
+			add_child(chat_seat)
 	else:
 		if _bot_toggle != null:
 			_bot_toggle.disabled = true
@@ -247,7 +250,7 @@ func _process(delta: float) -> void:
 	if not is_bot_turn() or is_instance_valid(grabber.held):
 		_bot_wait = 0.0
 		return
-	if chat_seat != null and not online and chat_seat.controls(rules.turn):
+	if chat_seat != null and chat_seat.controls(rules.turn) and not _is_awaiting_sync():
 		if not chat_seat.busy:
 			chat_step()
 		return
@@ -300,6 +303,9 @@ func _chat_end(seat: int, id: int) -> void:
 		if rules.turn != seat or rules.result != DominoRules.PLAYING:
 			return
 		var end := ends[winner] if winner >= 0 and winner < ends.size() else ends[0]
+		if online:
+			submit_change({"type": "play", "id": id, "end": end}, seat)
+			return
 		if rules.play(id, end):
 			_sync_homes(false)
 			_refresh()

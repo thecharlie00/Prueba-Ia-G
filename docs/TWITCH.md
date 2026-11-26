@@ -19,6 +19,12 @@ los espectadores votan con `!1`, `!2`… entre las jugadas legales; si nadie vot
 3. Para probar sin estar en directo: **Ajustes › Twitch › Chat simulado para probar**. Unos
    espectadores de mentira escriben y votan.
 
+**En salas online**, cualquier streamer pulsa «Añadir mi chat de Twitch» en la sala de espera y su
+chat ocupa un asiento libre (si luego llega una persona a ese asiento, el chat se cambia a otro).
+Solo el ordenador de ese streamer lee su chat y abre la votación; la jugada ganadora viaja al
+anfitrión como cualquier otra y él la valida. Si el streamer se va, un bot toma el asiento de su chat.
+En las mesas de 2 jugadores solo cabe el chat del anfitrión («el anfitrión contra su chat»).
+
 Solo se pide el permiso `user:read:chat`. Los mensajes borrados y los usuarios baneados o
 expulsados por los moderadores pierden su voto.
 

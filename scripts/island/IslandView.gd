@@ -124,6 +124,12 @@ func _start_online() -> void:
 		for seat in range(mini(player_count, rbots.size())):
 			if bool(rbots[seat]):
 				set_bot(true, seat)
+	# Chat de Twitch: el anfitrión sigue llevando al bot en las fases sin decisión (colocación,
+	# dados, ladrón, descartes); la fase de acciones la decide el ordenador del dueño del chat.
+	var mine := ChatSeat.online_seat()
+	if mine >= 0 and mine < player_count:
+		chat_seat = ChatSeat.new(mine)
+		add_child(chat_seat)
 		_help("Eres el anfitrión: valida y difunde las acciones de la sala.")
 	else:
 		for toggle in bot_toggles:
@@ -138,6 +144,8 @@ func _start_online() -> void:
 func _on_net_player_left(player_id: int) -> void:
 	if online and net_table != null and net_table.is_host():
 		set_bot(true, player_id - 1)
+		for seat in ChatSeat.seats_of_owner(player_id):
+			set_bot(true, seat)
 
 
 ## El jugador local pide aplicar una acción (online). Devuelve false fuera de
@@ -471,13 +479,19 @@ func _process(delta: float) -> void:
 				if die.is_forced_rolling():
 					die._step_forced_roll(delta)
 		_check_forced_roll_done()
+	if (
+		chat_seat != null and rules.phase == IslandRules.ACTION and chat_seat.controls(rules.turn)
+		and not waiting_roll and not manual_roll and not is_instance_valid(grabber.held)
+		and not (online and net_table != null and not net_table.synced)
+	):
+		if not chat_seat.busy:
+			chat_step()
+		return
 	if not _bot_turn_active():
 		if _bot_wait > 0.0:
 			_bot_wait = 0.0
 		return
-	if chat_seat != null and not online and rules.phase == IslandRules.ACTION and chat_seat.controls(rules.turn):
-		if not chat_seat.busy:
-			chat_step()
+	if online and rules.phase == IslandRules.ACTION and rules.turn in ChatSeat.remote_seats():
 		return
 	_bot_wait += delta
 	if _bot_wait >= TableBots.think_time(TableBots.difficulty):
