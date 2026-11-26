@@ -106,3 +106,22 @@ ocultar nombres («Espectador»), si los juegos de la comunidad reciben bits/sub
 pueden escribir en el chat.
 
 Los juegos que usan bloques de Twitch se exportan con la etiqueta `para-streamers`.
+
+## Entrega 5: más espectáculo
+
+**Modo de decisión** (Opciones del directo → «Cómo decide el chat»): *democracia* (gana la jugada
+más votada al acabar el tiempo) o *anarquía* (el primer voto válido juega al momento). Solo afecta
+al asiento del chat en los juegos de Tablerama; las votaciones de los juegos de la comunidad
+siguen su propio tiempo.
+
+**Bloques nuevos (52 en total):**
+- *Abrir votación* tiene **peso del voto**: uno por persona, por bits (cada 100 bits dados en la
+  partida = un voto más) o por monedas (cada 10 monedas = un voto más).
+- **Apuestas:** *Abrir apuestas* (el chat escribe `!apuesta <opción> <monedas>`, una vez por
+  persona, y se cobra al momento), *Al cerrar las apuestas* (da el bote) y *Pagar la apuesta*
+  (reparte el bote entre los que acertaron según lo apostado; si nadie acierta, se devuelve).
+- **Lluvia de emotes:** los emotes del chat caen por la pantalla con su imagen del CDN de
+  Twitch (con caché y límite por minuto). El chat de prueba tiene un botón «Emotes» y reconoce
+  Kappa, <3, LUL, PogChamp, HeyGuys y BibleThump.
+- *Bocadillo sobre una pieza*, *Mostrar los comandos* (la tarjeta de `!ayuda`) y *Pausar
+  recompensa* (puntos de canal).

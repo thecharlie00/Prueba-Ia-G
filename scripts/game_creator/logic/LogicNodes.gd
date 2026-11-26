@@ -483,12 +483,18 @@ const DEFS := {
 		"in": [], "out": [["out", EXEC, ""]],
 		"params": [["nombre", "text", "Cuenta atrás", "ronda"]],
 	},
+	"tw_ev_apuesta": {
+		"cat": "twitch", "event": true, "title": "Al cerrar las apuestas",
+		"help": "Se acaba el tiempo para apostar; el bote queda guardado hasta «Pagar la apuesta».",
+		"in": [], "out": [["out", EXEC, ""], ["bote", NUM, "bote"], ["apostantes", NUM, "apostantes"]],
+		"params": [["nombre", "text", "Apuesta", "apuesta"]],
+	},
 	# Acciones
 	"tw_votacion": {
 		"cat": "twitch", "title": "Abrir votación",
-		"help": "El chat vota con !1, !2… Si le das piezas, cada opción lleva su número encima.",
+		"help": "El chat vota con !1, !2… Si le das piezas, cada opción lleva su número encima. Con peso, cada 100 bits o 10 monedas valen un voto más.",
 		"in": [["in", EXEC, ""], ["piezas", LIST, "piezas"]], "out": [["out", EXEC, ""]],
-		"params": [["nombre", "text", "Votación", "votación"], ["pregunta", "text", "Pregunta", "¿Qué hace el dragón?"], ["opciones", "text", "Opciones (separadas por comas)", "Atacar,Defender,Huir"], ["segundos", "number", "Segundos", 20]],
+		"params": [["nombre", "text", "Votación", "votación"], ["pregunta", "text", "Pregunta", "¿Qué hace el dragón?"], ["opciones", "text", "Opciones (separadas por comas)", "Atacar,Defender,Huir"], ["segundos", "number", "Segundos", 20], ["peso", "choice:uno por persona,bits,monedas", "Peso del voto", "uno por persona"]],
 	},
 	"tw_cerrar_votacion": {
 		"cat": "twitch", "title": "Cerrar la votación ya",
@@ -604,6 +610,41 @@ const DEFS := {
 		"help": "Deja pasar la cadena y luego la bloquea estos segundos (para todo el chat o por espectador).",
 		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"]], "out": [["si", EXEC, "sí"], ["no", EXEC, "no"]],
 		"params": [["segundos", "number", "Segundos", 30], ["por", "choice:todo el chat,espectador", "Para", "todo el chat"]],
+	},
+	"tw_apuesta": {
+		"cat": "twitch", "title": "Abrir apuestas",
+		"help": "El chat apuesta monedas del juego con !apuesta <opción> <monedas>. Se pagan con «Pagar la apuesta».",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["nombre", "text", "Apuesta", "apuesta"], ["pregunta", "text", "Pregunta", "¿Quién gana la ronda?"], ["opciones", "text", "Opciones (separadas por comas)", "Rojo,Azul"], ["segundos", "number", "Segundos", 60]],
+	},
+	"tw_pagar_apuesta": {
+		"cat": "twitch", "title": "Pagar la apuesta",
+		"help": "Reparte el bote entre quienes acertaron, según lo que apostó cada uno. Si nadie acertó, se devuelve todo.",
+		"in": [["in", EXEC, ""], ["ganadora", NUM, "ganadora"]], "out": [["out", EXEC, ""], ["ganadores", NUM, "ganadores"]],
+		"params": [["nombre", "text", "Apuesta", "apuesta"], ["ganadora", "number", "Opción ganadora", 1]],
+	},
+	"tw_lluvia_emotes": {
+		"cat": "twitch", "title": "Lluvia de emotes",
+		"help": "Los emotes del chat caen por la pantalla con su imagen de Twitch.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["activo", "bool", "Activa", true], ["maximo", "number", "Emotes por minuto", 60]],
+	},
+	"tw_bocadillo": {
+		"cat": "twitch", "title": "Bocadillo sobre una pieza",
+		"help": "Un texto corto encima de cualquier pieza unos segundos, como en un cómic.",
+		"in": [["in", EXEC, ""], ["pieza", PIECE, "pieza"], ["texto", TEXT, "texto"]], "out": [["out", EXEC, ""]],
+		"params": [["segundos", "number", "Segundos", 4]],
+	},
+	"tw_ayuda": {
+		"cat": "twitch", "title": "Mostrar los comandos",
+		"help": "Enseña la tarjeta de comandos del juego, la misma que sale con !ayuda.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]], "params": [],
+	},
+	"tw_pausar_recompensa": {
+		"cat": "twitch", "title": "Pausar recompensa",
+		"help": "Pausa o reanuda una recompensa de puntos de canal creada por el juego. Solo Afiliados y Partners.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["titulo", "text", "Recompensa", "Girar la ruleta"], ["pausada", "bool", "Pausada", true]],
 	},
 	# Datos
 	"tw_da_monedas": {

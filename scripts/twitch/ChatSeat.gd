@@ -18,6 +18,8 @@ const INTRO_TIME := 4.0
 var seat := -1
 var busy := false
 var vote: VoteRound
+## Respeta el modo «anarquía» del streamer (las votaciones de los juegos de la comunidad no).
+var allow_anarchy := true
 ## La última votación terminada (para leer su recuento al acabar).
 var last_vote: VoteRound
 var _on_done: Callable
@@ -122,6 +124,11 @@ func ask(question: String, labels: Array[String], targets: Array, on_done: Calla
 	vote = VoteRound.new(labels, seconds)
 	vote.tally_changed.connect(_refresh_panel)
 	vote.closed.connect(_on_closed)
+	if allow_anarchy and twitch != null and str(twitch.get("decision_mode")) == "anarquía":
+		vote.tally_changed.connect(func() -> void:
+			if vote != null and vote.is_open and vote.total() > 0:
+				vote.close()
+		)
 	vote.open()
 	twitch.set("simulated_vote_options", labels.size())
 	_targets = targets

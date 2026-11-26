@@ -76,6 +76,9 @@ var granted_scopes: Array[String] = []
 var blocked_words: Array[String] = []
 ## Los juegos de la comunidad pueden escribir en el chat (ajuste del streamer).
 var allow_game_messages := false
+## Cómo decide el chat en su turno: «democracia» (gana la más votada al acabar el tiempo) o
+## «anarquía» (el primer voto válido juega al momento). Ajuste del streamer.
+var decision_mode := "democracia"
 ## El chat de prueba del creador está abierto (cuenta como chat disponible).
 var test_chat := false
 ## Quién puede votar en las votaciones del chat: todos, suscriptores, VIP o moderadores (ajuste del streamer).
@@ -163,6 +166,7 @@ func _load() -> void:
 	blocked_words.assign(config.get_value("chat", "blocked_words", []))
 	allow_game_messages = bool(config.get_value("chat", "allow_game_messages", false))
 	vote_who = str(config.get_value("chat", "vote_who", "todos"))
+	decision_mode = str(config.get_value("chat", "decision_mode", "democracia"))
 	show_names = bool(config.get_value("chat", "show_names", true))
 	allow_community_events = bool(config.get_value("chat", "allow_community_events", true))
 
@@ -179,6 +183,7 @@ func save() -> void:
 	config.set_value("chat", "blocked_words", blocked_words)
 	config.set_value("chat", "allow_game_messages", allow_game_messages)
 	config.set_value("chat", "vote_who", vote_who)
+	config.set_value("chat", "decision_mode", decision_mode)
 	config.set_value("chat", "show_names", show_names)
 	config.set_value("chat", "allow_community_events", allow_community_events)
 	config.save(CONFIG_PATH)
@@ -555,6 +560,14 @@ func create_reward(title: String, cost: int) -> bool:
 	return true
 
 
+## Pausa o reanuda una recompensa creada por la partida.
+func pause_reward(title: String, paused: bool) -> void:
+	var id := str(rewards.get(title, ""))
+	if id.is_empty() or state != CONNECTED:
+		return
+	_request(HELIX + "/channel_points/custom_rewards?broadcaster_id=%s&id=%s" % [user_id, id], _helix_headers(), HTTPClient.METHOD_PATCH, JSON.stringify({"is_paused": paused}))
+
+
 ## Borra las recompensas creadas por la partida (al terminar de jugar).
 func clear_rewards() -> void:
 	for title: Variant in rewards.keys():
@@ -624,6 +637,18 @@ func _deliver(message: Dictionary) -> void:
 # --- Chat simulado ----------------------------------------------------------------
 
 ## Mete un mensaje como si viniera del chat (chat simulado y tests).
+## Emotes globales de Twitch que el chat de prueba reconoce en el texto (código → id).
+const SIM_EMOTES := {"Kappa": "25", "<3": "9", "LUL": "425618", "PogChamp": "305954156", "HeyGuys": "30259", "BibleThump": "86"}
+
+
+static func sim_emotes(text: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for word in text.split(" ", false):
+		if SIM_EMOTES.has(word):
+			result.append({"id": str(SIM_EMOTES[word]), "code": word})
+	return result
+
+
 func inject(name: String, text: String, badges: Array[String] = []) -> Dictionary:
 	_sim_count += 1
 	var message := {
@@ -634,7 +659,7 @@ func inject(name: String, text: String, badges: Array[String] = []) -> Dictionar
 		"color": SIM_COLORS[absi(name.hash()) % SIM_COLORS.size()],
 		"badges": badges,
 		"text": text,
-		"emotes": [],
+		"emotes": sim_emotes(text),
 		"simulated": true,
 	}
 	_deliver(message)
@@ -769,6 +794,7 @@ func make_settings_row(label_color: Color) -> Control:
 
 const VOTE_TIMES := [10, 15, 20, 30, 45, 60]
 const VOTE_WHO := ["todos", "suscriptores", "VIP", "moderadores"]
+const DECISION_MODES := ["democracia", "anarquía"]
 
 
 ## Ventana con los ajustes del directo: votaciones, nombres, filtro de palabras y qué
@@ -834,6 +860,18 @@ func open_live_options(from: Node) -> CanvasLayer:
 		save()
 	)
 	add_row.call("Quién puede votar", who)
+	var mode := OptionButton.new()
+	mode.name = "DecisionMode"
+	for value: String in DECISION_MODES:
+		mode.add_item(value)
+		if value == decision_mode:
+			mode.select(mode.item_count - 1)
+	mode.tooltip_text = "Democracia: gana la jugada más votada. Anarquía: el primer voto juega al momento."
+	mode.item_selected.connect(func(i: int) -> void:
+		decision_mode = DECISION_MODES[i]
+		save()
+	)
+	add_row.call("Cómo decide el chat", mode)
 	var words := LineEdit.new()
 	words.name = "BlockedWords"
 	words.text = ", ".join(blocked_words)

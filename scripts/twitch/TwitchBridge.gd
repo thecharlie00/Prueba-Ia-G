@@ -59,6 +59,16 @@ var _timer_box: PanelContainer
 var _highlight: PanelContainer
 var _highlight_left := 0.0
 var _hud_tick := 0.0
+## Bits que ha dado cada espectador en la partida (para el peso de los votos).
+var _bits_by_user := {}
+## nombre → {question, options, left, open, stakes: {usuario: {option, amount}}}
+var _bets := {}
+var _bets_box: PanelContainer
+var _emote_rain := false
+var _emote_max := 60
+var _emote_times: Array[float] = []
+var _emote_textures := {}
+var _emote_pending := {}
 var _relayout_left := 0.0
 
 
@@ -73,6 +83,7 @@ func _ready() -> void:
 	_layer.layer = 55
 	add_child(_layer)
 	_vote_seat = ChatSeat.new(-1)
+	_vote_seat.allow_anarchy = false
 	add_child(_vote_seat)
 	_vote_seat.finished.connect(func(_w: int) -> void: _render_chat())
 	_build_commands()
@@ -221,6 +232,8 @@ func _on_message(message: Dictionary) -> void:
 	var is_command := text.strip_edges().begins_with("!")
 	viewer["last_text"] = text
 	_join_raffles(message)
+	_place_bet(message)
+	_rain_emotes(message)
 	_show_message(message, is_command)
 	if text.strip_edges().to_lower() == "!ayuda":
 		_show_help()
@@ -259,6 +272,7 @@ func _on_channel_event(kind: String, data: Dictionary) -> void:
 		return
 	match kind:
 		"bits":
+			_bits_by_user[str(data["usuario"])] = int(_bits_by_user.get(str(data["usuario"]), 0)) + int(data["cantidad"])
 			_fire("tw_ev_bits", func(p: Dictionary) -> bool: return int(data["cantidad"]) >= int(p.get("minimo", 1)), {"usuario": data["usuario"], "cantidad": float(data["cantidad"])})
 		"sub":
 			_fire("tw_ev_sub", Callable(), {"usuario": data["usuario"], "meses": float(data.get("meses", 1)), "regalo": bool(data.get("regalo", false))})
@@ -459,6 +473,28 @@ func exec(id: int, node: Dictionary) -> Dictionary:
 				return {"out": "no"}
 			_limits[key] = _now + maxf(float(p.get("segundos", 30)), 0.0)
 			return {"out": "si"}
+		"tw_apuesta":
+			var options: Array[String] = []
+			for option in str(p.get("opciones", "")).split(",", false):
+				if options.size() < 9 and not option.strip_edges().is_empty():
+					options.append(option.strip_edges())
+			if options.size() >= 2:
+				_bets[str(p.get("nombre", ""))] = {"question": str(p.get("pregunta", "")), "options": options, "left": clampf(float(p.get("segundos", 60)), 5.0, 600.0), "open": true, "stakes": {}}
+				_refresh_bets()
+		"tw_pagar_apuesta":
+			var winners := pay_bet(str(p.get("nombre", "")), int(LogicRunner._number(runner._value(id, "ganadora"))))
+			return {"out": "out", "values": {"ganadores": float(winners)}}
+		"tw_lluvia_emotes":
+			_emote_rain = bool(p.get("activo", true))
+			_emote_max = clampi(int(p.get("maximo", 60)), 1, 600)
+		"tw_bocadillo":
+			var target: Variant = editor.call("_find_piece", LogicRunner._text(runner._value(id, "pieza")))
+			if target is Node3D:
+				_bubble_on(target as Node3D, LogicRunner._text(runner._value(id, "texto")), float(p.get("segundos", 4)))
+		"tw_ayuda":
+			_show_help()
+		"tw_pausar_recompensa":
+			_twitch().call("pause_reward", str(p.get("titulo", "")), bool(p.get("pausada", true)))
 		"tw_si_rol":
 			var user := LogicRunner._text(runner._value(id, "usuario"))
 			var badges: Array = _viewer(user)["badges"] if not user.is_empty() else []
@@ -538,6 +574,12 @@ func _open_vote(id: int, p: Dictionary) -> void:
 		})
 	)
 	twitch.set("vote_seconds", previous)
+	if _vote_seat.vote != null:
+		match str(p.get("peso", "uno por persona")):
+			"bits":
+				_vote_seat.vote.weight_of = func(v: Dictionary) -> int: return 1 + int(_bits_by_user.get(str(v.get("name", "")), 0)) / 100
+			"monedas":
+				_vote_seat.vote.weight_of = func(v: Dictionary) -> int: return 1 + coins(str(v.get("name", ""))) / 10
 	_relayout_left = 0.1
 
 
@@ -709,10 +751,15 @@ func _bubble(m: Dictionary) -> void:
 	if piece.is_empty():
 		return
 	var node: Variant = editor.call("_find_piece", piece)
-	if not node is Node3D:
+	if node is Node3D:
+		_bubble_on(node as Node3D, str(m.get("text", "")), 4.0)
+
+
+func _bubble_on(node: Node3D, text: String, seconds: float) -> void:
+	if text.strip_edges().is_empty() or (_twitch() != null and bool(_twitch().call("is_blocked", text))):
 		return
 	var label := Label3D.new()
-	label.text = str(m.get("text", "")).left(80)
+	label.text = text.left(80)
 	label.font = BODY_FONT
 	label.font_size = 48
 	label.pixel_size = 0.0016
@@ -723,9 +770,9 @@ func _bubble(m: Dictionary) -> void:
 	label.no_depth_test = true
 	label.width = 600
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	(node as Node3D).add_child(label)
+	node.add_child(label)
 	label.position = Vector3.UP * 0.12
-	_bubbles.append([label, 4.0])
+	_bubbles.append([label, clampf(seconds, 0.5, 30.0)])
 
 
 func _show_help() -> void:
@@ -824,11 +871,24 @@ func _process(delta: float) -> void:
 			_timers.erase(timer_name)
 			var finished_name := str(timer_name)
 			_fire("tw_ev_temporizador", func(p: Dictionary) -> bool: return str(p.get("nombre", "")) == finished_name)
+	for bet_name: Variant in _bets.keys():
+		var bet: Dictionary = _bets[bet_name]
+		if bool(bet["open"]):
+			bet["left"] = float(bet["left"]) - delta
+			if float(bet["left"]) <= 0.0:
+				bet["open"] = false
+				var pot := 0
+				for stake: Dictionary in (bet["stakes"] as Dictionary).values():
+					pot += int(stake["amount"])
+				var closed_name := str(bet_name)
+				_fire("tw_ev_apuesta", func(params: Dictionary) -> bool: return str(params.get("nombre", "")) == closed_name, {"bote": float(pot), "apostantes": float((bet["stakes"] as Dictionary).size())})
+				_refresh_bets()
 	_hud_tick -= delta
 	if _hud_tick <= 0.0:
 		_hud_tick = 0.25
 		_refresh_timers()
 		_refresh_scoreboard()
+		_refresh_bets()
 	for bubble: Array in _bubbles:
 		bubble[1] = float(bubble[1]) - delta
 		if float(bubble[1]) <= 0.0 and is_instance_valid(bubble[0]):
@@ -920,6 +980,158 @@ func _show_highlight(user: String, text: String, seconds: float) -> void:
 	_highlight_left = clampf(seconds, 1.0, 30.0)
 
 
+# --- Apuestas ----------------------------------------------------------------------
+
+## «!apuesta <opción> <monedas>»: una apuesta por persona y apuesta abierta; se pagan las
+## monedas al apostar (como mucho las que tiene).
+func _place_bet(message: Dictionary) -> void:
+	var words := str(message.get("text", "")).strip_edges().to_lower().split(" ", false)
+	if words.size() < 3 or words[0] != "!apuesta" or not words[1].is_valid_int() or not words[2].is_valid_int():
+		return
+	var user := str(message.get("name", ""))
+	for bet: Dictionary in _bets.values():
+		var stakes: Dictionary = bet["stakes"]
+		var option := int(words[1]) - 1
+		if not bool(bet["open"]) or stakes.has(user) or option < 0 or option >= (bet["options"] as Array).size():
+			continue
+		var amount := mini(int(words[2]), coins(user))
+		if amount <= 0:
+			return
+		_viewer(user)["coins"] = coins(user) - amount
+		stakes[user] = {"option": option, "amount": amount}
+		_refresh_bets()
+		return
+
+
+## Reparte el bote de una apuesta entre quienes acertaron (`winner` empieza en 1). Devuelve
+## cuántos acertaron; si nadie, devuelve lo apostado a cada uno.
+func pay_bet(bet_name: String, winner: int) -> int:
+	if not _bets.has(bet_name):
+		return 0
+	var bet: Dictionary = _bets[bet_name]
+	_bets.erase(bet_name)
+	var stakes: Dictionary = bet["stakes"]
+	var pot := 0
+	var winning := 0
+	for stake: Dictionary in stakes.values():
+		pot += int(stake["amount"])
+		if int(stake["option"]) == winner - 1:
+			winning += int(stake["amount"])
+	var winners := 0
+	for user: Variant in stakes:
+		var stake: Dictionary = stakes[user]
+		var prize := int(stake["amount"]) if winning == 0 else (pot * int(stake["amount"]) / winning if int(stake["option"]) == winner - 1 else 0)
+		if winning > 0 and prize > 0:
+			winners += 1
+		_viewer(str(user))["coins"] = coins(str(user)) + prize
+	var options: Array = bet["options"]
+	if winner >= 1 and winner <= options.size():
+		var text: String = TranslationServer.translate("¡Gana «%s»! %d aciertan y se reparten %d monedas") % [str(options[winner - 1]), winners, pot] if winners > 0 else TranslationServer.translate("Nadie acertó: se devuelven las monedas")
+		show_alert(text, 4.0, "fanfarria" if winners > 0 else "pop")
+	_refresh_bets()
+	return winners
+
+
+func _refresh_bets() -> void:
+	if _bets.is_empty():
+		if _bets_box != null:
+			_bets_box.queue_free()
+			_bets_box = null
+		return
+	if _bets_box == null:
+		_bets_box = _hud_panel()
+		_bets_box.name = "TwitchBets"
+	var lines: Array[String] = []
+	for bet: Dictionary in _bets.values():
+		lines.append(str(bet["question"]))
+		var pots: Array[int] = []
+		pots.resize((bet["options"] as Array).size())
+		pots.fill(0)
+		for stake: Dictionary in (bet["stakes"] as Dictionary).values():
+			pots[int(stake["option"])] += int(stake["amount"])
+		for i in pots.size():
+			lines.append("!apuesta %d · %s · %d" % [i + 1, str((bet["options"] as Array)[i]), pots[i]])
+		if bool(bet["open"]):
+			var left := ceili(float(bet["left"]))
+			lines.append(TranslationServer.translate("Apuestas abiertas · %d:%02d") % [left / 60, left % 60])
+		else:
+			lines.append(TranslationServer.translate("Apuestas cerradas"))
+	var text := "\n".join(lines)
+	var column := _bets_box.get_child(0).get_child(0) as VBoxContainer
+	if column.get_child_count() == 0:
+		var label := _label(text, BODY_FONT, 16, Palette.PAPER)
+		column.add_child(label)
+	elif (column.get_child(0) as Label).text != text:
+		(column.get_child(0) as Label).text = text
+
+
+# --- Lluvia de emotes ---------------------------------------------------------------
+
+func _rain_emotes(message: Dictionary) -> void:
+	if not _emote_rain:
+		return
+	var twitch := _twitch()
+	if twitch != null and bool(twitch.call("is_blocked", str(message.get("text", "")))):
+		return
+	var count := 0
+	for emote: Variant in message.get("emotes", []):
+		_emote_times = _emote_times.filter(func(t: float) -> bool: return _now - t < 60.0)
+		if count >= 5 or _emote_times.size() >= _emote_max:
+			return
+		_emote_times.append(_now)
+		count += 1
+		_drop_emote(str((emote as Dictionary).get("id", "")), str((emote as Dictionary).get("code", "")))
+
+
+func _drop_emote(emote_id: String, code: String) -> void:
+	var drop: Control
+	var texture: Texture2D = _emote_textures.get(emote_id)
+	if texture != null:
+		var image := TextureRect.new()
+		image.texture = texture
+		image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		drop = image
+	else:
+		var chip := _panel(Palette.LAVENDER, 999)
+		_layer.remove_child(chip)
+		var label := _label(code.left(10), DISPLAY_FONT, 18, Palette.INK)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		(chip.get_child(0).get_child(0) as VBoxContainer).add_child(label)
+		drop = chip
+		_fetch_emote(emote_id)
+	drop.add_to_group("tw_emote")
+	drop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	drop.custom_minimum_size = Vector2(56, 56)
+	drop.size = Vector2(56, 56)
+	_layer.add_child(drop)
+	var viewport := get_viewport().get_visible_rect().size
+	drop.position = Vector2(randf_range(0.08, 0.86) * viewport.x, -70.0)
+	drop.pivot_offset = Vector2(28, 28)
+	var tween := drop.create_tween().set_parallel()
+	tween.tween_property(drop, "position:y", viewport.y + 20.0, randf_range(2.2, 3.4)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(drop, "rotation", randf_range(-1.5, 1.5), 3.0)
+	tween.chain().tween_callback(drop.queue_free)
+
+
+## Descarga la imagen del emote del CDN de Twitch (una vez por emote) y la guarda en caché.
+func _fetch_emote(emote_id: String) -> void:
+	if emote_id.is_empty() or not emote_id.is_valid_int() and not emote_id.begins_with("emotesv2_") or _emote_pending.has(emote_id) or DisplayServer.get_name() == "headless":
+		return
+	var request := HTTPRequest.new()
+	_emote_pending[emote_id] = request
+	add_child(request)
+	request.request_completed.connect(func(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+		request.queue_free()
+		if result != HTTPRequest.RESULT_SUCCESS or code != 200:
+			return
+		var image := Image.new()
+		if image.load_png_from_buffer(body) == OK:
+			_emote_textures[emote_id] = ImageTexture.create_from_image(image)
+	)
+	request.request("https://static-cdn.jtvnw.net/emoticons/v2/%s/static/dark/2.0" % emote_id)
+
+
 # --- Chat de prueba -----------------------------------------------------------------
 
 ## Panel para probar sin estar en directo: escribir como espectador y lanzar eventos.
@@ -973,6 +1185,13 @@ func _build_test_panel() -> void:
 	text.text_submitted.connect(func(_t: String) -> void: submit.call())
 	var events := HFlowContainer.new()
 	column.add_child(events)
+	var emotes := Button.new()
+	emotes.text = "Emotes"
+	emotes.add_theme_font_size_override("font_size", 12)
+	emotes.pressed.connect(func() -> void:
+		_twitch().call("inject", user.text.strip_edges() if not user.text.strip_edges().is_empty() else "pixel_ana", "Kappa PogChamp <3", badges_for.call())
+	)
+	events.add_child(emotes)
 	var buttons := [
 		["100 bits", "bits", {"cantidad": 100}], ["Suscripción", "sub", {"meses": 1, "regalo": false}],
 		["Seguidor", "follow", {}], ["Raid de 25", "raid", {"canal": "canal_amigo", "espectadores": 25}],

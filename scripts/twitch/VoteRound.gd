@@ -16,6 +16,8 @@ var winner := -1
 var votes := {}
 ## Últimos votantes, para enseñarlos bajo el panel («pixel_ana votó 2»).
 var recent: Array[String] = []
+## Peso de cada voto (opcional): recibe el voto {option, name…} y devuelve cuántos cuenta.
+var weight_of := Callable()
 var _order := 0
 var _vote_re := RegEx.create_from_string("^!\\s*([1-9])\\b")
 
@@ -77,12 +79,17 @@ func counts() -> Array[int]:
 	result.resize(options.size())
 	result.fill(0)
 	for user: Variant in votes:
-		result[int((votes[user] as Dictionary)["option"])] += 1
+		var vote: Dictionary = votes[user]
+		result[int(vote["option"])] += maxi(int(weight_of.call(vote)), 1) if weight_of.is_valid() else 1
 	return result
 
 
+## Votos contados (con su peso, si lo hay).
 func total() -> int:
-	return votes.size()
+	var sum := 0
+	for count in counts():
+		sum += count
+	return sum
 
 
 ## Opción que va ganando: más votos; en empate, la que recibió antes su primer voto.
