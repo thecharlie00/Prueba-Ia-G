@@ -44,6 +44,21 @@ var _goal_bar: ProgressBar
 var _goal_label: Label
 var _test_panel: PanelContainer
 var _now := 0.0
+var _disabled_commands: Array[String] = []
+## nombre de la meta → valor acumulado
+var _goals := {}
+## nombre → {word, who, left, entrants}
+var _raffles := {}
+## nombre → {text, left}
+var _timers := {}
+var _limits := {}
+var _hud: VBoxContainer
+var _scoreboard: PanelContainer
+var _score_teams: Array[String] = []
+var _timer_box: PanelContainer
+var _highlight: PanelContainer
+var _highlight_left := 0.0
+var _hud_tick := 0.0
 var _relayout_left := 0.0
 
 
@@ -70,6 +85,8 @@ func _ready() -> void:
 	twitch.state_changed.connect(_on_state)
 	_ask_scopes()
 	_build_test_panel()
+	twitch.set("test_chat", true)
+	twitch.set("auto_fulfill", not _uses("tw_canje_resultado"))
 	if bool(twitch.call("is_available")):
 		_fire.call_deferred("tw_ev_conexion")
 
@@ -78,10 +95,39 @@ func _exit_tree() -> void:
 	var twitch := _twitch()
 	if twitch != null:
 		twitch.call("clear_rewards")
+		twitch.set("auto_fulfill", true)
+		twitch.set("test_chat", false)
 
 
 func _twitch() -> Node:
 	return get_node_or_null("/root/Twitch")
+
+
+func _uses(type: String) -> bool:
+	for node: Dictionary in runner.graph.nodes.values():
+		if str(node["type"]) == type:
+			return true
+	return false
+
+
+## Columna de arriba a la izquierda donde se apilan meta, marcador y cuentas atrás.
+func _hud_column() -> VBoxContainer:
+	if _hud == null:
+		_hud = VBoxContainer.new()
+		_hud.name = "TwitchHud"
+		_hud.position = Vector2(18, 150)
+		_hud.custom_minimum_size = Vector2(272, 0)
+		_hud.add_theme_constant_override("separation", 8)
+		_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_layer.add_child(_hud)
+	return _hud
+
+
+func _hud_panel() -> PanelContainer:
+	var panel := _panel(Palette.PANEL, 14)
+	_layer.remove_child(panel)
+	_hud_column().add_child(panel)
+	return panel
 
 
 func _fire(type: String, matches := Callable(), data := {}) -> void:
@@ -122,7 +168,7 @@ func parse_command(message: Dictionary) -> Dictionary:
 		return {}
 	var word := words[0].to_lower()
 	for command in commands:
-		if word not in (command["names"] as Array):
+		if word not in (command["names"] as Array) or str(command["name"]) in _disabled_commands:
 			continue
 		if not _has_role(message, str(command["who"])):
 			return {"error": "rol", "command": command}
@@ -173,6 +219,8 @@ func _on_message(message: Dictionary) -> void:
 	viewer["seen"] = _now
 	var text := str(message.get("text", ""))
 	var is_command := text.strip_edges().begins_with("!")
+	viewer["last_text"] = text
+	_join_raffles(message)
 	_show_message(message, is_command)
 	if text.strip_edges().to_lower() == "!ayuda":
 		_show_help()
@@ -206,6 +254,9 @@ func _message_matches(p: Dictionary, message: Dictionary) -> bool:
 
 
 func _on_channel_event(kind: String, data: Dictionary) -> void:
+	var twitch := _twitch()
+	if twitch != null and not bool(twitch.get("allow_community_events")):
+		return
 	match kind:
 		"bits":
 			_fire("tw_ev_bits", func(p: Dictionary) -> bool: return int(data["cantidad"]) >= int(p.get("minimo", 1)), {"usuario": data["usuario"], "cantidad": float(data["cantidad"])})
@@ -217,7 +268,8 @@ func _on_channel_event(kind: String, data: Dictionary) -> void:
 			_fire("tw_ev_raid", func(p: Dictionary) -> bool: return int(data["espectadores"]) >= int(p.get("minimo", 1)), {"canal": data["canal"], "espectadores": float(data["espectadores"])})
 		"canje":
 			var title := str(data.get("recompensa", "")).to_lower()
-			_fire("tw_ev_canje", func(p: Dictionary) -> bool: return str(p.get("recompensa", "")).strip_edges().to_lower() == title, {"usuario": data["usuario"]})
+			var token := "%s|%s" % [str(data.get("id", "")), str(data.get("reward_id", ""))]
+			_fire("tw_ev_canje", func(p: Dictionary) -> bool: return str(p.get("recompensa", "")).strip_edges().to_lower() == title, {"usuario": data["usuario"], "canje": token})
 		"hype":
 			_fire("tw_ev_hype", func(p: Dictionary) -> bool: return str(p.get("fase", "")) == str(data.get("fase", "")), {"nivel": float(data.get("nivel", 1))})
 		"anuncio":
@@ -225,6 +277,13 @@ func _on_channel_event(kind: String, data: Dictionary) -> void:
 
 
 func _on_moderation(message_id: String, user_id: String) -> void:
+	var names: Array[String] = []
+	for m in _messages:
+		if (not message_id.is_empty() and str(m.get("id", "")) == message_id) or (not user_id.is_empty() and str(m.get("user_id", "")) == user_id):
+			if str(m.get("name", "")) not in names:
+				names.append(str(m.get("name", "")))
+	for user in names:
+		_fire("tw_ev_moderacion", Callable(), {"usuario": user})
 	_messages = _messages.filter(func(m: Dictionary) -> bool:
 		if message_id.is_empty() and user_id.is_empty():
 			return false
@@ -329,7 +388,16 @@ func exec(id: int, node: Dictionary) -> Dictionary:
 			var amount := LogicRunner._text(runner._value(id, "cantidad"))
 			show_alert(str(p.get("texto", "")).replace("{usuario}", user).replace("{cantidad}", amount), float(p.get("segundos", 4)), str(p.get("sonido", "fanfarria")))
 		"tw_meta":
-			_show_goal(str(p.get("nombre", "")), LogicRunner._number(runner._value(id, "valor")), maxf(float(p.get("maximo", 100)), 1.0))
+			var goal_name := str(p.get("nombre", ""))
+			var maximum := maxf(float(p.get("maximo", 100)), 1.0)
+			var value := LogicRunner._number(runner._value(id, "valor"))
+			var before := float(_goals.get(goal_name, 0.0))
+			if str(p.get("modo", "poner")) == "sumar":
+				value += before
+			_goals[goal_name] = value
+			_show_goal(goal_name, value, maximum)
+			if value >= maximum and before < maximum:
+				runner._follow(id, "llena")
 		"tw_monedas":
 			var user := LogicRunner._text(runner._value(id, "usuario"))
 			if not user.is_empty():
@@ -337,14 +405,60 @@ func exec(id: int, node: Dictionary) -> Dictionary:
 		"tw_equipo":
 			var user := LogicRunner._text(runner._value(id, "usuario"))
 			if not user.is_empty():
-				_viewer(user)["team"] = str(p.get("equipo", "")).strip_edges().to_lower()
+				_viewer(user)["team"] = LogicRunner._text(runner._value(id, "equipo")).strip_edges().to_lower()
 		"tw_ficha":
 			var user := LogicRunner._text(runner._value(id, "usuario"))
-			return {"out": "out", "values": {"pieza": _give_piece(user, str(p.get("etiqueta", ""))) if not user.is_empty() else ""}}
+			return {"out": "out", "values": {"pieza": _give_piece(user, LogicRunner._text(runner._value(id, "etiqueta"))) if not user.is_empty() else ""}}
 		"tw_recompensa":
 			_twitch().call("create_reward", str(p.get("titulo", "")), int(p.get("coste", 100)))
 		"tw_escribir":
 			_twitch().call("send_chat", LogicRunner._text(runner._value(id, "texto")))
+		"tw_comando_activo":
+			var command := _clean_command(str(p.get("comando", "")))
+			_disabled_commands.erase(command)
+			if not bool(p.get("activo", true)):
+				_disabled_commands.append(command)
+		"tw_sorteo":
+			var raffle_name := str(p.get("nombre", ""))
+			var word := str(p.get("palabra", "!participo")).strip_edges().to_lower()
+			_raffles[raffle_name] = {"word": word, "who": str(p.get("quien", "todos")), "left": clampf(float(p.get("segundos", 30)), 5.0, 600.0), "entrants": []}
+			show_alert(TranslationServer.translate("¡Sorteo! Escribe %s para participar") % word, 4.0, "pop")
+		"tw_marcador":
+			_score_teams.clear()
+			for team in str(p.get("equipos", "")).split(",", false):
+				if not team.strip_edges().is_empty():
+					_score_teams.append(team.strip_edges().to_lower())
+			if not bool(p.get("visible", true)) or _score_teams.is_empty():
+				_score_teams.clear()
+			_refresh_scoreboard()
+		"tw_destacar":
+			var user := LogicRunner._text(runner._value(id, "usuario"))
+			if not user.is_empty() and viewers.has(user):
+				_show_highlight(user, str(_viewer(user).get("last_text", "")), float(p.get("segundos", 5)))
+		"tw_temporizador":
+			_timers[str(p.get("nombre", ""))] = {"text": str(p.get("texto", "")), "left": clampf(float(p.get("segundos", 60)), 1.0, 3600.0)}
+			_refresh_timers()
+		"tw_responder":
+			var user := LogicRunner._text(runner._value(id, "usuario"))
+			_twitch().call("send_chat", ("@%s " % user if not user.is_empty() else "") + LogicRunner._text(runner._value(id, "texto")))
+		"tw_canje_resultado":
+			_twitch().call("resolve_redemption", LogicRunner._text(runner._value(id, "canje")), str(p.get("accion", "completar")) == "devolver")
+		"tw_limite":
+			var times: Array = _limits.get(id, [])
+			times = times.filter(func(t: float) -> bool: return _now - t < 60.0)
+			var allowed := times.size() < maxi(int(p.get("veces", 10)), 1)
+			if allowed:
+				times.append(_now)
+			_limits[id] = times
+			return {"out": "si" if allowed else "no"}
+		"tw_enfriamiento":
+			var key := "%d" % id
+			if str(p.get("por", "todo el chat")) == "espectador":
+				key += "|" + LogicRunner._text(runner._value(id, "usuario"))
+			if _now < float(_limits.get(key, -1.0)):
+				return {"out": "no"}
+			_limits[key] = _now + maxf(float(p.get("segundos", 30)), 0.0)
+			return {"out": "si"}
 		"tw_si_rol":
 			var user := LogicRunner._text(runner._value(id, "usuario"))
 			var badges: Array = _viewer(user)["badges"] if not user.is_empty() else []
@@ -378,6 +492,9 @@ func compute(id: int, node: Dictionary) -> Variant:
 		"tw_da_ficha":
 			var user := LogicRunner._text(runner._value(id, "usuario"))
 			return str(_viewer(user)["piece"]) if not user.is_empty() else ""
+		"tw_da_prueba":
+			var link := _twitch()
+			return link == null or not bool(link.call("is_connected_to_chat"))
 		"tw_da_conectado":
 			var twitch := _twitch()
 			return twitch != null and bool(twitch.call("is_available"))
@@ -463,7 +580,12 @@ func _bbcode(m: Dictionary) -> String:
 	if "subscriber" in list or "founder" in list:
 		badges += "[color=#a78bff]S[/color] "
 	var text := str(m.get("text", "")).replace("[", "[lb]")
-	return "%s[color=%s][b]%s[/b][/color]: %s" % [badges, str(m.get("color", "#a78bff")), str(m.get("name", "")).replace("[", "[lb]"), text]
+	return "%s[color=%s][b]%s[/b][/color]: %s" % [badges, str(m.get("color", "#a78bff")), _shown_name(m).replace("[", "[lb]"), text]
+
+
+func _shown_name(m: Dictionary) -> String:
+	var twitch := _twitch()
+	return str(twitch.call("display_name", str(m.get("name", "")))) if twitch != null else str(m.get("name", ""))
 
 
 func _render_chat(newest: Dictionary = {}) -> void:
@@ -502,7 +624,7 @@ func _render_chat(newest: Dictionary = {}) -> void:
 			_chat_box.offset_top = 70.0
 			var column := _chat_box.get_child(0).get_child(0) as VBoxContainer
 			for m in shown.slice(maxi(shown.size() - 5, 0)):
-				var line := _rich("[color=#ffe08a]%s[/color]: %s" % [str(m.get("name", "")), str(m.get("text", "")).replace("[", "[lb]")], 20, 500)
+				var line := _rich("[color=#ffe08a]%s[/color]: %s" % [_shown_name(m), str(m.get("text", "")).replace("[", "[lb]")], 20, 500)
 				line.add_theme_font_override("normal_font", DISPLAY_FONT)
 				line.add_theme_color_override("default_color", Color("f1f5e8"))
 				column.add_child(line)
@@ -539,7 +661,7 @@ func _render_chat(newest: Dictionary = {}) -> void:
 				var pill := _panel(Palette.LAVENDER, 999)
 				pill.get_parent().remove_child(pill)
 				_chat_box.add_child(pill)
-				(pill.get_child(0).get_child(0) as VBoxContainer).add_child(_label(TranslationServer.translate("%s usa %s") % [str(m.get("name", "")), str(m.get("text", "")).split(" ")[0]], BODY_FONT, 15, Palette.INK))
+				(pill.get_child(0).get_child(0) as VBoxContainer).add_child(_label(TranslationServer.translate("%s usa %s") % [_shown_name(m), str(m.get("text", "")).split(" ")[0]], BODY_FONT, 15, Palette.INK))
 		"cartas que caen":
 			if newest.is_empty() or (_chat_filter == "sin comandos" and bool(newest.get("command", false))) or (_chat_filter == "solo comandos" and not bool(newest.get("command", false))):
 				return
@@ -650,10 +772,7 @@ func show_alert(text: String, seconds: float, sound: String) -> void:
 
 func _show_goal(title: String, value: float, maximum: float) -> void:
 	if _goal == null:
-		_goal = _panel(Palette.PANEL, 14)
-		_goal.offset_left = 18.0
-		_goal.offset_right = 290.0
-		_goal.offset_top = 76.0
+		_goal = _hud_panel()
 		var column := _goal.get_child(0).get_child(0) as VBoxContainer
 		_goal_label = _label("", BODY_FONT, 16, Palette.PAPER)
 		column.add_child(_goal_label)
@@ -687,11 +806,118 @@ func _process(delta: float) -> void:
 			ticker.position.x = get_viewport().get_visible_rect().size.x - fmod(_ticker_offset, maxf(width, 1.0))
 	if _chat_style == "solo reacciones" and _chat_box != null and int(_now * 2.0) != int((_now - delta) * 2.0):
 		_render_chat()
+	if _highlight != null:
+		_highlight_left -= delta
+		if _highlight_left <= 0.0:
+			_highlight.queue_free()
+			_highlight = null
+	for raffle_name: Variant in _raffles.keys():
+		var raffle: Dictionary = _raffles[raffle_name]
+		raffle["left"] = float(raffle["left"]) - delta
+		if float(raffle["left"]) <= 0.0:
+			_raffles.erase(raffle_name)
+			_end_raffle(str(raffle_name), raffle["entrants"])
+	for timer_name: Variant in _timers.keys():
+		var timer: Dictionary = _timers[timer_name]
+		timer["left"] = float(timer["left"]) - delta
+		if float(timer["left"]) <= 0.0:
+			_timers.erase(timer_name)
+			var finished_name := str(timer_name)
+			_fire("tw_ev_temporizador", func(p: Dictionary) -> bool: return str(p.get("nombre", "")) == finished_name)
+	_hud_tick -= delta
+	if _hud_tick <= 0.0:
+		_hud_tick = 0.25
+		_refresh_timers()
+		_refresh_scoreboard()
 	for bubble: Array in _bubbles:
 		bubble[1] = float(bubble[1]) - delta
 		if float(bubble[1]) <= 0.0 and is_instance_valid(bubble[0]):
 			(bubble[0] as Node).queue_free()
 	_bubbles = _bubbles.filter(func(b: Array) -> bool: return float(b[1]) > 0.0)
+
+
+# --- Sorteos, marcador, cuentas atrás y destacados ---------------------------------
+
+func _join_raffles(message: Dictionary) -> void:
+	var text := str(message.get("text", "")).strip_edges().to_lower()
+	var user := str(message.get("name", ""))
+	for raffle: Dictionary in _raffles.values():
+		if text == str(raffle["word"]) and _has_role(message, str(raffle["who"])) and user not in (raffle["entrants"] as Array):
+			(raffle["entrants"] as Array).append(user)
+
+
+func _end_raffle(raffle_name: String, entrants: Array) -> void:
+	var winner := str(entrants[randi() % entrants.size()]) if not entrants.is_empty() else ""
+	if not winner.is_empty():
+		var twitch := _twitch()
+		var shown := str(twitch.call("display_name", winner)) if twitch != null else winner
+		show_alert(TranslationServer.translate("¡%s gana el sorteo!") % shown, 4.0, "fanfarria")
+	_fire("tw_ev_sorteo", func(p: Dictionary) -> bool: return str(p.get("nombre", "")) == raffle_name, {"ganador": winner, "participantes": float(entrants.size())})
+
+
+func _refresh_scoreboard() -> void:
+	if _score_teams.is_empty():
+		if _scoreboard != null:
+			_scoreboard.queue_free()
+			_scoreboard = null
+		return
+	if _scoreboard == null:
+		_scoreboard = _hud_panel()
+		_scoreboard.name = "TwitchScoreboard"
+	var column := _scoreboard.get_child(0).get_child(0) as VBoxContainer
+	var lines: Array[String] = []
+	for team in _score_teams:
+		lines.append("%s  %d" % [TranslationServer.translate(team).capitalize(), team_coins(team)])
+	var text := "\n".join(lines)
+	var label := column.get_child(0) as Label if column.get_child_count() > 0 else null
+	if label == null:
+		column.add_child(_label(text, DISPLAY_FONT, 22, Palette.SUN))
+	elif label.text != text:
+		label.text = text
+
+
+func _refresh_timers() -> void:
+	if _timers.is_empty():
+		if _timer_box != null:
+			_timer_box.queue_free()
+			_timer_box = null
+		return
+	if _timer_box == null:
+		_timer_box = _hud_panel()
+		_timer_box.name = "TwitchTimers"
+	var lines: Array[String] = []
+	for timer: Dictionary in _timers.values():
+		var left := ceili(float(timer["left"]))
+		lines.append("%s  %d:%02d" % [str(timer["text"]), left / 60, left % 60])
+	var column := _timer_box.get_child(0).get_child(0) as VBoxContainer
+	var text := "\n".join(lines)
+	if column.get_child_count() == 0:
+		column.add_child(_label(text, DISPLAY_FONT, 22, Palette.PAPER))
+	else:
+		(column.get_child(0) as Label).text = text
+
+
+func _show_highlight(user: String, text: String, seconds: float) -> void:
+	if text.is_empty() or _twitch() != null and bool(_twitch().call("is_blocked", text)):
+		return
+	if _highlight != null:
+		_highlight.queue_free()
+	_highlight = _panel(Palette.PAPER, 18, Palette.LAVENDER, 5)
+	_highlight.name = "TwitchHighlight"
+	_highlight.anchor_left = 0.5
+	_highlight.anchor_right = 0.5
+	_highlight.anchor_top = 0.5
+	_highlight.anchor_bottom = 0.5
+	_highlight.offset_left = -300.0
+	_highlight.offset_right = 300.0
+	_highlight.offset_top = 40.0
+	var column := _highlight.get_child(0).get_child(0) as VBoxContainer
+	var twitch := _twitch()
+	column.add_child(_label(str(twitch.call("display_name", user)) if twitch != null else user, DISPLAY_FONT, 22, Palette.LAVENDER))
+	var body := _label(text, BODY_FONT, 26, Palette.INK)
+	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(body)
+	_highlight_left = clampf(seconds, 1.0, 30.0)
 
 
 # --- Chat de prueba -----------------------------------------------------------------

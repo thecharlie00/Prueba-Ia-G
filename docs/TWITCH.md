@@ -85,3 +85,24 @@ que faltan (bits, subs, canjes…) se avisan al probar.
 
 Desde un bloque GDScript: `mesa.twitch_conectado()`, `mesa.monedas("ana")`,
 `mesa.dar_monedas("ana", 5)`, `mesa.equipo("ana")`, `mesa.espectadores()`, `mesa.ranking(3)`.
+
+## Entrega 4: control del directo y juego de ejemplo
+
+**Plantilla «Dragón del chat»** (también en «Nuevo juego → Para streamers: el chat juega»):
+un juego de ejemplo hecho solo con bloques. El chat se une con `!unirme rojo|azul` y recibe un
+soldado con su nombre, `!ataque 1-6` suma monedas a su equipo (marcador siempre visible), los
+bits llenan la barra «Despertar al dragón» y, al llenarse, el chat vota a quién ataca. Una raid
+abre un sorteo con `!participo`; la ganadora gana 50 monedas y su mensaje sale destacado.
+
+**Bloques nuevos (45 en total):** Al borrar un mensaje o banear · Al terminar un sorteo · Al
+acabar la cuenta atrás · Activar o desactivar comando · Hacer un sorteo · Marcador de equipos ·
+Destacar mensaje · Cuenta atrás visible · Responder al espectador · Completar o devolver canje ·
+Límite por minuto · Enfriamiento · ¿Modo de prueba?. La barra de meta puede **sumar** y tiene
+la salida **al llenarse**; equipo, etiqueta de ficha y monedas se pueden cablear.
+
+**Opciones del directo** (Ajustes → Twitch → «Opciones del directo…»): tiempo de votación,
+quién puede votar (todos, suscriptores, VIP, moderadores), palabras que nunca salen en pantalla,
+ocultar nombres («Espectador»), si los juegos de la comunidad reciben bits/subs/raids/canjes y si
+pueden escribir en el chat.
+
+Los juegos que usan bloques de Twitch se exportan con la etiqueta `para-streamers`.
