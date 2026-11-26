@@ -74,6 +74,8 @@ var _auth_sent_for_room: String = ""
 var authenticated_peers: Dictionary = {}  # player_id -> bool (usado por el host si room_locked)
 
 var room_bots: Array[bool] = [false, false, false, false]
+## Asientos ocupados por el chat de Twitch de un streamer: dueño (su asiento) o -1.
+var room_chats: Array[int] = [-1, -1, -1, -1]
 var room_ready: Array[bool] = [false, false, false, false]
 var room_started: bool = false
 var room_code := ""
@@ -401,6 +403,71 @@ func join_room(code: String, password: String = "") -> void:
 
 func reset_room_bots() -> void:
 	room_bots = [false, false, false, false]
+	room_chats = [-1, -1, -1, -1]
+
+
+## Dueño del chat que ocupa `seat` (su asiento), o -1 si no es un asiento de chat.
+func chat_owner(seat: int) -> int:
+	return room_chats[seat] if seat >= 0 and seat < room_chats.size() else -1
+
+
+## Asiento donde juega el chat del streamer sentado en `owner_seat`, o -1.
+func chat_seat_of(owner_seat: int) -> int:
+	return room_chats.find(owner_seat) if owner_seat >= 0 else -1
+
+
+## El jugador local sienta (o retira) a su chat de Twitch en un asiento libre de la sala.
+func request_chat(enabled: bool) -> void:
+	var owner_seat := local_seat()
+	if singleplayer_room or is_host() or not (is_available() and FusionBridge.sdk().is_in_room()):
+		_host_set_chat(owner_seat, enabled)
+		return
+	FusionBridge.sdk().rpc_to(FusionBridge.TARGET_MASTER, _rpc_request_chat, enabled)
+
+
+func _host_set_chat(owner_seat: int, enabled: bool) -> void:
+	if owner_seat < 0:
+		return
+	var current := chat_seat_of(owner_seat)
+	if not enabled:
+		if current >= 0:
+			room_chats[current] = -1
+			room_bots[current] = false
+	elif current < 0:
+		var free := _free_chat_seat()
+		if free < 0:
+			return
+		room_chats[free] = owner_seat
+		# Cuenta como asiento listo, igual que un bot; en la partida lo juega el chat.
+		room_bots[free] = true
+		if free < room_ready.size():
+			room_ready[free] = true
+	_broadcast_lobby_masks()
+	room_info_received.emit()
+
+
+func _free_chat_seat() -> int:
+	for seat in range(room_seats):
+		if players.has(seat + 1) or room_chats[seat] >= 0 or room_bots[seat]:
+			continue
+		return seat
+	return -1
+
+
+@rpc("any_peer", "call_remote")
+func _rpc_request_chat(enabled: bool) -> void:
+	if not is_host():
+		return
+	_host_set_chat(int(FusionBridge.sdk().get_rpc_sender()) - 1, enabled)
+
+
+@rpc("any_peer", "call_remote")
+func _rpc_room_chats(owners: Array) -> void:
+	if is_host():
+		return
+	for i in range(mini(owners.size(), room_chats.size())):
+		room_chats[i] = int(owners[i])
+	room_info_received.emit()
 
 
 func reset_room_ready() -> void:
@@ -502,6 +569,7 @@ func _apply_ready_mask(mask: int) -> void:
 func _broadcast_lobby_masks() -> void:
 	if is_available() and FusionBridge.sdk().is_in_room() and not singleplayer_room and is_host():
 		FusionBridge.sdk().rpc(_rpc_room_masks, _bots_mask(), _ready_mask())
+		FusionBridge.sdk().rpc(_rpc_room_chats, Array(room_chats))
 
 #endregion
 
@@ -787,6 +855,12 @@ func _on_player_joined(player_id: int, user_id: String) -> void:
 	if not players.has(player_id) or str(players[player_id]).is_empty():
 		players[player_id] = clean_peer_name(user_id, player_id)
 	var seat := player_id - 1
+	if seat >= 0 and seat < room_chats.size() and room_chats[seat] >= 0 and is_host():
+		# Llega una persona al asiento de un chat: el chat se cambia a otro asiento libre.
+		var owner_seat := room_chats[seat]
+		room_chats[seat] = -1
+		room_bots[seat] = false
+		_host_set_chat(owner_seat, true)
 	if seat >= 0 and seat < room_bots.size():
 		room_bots[seat] = false
 	if seat >= 0 and seat < room_ready.size() and player_id != local_id():
@@ -802,6 +876,12 @@ func _on_player_left(player_id: int, _is_inactive: bool) -> void:
 	var seat := player_id - 1
 	if seat >= 0 and seat < room_ready.size():
 		room_ready[seat] = false
+	# Si el streamer se va, su chat deja el asiento: en la sala queda libre y en la partida
+	# lo toma un bot (cada mesa lo hace al recibir `player_left`).
+	var chat_seat := chat_seat_of(seat)
+	if chat_seat >= 0 and not room_started:
+		room_chats[chat_seat] = -1
+		room_bots[chat_seat] = false
 	player_left.emit(player_id)
 
 

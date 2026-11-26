@@ -49,6 +49,51 @@ func _ready() -> void:
 		twitch.moderation.connect(_on_moderation)
 
 
+static func _net() -> Node:
+	var tree := Engine.get_main_loop() as SceneTree
+	return tree.root.get_node_or_null("Net") if tree != null else null
+
+
+## En una sala online: asiento donde juega el chat de este jugador, o -1.
+static func online_seat() -> int:
+	var net := _net()
+	if net == null:
+		return -1
+	return int(net.call("chat_seat_of", int(net.call("local_seat"))))
+
+
+## En una sala online: asientos del chat de otros streamers (los decide su ordenador).
+static func remote_seats() -> Array[int]:
+	var seats: Array[int] = []
+	var net := _net()
+	if net == null:
+		return seats
+	var mine := int(net.call("local_seat"))
+	for seat in 4:
+		var owner := int(net.call("chat_owner", seat))
+		if owner >= 0 and owner != mine:
+			seats.append(seat)
+	return seats
+
+
+## El asiento lo juega el chat de algún streamer de la sala.
+static func is_room_chat(seat: int) -> bool:
+	var net := _net()
+	return net != null and int(net.call("chat_owner", seat)) >= 0
+
+
+## Asientos de chat cuyo dueño es el jugador que se ha ido (para pasarlos a bot).
+static func seats_of_owner(player_id: int) -> Array[int]:
+	var seats: Array[int] = []
+	var net := _net()
+	if net == null:
+		return seats
+	for seat in 4:
+		if int(net.call("chat_owner", seat)) == player_id - 1:
+			seats.append(seat)
+	return seats
+
+
 func _twitch() -> Node:
 	return get_node_or_null("/root/Twitch")
 
@@ -274,7 +319,7 @@ func _build_panel() -> void:
 	_intro.anchor_top = 0.0
 	_intro.offset_left = -330.0
 	_intro.offset_right = 330.0
-	_intro.offset_top = 24.0
+	_intro.offset_top = 96.0
 	_intro.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_intro.add_theme_stylebox_override("panel", _box(Palette.SUN, 18, 4))
 	_intro.visible = false
