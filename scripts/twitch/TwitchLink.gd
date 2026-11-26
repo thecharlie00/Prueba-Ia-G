@@ -76,6 +76,16 @@ var granted_scopes: Array[String] = []
 var blocked_words: Array[String] = []
 ## Los juegos de la comunidad pueden escribir en el chat (ajuste del streamer).
 var allow_game_messages := false
+## El chat de prueba del creador está abierto (cuenta como chat disponible).
+var test_chat := false
+## Quién puede votar en las votaciones del chat: todos, suscriptores, VIP o moderadores (ajuste del streamer).
+var vote_who := "todos"
+## Enseñar los nombres del chat en pantalla; si no, sale «Espectador» (ajuste del streamer).
+var show_names := true
+## Los juegos de la comunidad reciben bits, subs, raids, canjes… (ajuste del streamer).
+var allow_community_events := true
+## Los canjes se completan solos; un juego que decide completar o devolver lo apaga.
+var auto_fulfill := true
 ## Recompensas de puntos de canal creadas en esta partida: título → id.
 var rewards := {}
 var _last_send := -1000.0
@@ -122,9 +132,9 @@ func is_connected_to_chat() -> bool:
 	return state == CONNECTED
 
 
-## Hay algún chat del que pueden llegar votos (real o simulado).
+## Hay algún chat del que pueden llegar votos (real, simulado o el chat de prueba del creador).
 func is_available() -> bool:
-	return state == CONNECTED or simulated
+	return state == CONNECTED or simulated or test_chat
 
 
 func state_name() -> String:
@@ -152,6 +162,9 @@ func _load() -> void:
 	wanted_scopes.assign(config.get_value("auth", "extra_scopes", []))
 	blocked_words.assign(config.get_value("chat", "blocked_words", []))
 	allow_game_messages = bool(config.get_value("chat", "allow_game_messages", false))
+	vote_who = str(config.get_value("chat", "vote_who", "todos"))
+	show_names = bool(config.get_value("chat", "show_names", true))
+	allow_community_events = bool(config.get_value("chat", "allow_community_events", true))
 
 
 func save() -> void:
@@ -165,6 +178,9 @@ func save() -> void:
 	config.set_value("auth", "extra_scopes", wanted_scopes)
 	config.set_value("chat", "blocked_words", blocked_words)
 	config.set_value("chat", "allow_game_messages", allow_game_messages)
+	config.set_value("chat", "vote_who", vote_who)
+	config.set_value("chat", "show_names", show_names)
+	config.set_value("chat", "allow_community_events", allow_community_events)
 	config.save(CONFIG_PATH)
 
 
@@ -417,7 +433,7 @@ func _handle_event(type: String, event: Dictionary) -> void:
 			var normalized := normalize_channel_event(type, event)
 			if not normalized.is_empty():
 				channel_event.emit(str(normalized["kind"]), normalized)
-				if str(normalized["kind"]) == "canje":
+				if str(normalized["kind"]) == "canje" and auto_fulfill:
 					_fulfill(str(event.get("id", "")), str((event.get("reward", {}) as Dictionary).get("id", "")))
 
 
@@ -471,7 +487,7 @@ static func normalize_channel_event(type: String, event: Dictionary) -> Dictiona
 			return {"kind": "raid", "canal": str(event.get("from_broadcaster_user_name", "")), "espectadores": int(event.get("viewers", 0))}
 		"channel.channel_points_custom_reward_redemption.add":
 			var reward: Dictionary = event.get("reward", {})
-			return {"kind": "canje", "usuario": user, "recompensa": str(reward.get("title", ""))}
+			return {"kind": "canje", "usuario": user, "recompensa": str(reward.get("title", "")), "id": str(event.get("id", "")), "reward_id": str(reward.get("id", ""))}
 		"channel.hype_train.begin":
 			return {"kind": "hype", "fase": "empieza", "nivel": int(event.get("level", 1))}
 		"channel.hype_train.progress":
@@ -548,11 +564,35 @@ func clear_rewards() -> void:
 	rewards.clear()
 
 
-func _fulfill(redemption_id: String, reward_id: String) -> void:
-	if redemption_id.is_empty() or reward_id.is_empty() or reward_id not in rewards.values():
+func _fulfill(redemption_id: String, reward_id: String, refund := false) -> void:
+	if redemption_id.is_empty() or reward_id.is_empty() or reward_id not in rewards.values() or state != CONNECTED:
 		return
 	var url := HELIX + "/channel_points/custom_rewards/redemptions?broadcaster_id=%s&reward_id=%s&id=%s" % [user_id, reward_id, redemption_id]
-	_request(url, _helix_headers(), HTTPClient.METHOD_PATCH, JSON.stringify({"status": "FULFILLED"}))
+	_request(url, _helix_headers(), HTTPClient.METHOD_PATCH, JSON.stringify({"status": "CANCELED" if refund else "FULFILLED"}))
+
+
+## Completa o devuelve un canje. `token` es «id|reward_id», como lo da el bloque «Al canjear».
+func resolve_redemption(token: String, refund: bool) -> void:
+	var parts := token.split("|")
+	if parts.size() == 2:
+		_fulfill(parts[0], parts[1], refund)
+
+
+## Quién puede votar según los ajustes del streamer.
+func can_vote(badges: Array) -> bool:
+	match vote_who:
+		"suscriptores":
+			return "subscriber" in badges or "founder" in badges or "broadcaster" in badges
+		"VIP":
+			return "vip" in badges or "subscriber" in badges or "founder" in badges or "moderator" in badges or "broadcaster" in badges
+		"moderadores":
+			return "moderator" in badges or "broadcaster" in badges
+	return true
+
+
+## Nombre que se enseña en pantalla (o «Espectador» si el streamer lo oculta).
+func display_name(name: String) -> String:
+	return name if show_names else tr("Espectador")
 
 
 ## Escribe en el chat del canal (si el streamer lo permite). Un mensaje cada 3 s como mucho.
@@ -676,6 +716,11 @@ func make_settings_row(label_color: Color) -> Control:
 	sim.add_theme_color_override("font_color", label_color)
 	sim.toggled.connect(func(on: bool) -> void: set_simulated(on))
 	box.add_child(sim)
+	var options := Button.new()
+	options.name = "TwitchLiveOptions"
+	options.text = "Opciones del directo…"
+	options.pressed.connect(func() -> void: open_live_options(box))
+	box.add_child(options)
 	var code := {"text": ""}
 	var refresh := func() -> void:
 		match state:
@@ -718,3 +763,116 @@ func make_settings_row(label_color: Color) -> Control:
 	)
 	refresh.call()
 	return box
+
+
+# --- Opciones del directo ----------------------------------------------------------
+
+const VOTE_TIMES := [10, 15, 20, 30, 45, 60]
+const VOTE_WHO := ["todos", "suscriptores", "VIP", "moderadores"]
+
+
+## Ventana con los ajustes del directo: votaciones, nombres, filtro de palabras y qué
+## pueden hacer los juegos de la comunidad con el canal.
+func open_live_options(from: Node) -> CanvasLayer:
+	var layer := CanvasLayer.new()
+	layer.name = "TwitchLiveOptionsLayer"
+	layer.layer = 90
+	from.get_tree().root.add_child(layer)
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.55)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(dim)
+	var panel := PanelContainer.new()
+	panel.name = "LiveOptions"
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	panel.custom_minimum_size = Vector2(520, 0)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Palette.PANEL
+	style.set_corner_radius_all(18)
+	style.set_border_width_all(4)
+	style.border_color = Palette.INK
+	style.set_content_margin_all(22)
+	panel.add_theme_stylebox_override("panel", style)
+	layer.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 10)
+	panel.add_child(column)
+	var title := Label.new()
+	title.text = "Opciones del directo"
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", Palette.LAVENDER)
+	column.add_child(title)
+	var add_row := func(text: String, control: Control) -> void:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		var label := Label.new()
+		label.text = text
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.add_theme_color_override("font_color", Palette.PAPER)
+		row.add_child(label)
+		control.custom_minimum_size.x = 200
+		row.add_child(control)
+		column.add_child(row)
+	var seconds := OptionButton.new()
+	seconds.name = "VoteSeconds"
+	for value: int in VOTE_TIMES:
+		seconds.add_item("%d s" % value)
+		if value == vote_seconds:
+			seconds.select(seconds.item_count - 1)
+	seconds.item_selected.connect(func(i: int) -> void: set_vote_seconds(VOTE_TIMES[i]))
+	add_row.call("Tiempo de votación", seconds)
+	var who := OptionButton.new()
+	who.name = "VoteWho"
+	for value: String in VOTE_WHO:
+		who.add_item(value)
+		if value == vote_who:
+			who.select(who.item_count - 1)
+	who.item_selected.connect(func(i: int) -> void:
+		vote_who = VOTE_WHO[i]
+		save()
+	)
+	add_row.call("Quién puede votar", who)
+	var words := LineEdit.new()
+	words.name = "BlockedWords"
+	words.text = ", ".join(blocked_words)
+	words.placeholder_text = "palabra, otra palabra"
+	words.text_changed.connect(func(text: String) -> void:
+		var list: Array[String] = []
+		for word in text.split(",", false):
+			if not word.strip_edges().is_empty():
+				list.append(word.strip_edges())
+		blocked_words = list
+		save()
+	)
+	add_row.call("Palabras que nunca salen en pantalla", words)
+	var checks := [
+		["ShowNames", "Enseñar los nombres del chat en pantalla", show_names, func(on: bool) -> void: show_names = on],
+		["AllowEvents", "Los juegos de la comunidad reciben bits, subs, raids y canjes", allow_community_events, func(on: bool) -> void: allow_community_events = on],
+		["AllowMessages", "Los juegos de la comunidad pueden escribir en mi chat", allow_game_messages, func(on: bool) -> void: allow_game_messages = on],
+	]
+	for entry: Array in checks:
+		var check := CheckBox.new()
+		check.name = str(entry[0])
+		check.text = str(entry[1])
+		check.button_pressed = bool(entry[2])
+		check.add_theme_color_override("font_color", Palette.PAPER)
+		var setter: Callable = entry[3]
+		check.toggled.connect(func(on: bool) -> void:
+			setter.call(on)
+			save()
+		)
+		column.add_child(check)
+	var close := Button.new()
+	close.name = "Close"
+	close.text = "Listo"
+	close.size_flags_horizontal = Control.SIZE_SHRINK_END
+	close.pressed.connect(layer.queue_free)
+	column.add_child(close)
+	dim.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+			layer.queue_free()
+	)
+	close.grab_focus.call_deferred()
+	return layer

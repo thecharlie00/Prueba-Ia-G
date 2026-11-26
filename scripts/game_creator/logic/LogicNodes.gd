@@ -447,7 +447,7 @@ const DEFS := {
 	"tw_ev_canje": {
 		"cat": "twitch", "event": true, "title": "Al canjear una recompensa",
 		"help": "Puntos de canal: la recompensa la crea el bloque «Crear recompensa». Solo Afiliados y Partners.",
-		"in": [], "out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"]],
+		"in": [], "out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"], ["canje", TEXT, "canje"]],
 		"params": [["recompensa", "text", "Recompensa", "Girar la ruleta"]],
 	},
 	"tw_ev_hype": {
@@ -465,6 +465,23 @@ const DEFS := {
 		"cat": "twitch", "event": true, "title": "Al conectarse el chat",
 		"help": "Cuando el chat (real o de prueba) empieza a llegar.", "in": [],
 		"out": [["out", EXEC, ""]], "params": [],
+	},
+	"tw_ev_moderacion": {
+		"cat": "twitch", "event": true, "title": "Al borrar un mensaje o banear",
+		"help": "Un moderador borra un mensaje o expulsa a alguien. Ideal para retirar su ficha de la mesa.",
+		"in": [], "out": [["out", EXEC, ""], ["usuario", TEXT, "usuario"]], "params": [],
+	},
+	"tw_ev_sorteo": {
+		"cat": "twitch", "event": true, "title": "Al terminar un sorteo",
+		"help": "Cuando acaba el sorteo con ese nombre. Ganador vacío = nadie participó.",
+		"in": [], "out": [["out", EXEC, ""], ["ganador", TEXT, "ganador"], ["participantes", NUM, "participantes"]],
+		"params": [["nombre", "text", "Sorteo", "sorteo"]],
+	},
+	"tw_ev_temporizador": {
+		"cat": "twitch", "event": true, "title": "Al acabar la cuenta atrás",
+		"help": "Cuando llega a cero la cuenta atrás visible con ese nombre.",
+		"in": [], "out": [["out", EXEC, ""]],
+		"params": [["nombre", "text", "Cuenta atrás", "ronda"]],
 	},
 	# Acciones
 	"tw_votacion": {
@@ -496,25 +513,26 @@ const DEFS := {
 	},
 	"tw_meta": {
 		"cat": "twitch", "title": "Barra de meta",
-		"help": "Una barra de progreso en pantalla. Al llegar al máximo se llena entera.",
-		"in": [["in", EXEC, ""], ["valor", NUM, "valor"]], "out": [["out", EXEC, ""]],
-		"params": [["nombre", "text", "Meta", "Despertar al dragón"], ["maximo", "number", "Máximo", 500]],
+		"help": "Una barra de progreso en pantalla. «Sumar» va acumulando (bits, subs…); «al llenarse» sigue una vez al llegar al máximo.",
+		"in": [["in", EXEC, ""], ["valor", NUM, "valor"]], "out": [["out", EXEC, ""], ["llena", EXEC, "al llenarse"]],
+		"params": [["nombre", "text", "Meta", "Despertar al dragón"], ["maximo", "number", "Máximo", 500], ["modo", "choice:poner,sumar", "El valor", "poner"]],
 	},
 	"tw_monedas": {
 		"cat": "twitch", "title": "Dar monedas al espectador",
 		"help": "Monedas del juego (no de Twitch). Una cantidad negativa las quita.",
-		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["cantidad", NUM, "cantidad"]], "out": [["out", EXEC, ""]], "params": [],
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["cantidad", NUM, "cantidad"]], "out": [["out", EXEC, ""]],
+		"params": [["cantidad", "number", "Cantidad", 1]],
 	},
 	"tw_equipo": {
 		"cat": "twitch", "title": "Asignar a un equipo",
 		"help": "El espectador pasa a ese equipo.",
-		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"]], "out": [["out", EXEC, ""]],
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["equipo", TEXT, "equipo"]], "out": [["out", EXEC, ""]],
 		"params": [["equipo", "text", "Equipo", "rojo"]],
 	},
 	"tw_ficha": {
 		"cat": "twitch", "title": "Dar ficha al espectador",
 		"help": "Le asigna una pieza libre con esa etiqueta y escribe su nombre encima.",
-		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"]], "out": [["out", EXEC, ""], ["pieza", PIECE, "pieza"]],
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["etiqueta", TEXT, "etiqueta"]], "out": [["out", EXEC, ""], ["pieza", PIECE, "pieza"]],
 		"params": [["etiqueta", "tag", "Etiqueta de las fichas", "espectador"]],
 	},
 	"tw_recompensa": {
@@ -533,6 +551,59 @@ const DEFS := {
 		"help": "Elige un camino según el rol del espectador en el chat.",
 		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"]], "out": [["si", EXEC, "sí"], ["no", EXEC, "no"]],
 		"params": [["rol", "choice:suscriptor,VIP,moderador,streamer", "Rol", "suscriptor"]],
+	},
+	"tw_comando_activo": {
+		"cat": "twitch", "title": "Activar o desactivar comando",
+		"help": "Un comando solo funciona en ciertas fases: !atacar solo en combate.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["comando", "text", "Comando", "!ataque"], ["activo", "bool", "Activo", true]],
+	},
+	"tw_sorteo": {
+		"cat": "twitch", "title": "Hacer un sorteo",
+		"help": "Participa quien escribe la palabra; al acabar sale uno al azar (evento «Al terminar un sorteo»).",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["nombre", "text", "Sorteo", "sorteo"], ["palabra", "text", "Palabra", "!participo"], ["segundos", "number", "Segundos", 30], ["quien", "choice:todos,suscriptores,VIP,moderadores", "Quién puede", "todos"]],
+	},
+	"tw_marcador": {
+		"cat": "twitch", "title": "Marcador de equipos",
+		"help": "Monedas de cada equipo del chat, siempre visibles y al día.",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["equipos", "text", "Equipos (separados por comas)", "rojo,azul"], ["visible", "bool", "Visible", true]],
+	},
+	"tw_destacar": {
+		"cat": "twitch", "title": "Destacar mensaje",
+		"help": "Enseña en grande el último mensaje de ese espectador unos segundos.",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"]], "out": [["out", EXEC, ""]],
+		"params": [["segundos", "number", "Segundos", 5]],
+	},
+	"tw_temporizador": {
+		"cat": "twitch", "title": "Cuenta atrás visible",
+		"help": "Un reloj en pantalla. Al llegar a cero dispara «Al acabar la cuenta atrás».",
+		"in": [["in", EXEC, ""]], "out": [["out", EXEC, ""]],
+		"params": [["nombre", "text", "Cuenta atrás", "ronda"], ["texto", "text", "Texto", "Ronda"], ["segundos", "number", "Segundos", 60]],
+	},
+	"tw_responder": {
+		"cat": "twitch", "title": "Responder al espectador",
+		"help": "Escribe en el chat mencionando al espectador (@nombre). Mismos límites que «Escribir en el chat».",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"], ["texto", TEXT, "texto"]], "out": [["out", EXEC, ""]], "params": [],
+	},
+	"tw_canje_resultado": {
+		"cat": "twitch", "title": "Completar o devolver canje",
+		"help": "Si el juego no puede aplicar el canje, devuelve los puntos al espectador. Sin este bloque se completan solos.",
+		"in": [["in", EXEC, ""], ["canje", TEXT, "canje"]], "out": [["out", EXEC, ""]],
+		"params": [["accion", "choice:completar,devolver", "Qué hacer", "completar"]],
+	},
+	"tw_limite": {
+		"cat": "twitch", "title": "Límite por minuto",
+		"help": "Deja pasar la cadena como mucho estas veces por minuto; las demás van por «no».",
+		"in": [["in", EXEC, ""]], "out": [["si", EXEC, "sí"], ["no", EXEC, "no"]],
+		"params": [["veces", "number", "Veces por minuto", 10]],
+	},
+	"tw_enfriamiento": {
+		"cat": "twitch", "title": "Enfriamiento",
+		"help": "Deja pasar la cadena y luego la bloquea estos segundos (para todo el chat o por espectador).",
+		"in": [["in", EXEC, ""], ["usuario", TEXT, "usuario"]], "out": [["si", EXEC, "sí"], ["no", EXEC, "no"]],
+		"params": [["segundos", "number", "Segundos", 30], ["por", "choice:todo el chat,espectador", "Para", "todo el chat"]],
 	},
 	# Datos
 	"tw_da_monedas": {
@@ -574,6 +645,11 @@ const DEFS := {
 		"cat": "twitch", "title": "Ficha de",
 		"help": "La pieza que se dio a ese espectador.",
 		"in": [["usuario", TEXT, "usuario"]], "out": [["pieza", PIECE, "pieza"]], "params": [],
+	},
+	"tw_da_prueba": {
+		"cat": "twitch", "title": "¿Modo de prueba?",
+		"help": "Sí si no hay un directo de Twitch de verdad (chat de prueba o simulado).",
+		"in": [], "out": [["valor", BOOL, "sí/no"]], "params": [],
 	},
 	"tw_da_conectado": {
 		"cat": "twitch", "title": "¿Hay chat?",

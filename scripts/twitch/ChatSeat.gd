@@ -97,7 +97,7 @@ static func seats_of_owner(player_id: int) -> Array[int]:
 
 
 func _twitch() -> Node:
-	return get_node_or_null("/root/Twitch")
+	return get_node_or_null("/root/Twitch") if is_inside_tree() else null
 
 
 func controls(player: int) -> bool:
@@ -166,7 +166,13 @@ func _process(delta: float) -> void:
 
 
 func _on_message(message: Dictionary) -> void:
+	var twitch := _twitch()
+	if twitch != null and not bool(twitch.call("can_vote", message.get("badges", []))):
+		return
 	if vote != null and vote.is_open:
+		if twitch != null and not bool(twitch.get("show_names")):
+			message = message.duplicate()
+			message["name"] = twitch.call("display_name", str(message.get("name", "")))
 		vote.feed(message)
 
 
