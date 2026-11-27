@@ -403,8 +403,13 @@ func _sync() -> void:
 	_banner_title.text = title.to_upper()
 	_banner_title.visible = not title.is_empty()
 	var status := status_label.text if status_label != null else ""
+	# Sin estado (mesa libre), el título pasa a ser la línea grande en vez de quedar el
+	# rótulo pequeño solo sobre una tarjeta vacía.
+	if status.strip_edges().is_empty() and not title.is_empty():
+		status = tr(title)
+		_banner_title.visible = false
 	_banner_status.text = status
-	_banner_status.get_parent().get_parent().get_parent().visible = not (status.is_empty() and title.is_empty())
+	_banner_status.get_parent().get_parent().get_parent().visible = not status.is_empty()
 	var hint := hint_label.text.strip_edges() if hint_label != null else ""
 	if hint != _last_hint:
 		_last_hint = hint

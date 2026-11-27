@@ -222,7 +222,7 @@ func _update_tile_privacy() -> void:
 		if pips_node != null:
 			pips_node.visible = visible_pips
 		tile.display_name = (
-			("Dominó %d | %d" % [tile.left_value, tile.right_value])
+			(tr("Dominó %d | %d") % [tile.left_value, tile.right_value])
 			if visible_pips
 			else "Dominó oculto"
 		)
@@ -639,7 +639,7 @@ func _refresh() -> void:
 		return
 	var status := ""
 	if rules.result == DominoRules.PLAYING:
-		status = "Turno: jugador %d%s · Pozo: %d" % [
+		status = tr("Turno: jugador %d%s · Pozo: %d") % [
 			rules.turn + 1, " (bot)" if is_bot_turn() else "", rules.stock.size()
 		]
 	else:
@@ -650,9 +650,9 @@ func _refresh() -> void:
 				status = "Gana el jugador 2"
 			_:
 				status = "Empate"
-		status += " · puntos: %d / %d" % [rules.hand_points(0), rules.hand_points(1)]
+		status += tr(" · puntos: %d / %d") % [rules.hand_points(0), rules.hand_points(1)]
 	if not rules.chain.is_empty():
-		status += "\nExtremos: %d / %d" % [rules.chain.front()["left"], rules.chain.back()["right"]]
+		status += tr("\nExtremos: %d / %d") % [rules.chain.front()["left"], rules.chain.back()["right"]]
 	status_label.text = status
 	var entries: PackedStringArray = []
 	for entry in rules.chain:
@@ -719,5 +719,5 @@ func hud_active_seat() -> int:
 
 func hud_seat_status(index: int) -> String:
 	if index < rules.hands.size():
-		return "%d fichas" % rules.hands[index].size()
+		return tr("%d fichas en mano") % rules.hands[index].size()
 	return ""

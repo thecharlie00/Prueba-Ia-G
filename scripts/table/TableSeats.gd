@@ -35,6 +35,12 @@ var _time := 0.0
 var _turn_elapsed := 0.0
 var _focus_target := Vector3.ZERO
 var _focus_hold := 0.0
+## Altura local de partida de cada etiqueta (nombre, estado) y cada cuánto se recolocan
+## para no quedar debajo de la interfaz ni fuera de la pantalla.
+var _label_home: Array[Vector2] = []
+var _dodge_left := 0.0
+var _hud_rects: Array[Rect2] = []
+var _hud_rects_age := 99.0
 
 
 ## Cada asiento: {name: String, color: Color, bot: bool, position: Vector3 (global, a ras de
@@ -58,6 +64,7 @@ func setup(new_seats: Array) -> void:
 	_emote_timers.clear()
 	_name_labels.clear()
 	_status_labels.clear()
+	_label_home.clear()
 	_rings.clear()
 	near.clear()
 	for item in new_seats:
@@ -137,6 +144,66 @@ func update_near(camera_position: Vector3) -> bool:
 	return changed
 
 
+## Los rótulos 3D se pintan siempre debajo de la interfaz 2D: si el nombre de un jugador cae
+## bajo un panel o fuera de la pantalla, se baja o se mete hacia dentro hasta que se vea.
+func _dodge_hud(camera: Camera3D) -> void:
+	var viewport := get_viewport()
+	var screen := viewport.get_visible_rect().size
+	if screen.y <= 0.0:
+		return
+	if _hud_rects_age > 0.5:
+		_hud_rects_age = 0.0
+		_hud_rects.clear()
+		_collect_hud_rects(get_tree().root, screen)
+	var scale := screen.y / 720.0
+	var half_width := 120.0 * scale
+	var height := 46.0 * scale
+	var margin := 10.0 * scale
+	for i in _avatars.size():
+		if i >= _name_labels.size() or not _avatars[i].visible:
+			continue
+		var name_label := _name_labels[i]
+		var status_label := _status_labels[i]
+		var root := _avatars[i]
+		var home := _label_home[i]
+		var name_home := root.global_transform * Vector3(0.0, home.y, 0.0)
+		if camera.is_position_behind(name_home):
+			continue
+		var at := camera.unproject_position(name_home)
+		# El bloque nombre + estado ocupa de un poco encima del nombre a un poco debajo del estado.
+		var block := Rect2(at.x - half_width, at.y - height * 0.6, half_width * 2.0, height * 1.9)
+		var shift := Vector2.ZERO
+		for rect in _hud_rects:
+			if rect.intersects(block.grow(margin)):
+				shift.y = maxf(shift.y, rect.end.y + margin - block.position.y)
+		if block.position.x + shift.x < margin:
+			shift.x = margin - block.position.x
+		elif block.end.x > screen.x - margin:
+			shift.x = screen.x - margin - block.end.x
+		if block.position.y < margin:
+			shift.y = maxf(shift.y, margin - block.position.y)
+		# Pasa el desplazamiento en píxeles a metros en el plano de la cámara.
+		var distance := camera.global_position.distance_to(name_home)
+		var meters_per_pixel := 2.0 * distance * tan(deg_to_rad(camera.fov) * 0.5) / screen.y
+		var offset := (camera.global_basis.x * shift.x - camera.global_basis.y * shift.y) * meters_per_pixel
+		name_label.global_position = name_home + offset
+		status_label.global_position = root.global_transform * Vector3(0.0, home.x, 0.0) + offset
+
+
+func _collect_hud_rects(node: Node, screen: Vector2) -> void:
+	for child in node.get_children():
+		if child is Viewport or (child is CanvasItem and not (child as CanvasItem).visible):
+			continue
+		if child is Control:
+			var control := child as Control
+			var rect := control.get_global_rect()
+			var is_box := control is PanelContainer or control is Button
+			if is_box and rect.size.x > 1.0 and rect.size.x < screen.x * 0.7 and rect.size.y < screen.y * 0.6:
+				_hud_rects.append(rect)
+				continue
+		_collect_hud_rects(child, screen)
+
+
 func avatar(index: int) -> Node3D:
 	return _avatars[index] if index >= 0 and index < _avatars.size() else null
 
@@ -203,6 +270,11 @@ func _process(delta: float) -> void:
 	var camera := get_viewport().get_camera_3d()
 	if camera != null and not _avatars.is_empty():
 		update_near(camera.global_position)
+		_dodge_left -= delta
+		_hud_rects_age += delta
+		if _dodge_left <= 0.0:
+			_dodge_left = 0.1
+			_dodge_hud(camera)
 
 	var style := get_node_or_null("/root/ToonStyle")
 	var calm: bool = style != null and style.reduce_motion
@@ -580,6 +652,7 @@ func _build_avatar(seat: Dictionary) -> void:
 	name_label.position.y = status.position.y + 0.30
 	root.add_child(name_label)
 	_name_labels.append(name_label)
+	_label_home.append(Vector2(status.position.y, name_label.position.y))
 	status.modulate = Palette.LAVENDER
 	root.add_child(status)
 	_status_labels.append(status)

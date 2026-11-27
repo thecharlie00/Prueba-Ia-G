@@ -197,7 +197,7 @@ func _on_closed(winner: int) -> void:
 		_total.text = tr("Nadie ha votado: juega el bot")
 	else:
 		_total.text = tr("Gana la %d con %d votos") % [winner + 1, vote.counts()[winner]]
-		var sfx := get_node_or_null("/root/Sfx")
+		var sfx := get_node_or_null("/root/Sfx") if is_inside_tree() else null
 		if sfx != null:
 			sfx.call("play", "turn")
 	_result_left = RESULT_TIME

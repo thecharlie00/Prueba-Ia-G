@@ -258,9 +258,9 @@ func _check_forced_roll_done() -> bool:
 	_last_roll_values = Vector2i(a, b)
 	_bot_wait = -0.60
 	if remote_seat >= 0:
-		_help("J%d tira %d + %d = %d." % [remote_seat + 1, a, b, a + b])
+		_help(tr("J%d tira %d + %d = %d.") % [remote_seat + 1, a, b, a + b])
 	else:
-		_help("Dados: %d + %d = %d." % [a, b, a + b])
+		_help(tr("Dados: %d + %d = %d.") % [a, b, a + b])
 	_refresh()
 	return true
 
@@ -325,9 +325,9 @@ func _apply_change_effects(change: Dictionary) -> void:
 						dice[1].ensure_celebrated(b)
 				_bot_wait = -0.60
 				if seat >= 0:
-					_help("J%d tira %d + %d = %d." % [seat + 1, a, b, a + b])
+					_help(tr("J%d tira %d + %d = %d.") % [seat + 1, a, b, a + b])
 				else:
-					_help("Dados aceptados: %d + %d = %d." % [a, b, a + b])
+					_help(tr("Dados aceptados: %d + %d = %d.") % [a, b, a + b])
 				return
 			_animate_remote_roll(a, b, seat)
 
@@ -340,9 +340,9 @@ func _animate_remote_roll(a: int, b: int, seat: int = -1, apply_on_land: bool = 
 		_last_roll_seat = seat
 		_last_roll_values = Vector2i(a, b)
 		if seat >= 0:
-			_help("J%d tira %d + %d = %d." % [seat + 1, a, b, a + b])
+			_help(tr("J%d tira %d + %d = %d.") % [seat + 1, a, b, a + b])
 		else:
-			_help("Dados: %d + %d = %d." % [a, b, a + b])
+			_help(tr("Dados: %d + %d = %d.") % [a, b, a + b])
 		_refresh()
 		return
 	_pending_bot_roll = apply_on_land
@@ -360,7 +360,7 @@ func _animate_remote_roll(a: int, b: int, seat: int = -1, apply_on_land: bool = 
 	dice[0].roll_to_value(a, DICE_REST_A, 0.58)
 	dice[1].roll_to_value(b, DICE_REST_B, 0.66)
 	if seat >= 0:
-		_help("J%d tira los dados..." % [seat + 1])
+		_help(tr("J%d tira los dados...") % [seat + 1])
 	else:
 		_help("Tirada en curso...")
 	_refresh()
@@ -372,7 +372,7 @@ func _place_building_piece(id: int, kind: String) -> void:
 		PLAYER_COLORS[rules.building_owner[id]],
 		_vertex_position(id) + Vector3.UP * 0.15
 	)
-	piece.display_name += " J%d" % (rules.building_owner[id] + 1)
+	piece.display_name += tr(" J%d") % (rules.building_owner[id] + 1)
 	building_nodes[id] = piece
 	homes[piece] = _vertex_position(id)
 
@@ -381,7 +381,7 @@ func _upgrade_building_piece(id: int) -> void:
 	var piece: IslandPiece3D = building_nodes[id]
 	if is_instance_valid(piece):
 		piece.set_kind("city")
-		piece.display_name += " J%d" % (rules.building_owner[id] + 1)
+		piece.display_name += tr(" J%d") % (rules.building_owner[id] + 1)
 
 
 func _place_road_piece(id: int) -> void:
@@ -393,7 +393,7 @@ func _place_road_piece(id: int) -> void:
 	var edge: Vector2i = rules.board.edges[id]
 	var direction := _vertex_position(edge.y) - _vertex_position(edge.x)
 	piece.rotation.y = atan2(-direction.z, direction.x)
-	piece.display_name += " J%d" % (rules.road_owner[id] + 1)
+	piece.display_name += tr(" J%d") % (rules.road_owner[id] + 1)
 	road_rotations[piece] = Quaternion(Vector3.UP, piece.rotation.y)
 	road_nodes[id] = piece
 	homes[piece] = _edge_position(id)
@@ -770,7 +770,7 @@ func _make_seats() -> void:
 		)
 	var names := ["Naranja", "Azul", "Rojo", "Blanco"]
 	for player in range(rules.players):
-		spots[player]["name"] = "J%d %s" % [player + 1, names[player]]
+		spots[player]["name"] = tr("J%d %s") % [player + 1, tr(names[player])]
 		spots[player]["color"] = PLAYER_COLORS[player]
 		spots[player]["bot"] = false
 	seats = TableSeats.new()
@@ -800,7 +800,7 @@ func _update_seats() -> void:
 		if player < rules.dev_new.size():
 			for new_amt in rules.dev_new[player]:
 				hidden_devs += int(new_amt)
-		seats.set_status(player, "%d puntos · %d cartas" % [points, cards])
+		seats.set_status(player, tr("%d puntos · %d cartas") % [points, cards])
 		seats.set_card_count(player, 0 if player == viewer_seat else (cards + hidden_devs))
 
 
@@ -824,7 +824,7 @@ func _make_ports() -> void:
 		var outward := Vector3(position.x, 0, position.z).normalized()
 		var label := Label3D.new()
 		var resource: int = port["resource"]
-		label.text = "3:1" if resource == -1 else "%s 2:1" % PORT_NAMES[resource]
+		label.text = "3:1" if resource == -1 else "%s 2:1" % tr(PORT_NAMES[resource])
 		label.font_size = 38
 		label.pixel_size = 0.0021
 		label.position = position + outward * 0.16 + Vector3.UP * 0.035
@@ -1277,7 +1277,7 @@ func _build_trade_tab(column: VBoxContainer) -> void:
 	_label(offer_box, "ENTRE JUGADORES · acuerda una oferta")
 	trade_partner = OptionButton.new()
 	for player in range(4):
-		trade_partner.add_item("Proponer a J%d" % (player + 1), player)
+		trade_partner.add_item(tr("Proponer a J%d") % (player + 1), player)
 	offer_box.add_child(trade_partner)
 	_label(offer_box, "Recurso · ofrezco / pido")
 	_trade_inputs(offer_box)
@@ -1330,7 +1330,7 @@ func _build_options_tab(column: VBoxContainer) -> void:
 	for player in range(player_count):
 		var toggle := CheckBox.new()
 		toggle.name = "Bot%d" % (player + 1)
-		toggle.text = "J%d" % (player + 1)
+		toggle.text = tr("J%d") % (player + 1)
 		toggle.add_theme_color_override("font_color", PLAYER_COLORS[player].lightened(0.3))
 		toggle.toggled.connect(set_bot.bind(player))
 		bot_row.add_child(toggle)
@@ -1560,9 +1560,9 @@ func _update_privacy(player: int) -> void:
 	privacy_overlay.visible = privacy_locked
 	if just_locked:
 		privacy_ready.grab_focus()
-	privacy_message.text = "Pasa el equipo a J%d" % (player + 1)
+	privacy_message.text = tr("Pasa el equipo a J%d") % (player + 1)
 	buttons["privacy"].text = (
-		"Manos privadas: activadas" if privacy_enabled else "Manos privadas: desactivadas"
+		tr("Manos privadas: activadas") if privacy_enabled else tr("Manos privadas: desactivadas")
 	)
 	if privacy_locked:
 		grabber.set_process_unhandled_input(false)
@@ -1642,37 +1642,37 @@ func _refresh() -> void:
 			if rules.phase != IslandRules.ACTION:
 				_set_mode("")
 	var phases := {
-		IslandRules.SETUP_SETTLEMENT: "Preparación: pueblo",
-		IslandRules.SETUP_ROAD: "Preparación: camino adyacente",
-		IslandRules.ROLL: "Lanza los dos dados",
+		IslandRules.SETUP_SETTLEMENT: tr("Preparación: pueblo"),
+		IslandRules.SETUP_ROAD: tr("Preparación: camino adyacente"),
+		IslandRules.ROLL: tr("Lanza los dos dados"),
 		IslandRules.DISCARD:
 		(
-			"J%d descarta: faltan %d"
+			tr("J%d descarta: faltan %d")
 			% [rules.discard_player + 1, rules.discard_due[maxi(0, rules.discard_player)]]
 		),
-		IslandRules.ROBBER: "Mueve el ladrón a otra casilla",
-		IslandRules.STEAL: "Elige a quién robar",
-		IslandRules.ACTION: "Construye, comercia o termina",
-		IslandRules.FREE_ROADS: "Coloca caminos gratis: %d" % rules.free_roads_left,
-		IslandRules.PLENTY: "Abundancia: faltan %d recursos" % rules.plenty_left,
-		IslandRules.MONOPOLY: "Monopolio: elige un recurso",
+		IslandRules.ROBBER: tr("Mueve el ladrón a otra casilla"),
+		IslandRules.STEAL: tr("Elige a quién robar"),
+		IslandRules.ACTION: tr("Construye, comercia o termina"),
+		IslandRules.FREE_ROADS: tr("Coloca caminos gratis: %d") % rules.free_roads_left,
+		IslandRules.PLENTY: tr("Abundancia: faltan %d recursos") % rules.plenty_left,
+		IslandRules.MONOPOLY: tr("Monopolio: elige un recurso"),
 		IslandRules.TRADE_RESPONSE:
-		"J%d responde a la oferta" % int(rules.trade_offer.get("to", 0) + 1),
-		IslandRules.FINISHED: "Victoria de J%d" % (rules.winner + 1),
+		tr("J%d responde a la oferta") % int(rules.trade_offer.get("to", 0) + 1),
+		IslandRules.FINISHED: tr("Victoria de J%d") % (rules.winner + 1),
 	}
 	var last := ""
 	if rules.last_dice != Vector2i.ZERO and not waiting_roll:
-		last = " · dados %d + %d" % [rules.last_dice.x, rules.last_dice.y]
+		last = tr(" · dados %d + %d") % [rules.last_dice.x, rules.last_dice.y]
 	if waiting_roll:
 		var roller := _remote_roll_seat if _remote_roll_seat >= 0 else rules.turn
-		status.text = "Turno J%d · Lanza los dos dados\n🎲 J%d tirando los dados…" % [
+		status.text = tr("Turno J%d · Lanza los dos dados\n🎲 J%d tirando los dados…") % [
 			roller + 1,
 			roller + 1,
 		]
 	else:
-		status.text = "Turno J%d · %s%s" % [rules.turn + 1, phases[rules.phase], last]
+		status.text = tr("Turno J%d · %s%s") % [rules.turn + 1, phases[rules.phase], last]
 	_update_dice_banner()
-	game_title.text = "ISLA DE RECURSOS · %d jugadores" % rules.players
+	game_title.text = tr("ISLA DE RECURSOS · %d jugadores") % rules.players
 	trade_partner.set_item_disabled(3, rules.players < 4)
 	if trade_partner.get_selected_id() >= rules.players:
 		trade_partner.select(0)
@@ -1684,31 +1684,27 @@ func _refresh() -> void:
 			if rules.phase == IslandRules.FINISHED
 			else rules.public_score(player)
 		)
-		scores.append("J%d %s · %d puntos" % [player + 1, names[player], points])
+		scores.append(tr("J%d %s · %d puntos") % [player + 1, tr(names[player]), points])
 	hands.text = "  |  ".join(scores)
 	_update_seats()
 	var active_hand := _active_hand_player()
 	_update_privacy(active_hand)
 	if active_hand >= 0:
-		hand_heading.text = "RECURSOS · J%d" % (active_hand + 1)
+		hand_heading.text = tr("RECURSOS · J%d") % (active_hand + 1)
 		if rules.phase == IslandRules.DISCARD and rules.discard_player == active_hand:
-			hand_heading.text += " · toca una carta para descartar"
+			hand_heading.text += tr(" · toca una carta para descartar")
 		elif rules.phase in [IslandRules.PLENTY, IslandRules.MONOPOLY] and rules.turn == active_hand:
-			hand_heading.text += " · toca el recurso que eliges"
+			hand_heading.text += tr(" · toca el recurso que eliges")
 	else:
 		hand_heading.text = ""
 	_update_hand(active_hand)
-	bank_status.text = "Banco: " + _resource_summary(rules.bank)
+	bank_status.text = tr("Banco: %s") % _resource_summary(rules.bank)
 	if active_hand >= 0:
 		var cards: Array = rules.dev_ready[active_hand]
 		var fresh: Array = rules.dev_new[active_hand]
 		dev_status.text = (
-			(
-				"J%d · Disponibles: Caballeros %d · Caminos %d\n"
-				+ "Abundancia %d · Monopolio %d · Puntos %d\n"
-				+ "Nuevas (próximo turno): Caballeros %d · Caminos %d\n"
-				+ "Abundancia %d · Monopolio %d · Puntos %d\n"
-				+ "Mazo %d · Ruta: %s · Ejército: %s"
+			tr(
+				"J%d · Disponibles: Caballeros %d · Caminos %d\nAbundancia %d · Monopolio %d · Puntos %d\nNuevas (próximo turno): Caballeros %d · Caminos %d\nAbundancia %d · Monopolio %d · Puntos %d\nMazo %d · Ruta: %s · Ejército: %s"
 			)
 			% [
 				active_hand + 1,
@@ -1729,7 +1725,7 @@ func _refresh() -> void:
 		)
 	else:
 		dev_status.text = (
-			"Cartas ocultas · Mazo %d · Ruta: %s · Ejército: %s"
+			tr("Cartas ocultas · Mazo %d · Ruta: %s · Ejército: %s")
 			% [
 				rules.development_deck.size(),
 				_award_text(rules.longest_road),
@@ -1738,7 +1734,7 @@ func _refresh() -> void:
 		)
 	if rules.phase == IslandRules.TRADE_RESPONSE:
 		trade_description.text = (
-			"J%d ofrece %s; pide %s a J%d."
+			tr("J%d ofrece %s; pide %s a J%d.")
 			% [
 				rules.turn + 1,
 				_resource_summary(rules.trade_offer["give"]),
@@ -1748,7 +1744,7 @@ func _refresh() -> void:
 		)
 	else:
 		trade_description.text = "Sin oferta pendiente."
-	buttons["trade"].text = "Cambiar %d por 1" % rules.bank_rate(rules.turn, give.get_selected_id())
+	buttons["trade"].text = tr("Cambiar %d por 1") % rules.bank_rate(rules.turn, give.get_selected_id())
 	var can_act_local := is_local_turn()
 	buttons["roll"].disabled = (
 		rules.phase != IslandRules.ROLL
@@ -1795,7 +1791,7 @@ func _refresh() -> void:
 	for index in range(dev_choice.item_count):
 		var card := dev_choice.get_item_id(index)
 		var amount := int(rules.dev_ready[active_hand][card]) if active_hand >= 0 else 0
-		dev_choice.set_item_text(index, "%s · %d" % [IslandRules.DEV_NAMES[card], amount])
+		dev_choice.set_item_text(index, "%s · %d" % [tr(IslandRules.DEV_NAMES[card]), amount])
 		dev_choice.set_item_disabled(index, amount == 0)
 		if amount > 0 and playable < 0:
 			playable = index
@@ -1817,7 +1813,7 @@ func _refresh() -> void:
 	buttons["reject"].disabled = rules.phase != IslandRules.TRADE_RESPONSE or waiting_roll or not can_act_local
 	victim.clear()
 	for player in rules.eligible_victims:
-		victim.add_item("J%d" % (player + 1), player)
+		victim.add_item(tr("J%d") % (player + 1), player)
 	if victim.item_count == 0:
 		victim.add_item("Sin víctima", -1)
 	victim.disabled = rules.phase != IslandRules.STEAL or waiting_roll or not can_act_local
@@ -1848,13 +1844,13 @@ func _update_dice_banner() -> void:
 		return
 	if waiting_roll:
 		var roller := _remote_roll_seat if _remote_roll_seat >= 0 else rules.turn
-		dice_banner_label.text = "🎲 J%d lanzando dados…" % (roller + 1)
+		dice_banner_label.text = tr("🎲 J%d lanzando dados…") % (roller + 1)
 		dice_banner.visible = true
 		return
 	var shown := _last_roll_values if _last_roll_values != Vector2i.ZERO else rules.last_dice
 	if shown.x >= 1 and shown.y >= 1:
 		var seat := _last_roll_seat if _last_roll_seat >= 0 else rules.turn
-		dice_banner_label.text = "🎲 J%d sacó %d + %d = %d" % [
+		dice_banner_label.text = tr("🎲 J%d sacó %d + %d = %d") % [
 			seat + 1,
 			shown.x,
 			shown.y,
@@ -1888,7 +1884,7 @@ func _phase_guidance() -> String:
 		IslandRules.SETUP_ROAD: "Elige un camino verde junto al pueblo que acabas de colocar.",
 		IslandRules.ROLL: "Pulsa R o lanza ambos dados con el ratón. Espera a que se detengan.",
 		IslandRules.DISCARD:
-		"J%d: toca una carta inferior para devolverla al banco." % (rules.discard_player + 1),
+		tr("J%d: toca una carta inferior para devolverla al banco.") % (rules.discard_player + 1),
 		IslandRules.ROBBER: "Mueve el ladrón: toca una marca verde en otro terreno.",
 		IslandRules.STEAL: "Elige una persona adyacente para robar un recurso.",
 		IslandRules.FREE_ROADS: "Coloca los caminos gratuitos en las marcas verdes.",
@@ -1909,8 +1905,8 @@ func _resource_summary(amounts: Array) -> String:
 	var entries: Array[String] = []
 	for resource in range(5):
 		if int(amounts[resource]) > 0:
-			entries.append("%d %s" % [int(amounts[resource]), IslandBoard.RESOURCE_NAMES[resource]])
-	return ", ".join(entries) if not entries.is_empty() else "nada"
+			entries.append("%d %s" % [int(amounts[resource]), tr(IslandBoard.RESOURCE_NAMES[resource])])
+	return ", ".join(entries) if not entries.is_empty() else tr("nada")
 
 
 func _resource_pressed(resource: int) -> void:
@@ -1942,7 +1938,7 @@ func _trade_inputs(parent: Node) -> void:
 
 
 func _award_text(owner: int) -> String:
-	return "nadie" if owner < 0 else "J%d" % (owner + 1)
+	return tr("nadie") if owner < 0 else tr("J%d") % (owner + 1)
 
 
 func _offer_trade() -> void:
@@ -2213,9 +2209,9 @@ func _finish_roll() -> void:
 			if sent:
 				_bot_wait = -0.60
 				if remote_seat >= 0:
-					_help("J%d tira %d + %d." % [remote_seat + 1, roll_results[0], roll_results[1]])
+					_help(tr("J%d tira %d + %d.") % [remote_seat + 1, roll_results[0], roll_results[1]])
 				else:
-					_help("Dados enviados: %d + %d." % [roll_results[0], roll_results[1]])
+					_help(tr("Dados enviados: %d + %d.") % [roll_results[0], roll_results[1]])
 			else:
 				_awaiting_roll_ack = false
 				_help("La tirada no fue aceptada: otra butaca tiene el turno.")
@@ -2224,14 +2220,14 @@ func _finish_roll() -> void:
 			_last_roll_values = Vector2i(roll_results[0], roll_results[1])
 			_bot_wait = -0.60
 			if remote_seat >= 0:
-				_help("J%d tira %d + %d." % [remote_seat + 1, roll_results[0], roll_results[1]])
+				_help(tr("J%d tira %d + %d.") % [remote_seat + 1, roll_results[0], roll_results[1]])
 			else:
-				_help("Dados: %d + %d." % [roll_results[0], roll_results[1]])
+				_help(tr("Dados: %d + %d.") % [roll_results[0], roll_results[1]])
 	elif rules.roll(roll_results[0], roll_results[1]):
 		_last_roll_seat = remote_seat if remote_seat >= 0 else local_actor
 		_last_roll_values = Vector2i(roll_results[0], roll_results[1])
 		_bot_wait = -0.60
-		_help("Dados aceptados: %d + %d." % [roll_results[0], roll_results[1]])
+		_help(tr("Dados aceptados: %d + %d.") % [roll_results[0], roll_results[1]])
 	_roll_should_submit = true
 	_refresh()
 
@@ -2387,7 +2383,7 @@ func _rebuild_loaded_board() -> void:
 		var piece := _spawn_piece(
 			kind, PLAYER_COLORS[player], _vertex_position(id) + Vector3.UP * 0.15
 		)
-		piece.display_name += " J%d" % (player + 1)
+		piece.display_name += tr(" J%d") % (player + 1)
 		building_nodes[id] = piece
 		homes[piece] = _vertex_position(id)
 	for id in range(rules.road_owner.size()):
@@ -2400,7 +2396,7 @@ func _rebuild_loaded_board() -> void:
 		var edge: Vector2i = rules.board.edges[id]
 		var direction := _vertex_position(edge.y) - _vertex_position(edge.x)
 		piece.rotation.y = atan2(-direction.z, direction.x)
-		piece.display_name += " J%d" % (player + 1)
+		piece.display_name += tr(" J%d") % (player + 1)
 		road_rotations[piece] = Quaternion(Vector3.UP, piece.rotation.y)
 		road_nodes[id] = piece
 		homes[piece] = _edge_position(id)

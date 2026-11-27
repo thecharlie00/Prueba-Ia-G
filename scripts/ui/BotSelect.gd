@@ -64,7 +64,7 @@ const GAMES := [
 		"id": "Checkers",
 		"title": "Damas físicas",
 		"scene": "res://scenes/GuidedPhysicalCheckers.tscn",
-		"note": "Contra el bot de las fichas oscuras",
+		"note": "Contra el bot · fichas oscuras",
 		"badge": "2J · IA",
 		"theme": "checkers",
 		"primary": false,
@@ -120,7 +120,7 @@ var _level := TableBots.Difficulty.NORMAL
 var _diff_buttons: Array[Button] = []
 var _diff_note: Label
 ## Casilla «El chat de Twitch juega» (solo en las mesas que lo admiten).
-var _chat_toggle: CheckBox
+var _chat_toggle: CheckButton
 const CHAT_SCENES := ["res://scenes/Parchis.tscn", "res://scenes/Parchis2.tscn", "res://scenes/Ludo.tscn", "res://scenes/Brisca.tscn", "res://scenes/GuidedPhysicalCheckers.tscn", "res://scenes/GuidedDomino.tscn", "res://scenes/IslandTwo.tscn", "res://scenes/Island.tscn", "res://scenes/IslandFour.tscn"]
 
 
@@ -348,10 +348,12 @@ func _make_chat_row() -> Control:
 	var row := HBoxContainer.new()
 	row.name = "ChatRow"
 	row.add_theme_constant_override("separation", 12)
-	_chat_toggle = CheckBox.new()
+	_chat_toggle = CheckButton.new()
 	_chat_toggle.name = "ChatPlays"
 	_chat_toggle.text = "El chat de Twitch juega"
-	_chat_toggle.add_theme_color_override("font_color", Palette.PAPER)
+	for state in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
+		_chat_toggle.add_theme_color_override(state, Palette.PAPER)
+	_chat_toggle.add_theme_color_override("font_disabled_color", Color(Palette.PAPER, 0.5))
 	row.add_child(_chat_toggle)
 	var note := MenuStyle.make_muted("", 13)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL

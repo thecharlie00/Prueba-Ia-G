@@ -15,6 +15,22 @@ const SCENES := [
 	"res://scenes/Brisca.tscn",
 	"res://scenes/Parchis.tscn",
 	"res://scenes/Parchis2.tscn",
+	# Juego completo: el resto de mesas, las salas online y el creador.
+	"res://scenes/Ludo.tscn",
+	"res://scenes/Ludo4.tscn",
+	"res://scenes/CardTable.tscn",
+	"res://scenes/Chess.tscn",
+	"res://scenes/PhysicalChess.tscn",
+	"res://scenes/GuidedPhysicalChess.tscn",
+	"res://scenes/Checkers.tscn",
+	"res://scenes/PhysicalCheckers.tscn",
+	"res://scenes/GuidedPhysicalCheckers.tscn",
+	"res://scenes/PhysicalDomino.tscn",
+	"res://scenes/GuidedDomino.tscn",
+	"res://scenes/Island.tscn",
+	"res://scenes/IslandFour.tscn",
+	"res://scenes/Lobby.tscn",
+	"res://scenes/game_creator/GameCreatorEditor.tscn",
 ]
 ## Palabras que delatan una frase en español (en minúsculas y como palabra suelta).
 const SPANISH_WORDS := [
@@ -22,9 +38,14 @@ const SPANISH_WORDS := [
 	"más", "mesa", "jugar", "partida", "jugador", "jugadores", "turno", "dados", "fichas",
 	"cartas", "volver", "salir", "menú", "pulsa", "arrastra", "ganas", "juego", "tu", "tus",
 	"sonido", "pantalla", "ajustes", "idioma", "nueva", "nuevo", "esta", "este", "aquí",
+	"puntos", "blancas", "negras", "reglas", "pueblo", "comercio", "sala", "clave", "izquierda",
+	"derecha", "mano", "ocultar", "mostrar", "inglesa", "jugada", "ronda", "ficha", "pieza", "piezas", "tablero",
 ]
 ## Textos que son iguales en todos los idiomas.
 const SAME_IN_ALL := ["Tablerama", "Español", "English", "Català", "Lilita One", "Nunito", "Godot Engine"]
+
+## Traducciones al inglés que contienen una palabra que también es española («Del», «Y»).
+const ENGLISH_OK := ["Center Y", "Del"]
 
 ## Nombres de juegos que no se traducen.
 const PROPER_NOUNS := ["Parchís", "PARCHÍS", "Parchis", "parchís"]
@@ -92,6 +113,9 @@ func _collect(node: Node, found: Dictionary) -> void:
 	if node is OptionButton:
 		for i in node.item_count:
 			texts.append(node.get_item_text(i))
+	if node is TabContainer:
+		for i in node.get_tab_count():
+			texts.append(node.get_tab_title(i))
 	if node is Control:
 		texts.append(node.tooltip_text)
 	if node is Label3D:
@@ -103,7 +127,7 @@ func _collect(node: Node, found: Dictionary) -> void:
 		var shown := node.atr(text) if node.can_auto_translate() else text
 		if node is RichTextLabel:
 			shown = text  # get_parsed_text ya es lo que se ve
-		if _looks_spanish(shown):
+		if shown not in ENGLISH_OK and _looks_spanish(shown):
 			found[text] = true
 	for child in node.get_children():
 		_collect(child, found)
