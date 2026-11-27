@@ -733,12 +733,14 @@ func make_settings_row(label_color: Color) -> Control:
 	var button := Button.new()
 	button.name = "TwitchConnect"
 	row.add_child(button)
-	var sim := CheckBox.new()
+	var sim := CheckButton.new()
 	sim.name = "TwitchSimulated"
 	sim.text = "Chat simulado para probar"
 	sim.tooltip_text = "Espectadores de mentira escriben y votan, sin estar en directo"
 	sim.button_pressed = simulated
 	sim.add_theme_color_override("font_color", label_color)
+	sim.add_theme_color_override("font_pressed_color", label_color)
+	sim.add_theme_color_override("font_hover_color", label_color)
 	sim.toggled.connect(func(on: bool) -> void: set_simulated(on))
 	box.add_child(sim)
 	var options := Button.new()
@@ -762,7 +764,7 @@ func make_settings_row(label_color: Color) -> Control:
 				status.text = tr(last_error)
 				button.text = tr("Conectar")
 			_:
-				status.text = tr("Sin conectar") if has_client_id() else tr("Falta el Client ID de Twitch")
+				status.text = tr("Sin conectar") if has_client_id() else tr("Falta el Client ID")
 				button.text = tr("Conectar")
 		button.disabled = not has_client_id()
 	button.pressed.connect(func() -> void:

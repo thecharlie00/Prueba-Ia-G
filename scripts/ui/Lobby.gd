@@ -613,7 +613,7 @@ func _refresh_create_emblem() -> void:
 	var gid := str(entry.get("id", "Island"))
 	var seats_n := int(entry.get("seats", 3))
 	_create_emblem_slot.add_child(
-		MenuStyle.make_pill("%dJ" % seats_n, MenuStyle.CARD_ELEVATED, Palette.PAPER, 11, 9, 2)
+		MenuStyle.make_pill(tr("%dJ") % seats_n, MenuStyle.CARD_ELEVATED, Palette.PAPER, 11, 9, 2)
 	)
 	_create_emblem_slot.add_child(
 		MenuStyle.make_emblem_badge(_theme_key_for_game(gid), 22.0, MenuStyle.CARD_WELL)
@@ -650,7 +650,7 @@ func _copy_room_code() -> void:
 	if Net.room_code.is_empty():
 		return
 	DisplayServer.clipboard_set(Net.room_code)
-	_set_status("Código «%s» copiado al portapapeles." % Net.room_code)
+	_set_status(tr("Código «%s» copiado al portapapeles.") % Net.room_code)
 
 
 #region Buscador de salas públicas y filtros
@@ -748,9 +748,9 @@ func _render_room_list(source_rooms: Variant = null) -> void:
 
 		var subtitle := Label.new()
 		var host_str := str(info.get("host", ""))
-		var host_part := ("Anfitrión: %s · " % host_str) if not host_str.is_empty() else ""
+		var host_part := (tr("Anfitrión: %s · ") % host_str) if not host_str.is_empty() else ""
 		var state_str := "En partida" if info.get("started") == true else "Esperando"
-		subtitle.text = "%s%s · %d/%d jugadores · %s" % [
+		subtitle.text = tr("%s%s · %d/%d jugadores · %s") % [
 			host_part,
 			Net.game_title_for(game_id),
 			int(info.get("players", 1)),
@@ -828,7 +828,7 @@ func _confirm_password_dialog() -> void:
 	var salt := str(_pw_dialog_room.get("salt", ""))
 	var expected_hash := str(_pw_dialog_room.get("pw_hash", ""))
 	if not expected_hash.is_empty() and not Net.verify_password(typed_pw, salt, expected_hash):
-		_set_status("Contraseña incorrecta para «%s»." % str(_pw_dialog_room.get("title", "la sala")))
+		_set_status(tr("Contraseña incorrecta para «%s».") % str(_pw_dialog_room.get("title", "la sala")))
 		return
 	_code.text = str(_pw_dialog_room.get("code", ""))
 	_join_password_input.text = typed_pw
@@ -886,7 +886,7 @@ func _show_lobby() -> void:
 	if not Net.room_title.is_empty():
 		header_lines.append("%s (%s)" % [Net.room_title, vis_tag])
 	if not Net.room_code.is_empty():
-		header_lines.append("Código: %s" % Net.room_code)
+		header_lines.append(tr("Código: %s") % Net.room_code)
 	if not game_title.is_empty():
 		header_lines.append(game_title)
 	_code_label.text = "  ·  ".join(header_lines)
@@ -1001,7 +1001,7 @@ func _refresh_seats() -> void:
 		]
 		var seat_col: Color = seat_colors[seat % seat_colors.size()]
 		var seat_fg := Palette.INK if seat_col.get_luminance() > 0.42 else Palette.PAPER
-		var badge := MenuStyle.make_pill("J%d" % pid, seat_col, seat_fg, 12, 9, 2)
+		var badge := MenuStyle.make_pill(tr("J%d") % pid, seat_col, seat_fg, 12, 9, 2)
 		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(badge)
 
@@ -1050,7 +1050,7 @@ func _refresh_seats() -> void:
 				MenuStyle.style_secondary(kick_btn, 10, 4)
 		elif Net.chat_owner(seat) >= 0:
 			var owner := Net.chat_owner(seat)
-			seat_label.text = tr("Chat de Twitch de %s") % str(Net.players.get(owner + 1, "J%d" % (owner + 1)))
+			seat_label.text = tr("Chat de Twitch de %s") % str(Net.players.get(owner + 1, tr("J%d") % (owner + 1)))
 			seat_label.add_theme_color_override("font_color", Palette.LAVENDER)
 			row.add_child(seat_label)
 			row.add_child(MenuStyle.make_pill("✓ Chat listo", READY_COLOR, Palette.INK, 11, 9, 2))
@@ -1113,7 +1113,7 @@ func _on_disconnected() -> void:
 
 func _on_connection_failed(error: String) -> void:
 	_pending_action = ""
-	_set_status("No se pudo conectar: %s" % error)
+	_set_status(tr("No se pudo conectar: %s") % error)
 	_refresh()
 
 
@@ -1199,7 +1199,7 @@ func _create_room() -> void:
 	Net.room_game = str(entry["id"])
 	Net.room_seats = int(entry["seats"])
 	Net.room_public = is_public
-	Net.room_title = custom_title if not custom_title.is_empty() else ("Mesa de %s" % user_name)
+	Net.room_title = custom_title if not custom_title.is_empty() else (tr("Mesa de %s") % user_name)
 	Net.reset_room_bots()
 	Net.reset_room_ready()
 	_pending_action = "create"
@@ -1319,7 +1319,7 @@ func _rpc_chat(text: String) -> void:
 	var fallback := (
 		Net.local_name
 		if sender == Net.local_id() and not Net.local_name.is_empty()
-		else "J%d" % sender
+		else tr("J%d") % sender
 	)
 	var who := str(Net.players.get(sender, fallback))
 	_append_chat(who, text)

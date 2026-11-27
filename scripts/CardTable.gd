@@ -166,7 +166,7 @@ func load_custom_decks() -> int:
 	elif added == 0:
 		status_label.text = "Las barajas propias ya están en la mesa."
 	else:
-		status_label.text = "%d baraja(s) propia(s) en la mesa." % added
+		status_label.text = tr("%d baraja(s) propia(s) en la mesa.") % added
 	return added
 
 
@@ -213,7 +213,7 @@ func draw_to_hand(is_english: bool) -> bool:
 		return false
 	hand.add(deck._cards.pop_back())
 	deck.cards_remaining = deck._cards.size()
-	status_label.text = "Carta a tu mano · quedan %d en %s." % [deck.cards_remaining, deck.display_name.get_slice(" · ", 0)]
+	status_label.text = tr("Carta a tu mano · quedan %d en %s.") % [deck.cards_remaining, deck.display_name.get_slice(" · ", 0)]
 	return true
 
 
@@ -228,7 +228,7 @@ func take_to_hand(card: Card3D) -> bool:
 	objects.remove_child(card)
 	card.queue_free()
 	hand.add(card.card_label)
-	status_label.text = "%s a tu mano." % card.card_label
+	status_label.text = tr("%s a tu mano.") % card.card_label
 	return true
 
 
@@ -242,7 +242,7 @@ func play_from_hand(index: int) -> Card3D:
 	card.set_card_label(label)
 	var played := objects.get_children().filter(func(node: Node) -> bool: return node is Card3D).size()
 	card.global_position = Vector3(-1.2 + (played % 6) * 0.48, 1.25 + (played / 6) * 0.06, 1.05)
-	status_label.text = "Juegas %s." % label
+	status_label.text = tr("Juegas %s.") % label
 	return card
 
 
@@ -282,7 +282,7 @@ func _return_card(card: Card3D) -> bool:
 	objects.remove_child(card)
 	card.queue_free()
 	status_label.text = (
-		"Carta al fondo de %s · quedan %d." % [deck.display_name, deck.cards_remaining]
+		tr("Carta al fondo de %s · quedan %d.") % [deck.display_name, deck.cards_remaining]
 	)
 	return true
 
@@ -470,7 +470,7 @@ func _on_selection_changed(object: InteractiveTableObject) -> void:
 			+ (" · BLOQUEADA" if object.is_table_locked else "")
 		)
 		if is_instance_valid(object)
-		else "Inglesa: %d · Española: %d" % [english.cards_remaining, spanish.cards_remaining]
+		else tr("Inglesa: %d · Española: %d") % [english.cards_remaining, spanish.cards_remaining]
 	)
 
 
@@ -490,11 +490,11 @@ func _on_placement_message(message: String) -> void:
 
 
 func _on_draw(_card: Card3D, deck: Deck3D) -> void:
-	status_label.text = "%s · quedan %d" % [deck.display_name, deck.cards_remaining]
+	status_label.text = tr("%s · quedan %d") % [deck.display_name, deck.cards_remaining]
 
 
 func _on_shuffle(deck: Deck3D) -> void:
-	status_label.text = "%s mezclada · quedan %d" % [deck.display_name, deck.cards_remaining]
+	status_label.text = tr("%s mezclada · quedan %d") % [deck.display_name, deck.cards_remaining]
 
 
 func _reset() -> void:
